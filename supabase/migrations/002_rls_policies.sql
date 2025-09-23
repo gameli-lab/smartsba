@@ -156,26 +156,52 @@ CREATE POLICY "Schools - School admin update own school" ON schools
   );
 
 -- USER_PROFILES TABLE POLICIES
--- Users can read their own profile, admins can read profiles in their school
+-- Users can always read their own profile (essential for authentication)
 CREATE POLICY "User profiles - Own profile access" ON user_profiles
-  FOR ALL USING (user_id = auth.uid());
+  FOR SELECT USING (user_id = auth.uid());
 
-CREATE POLICY "User profiles - School admin read school users" ON user_profiles
+-- Users can update their own profile
+CREATE POLICY "User profiles - Own profile update" ON user_profiles
+  FOR UPDATE USING (user_id = auth.uid());
+
+-- Admins can read profiles in their school or all schools (for super admin)
+CREATE POLICY "User profiles - Admin read users" ON user_profiles
   FOR SELECT USING (
-    can_access_school(school_id) AND 
-    (SELECT role FROM user_profiles WHERE user_id = auth.uid()) IN ('super_admin', 'school_admin')
+    EXISTS (
+      SELECT 1 FROM user_profiles up 
+      WHERE up.user_id = auth.uid() 
+      AND (
+        up.role = 'super_admin' OR 
+        (up.role = 'school_admin' AND up.school_id = user_profiles.school_id)
+      )
+    )
   );
 
+-- Admins can create users in their school or any school (for super admin)
 CREATE POLICY "User profiles - Admin create users" ON user_profiles
   FOR INSERT WITH CHECK (
-    can_access_school(school_id) AND 
-    (SELECT role FROM user_profiles WHERE user_id = auth.uid()) IN ('super_admin', 'school_admin')
+    EXISTS (
+      SELECT 1 FROM user_profiles up 
+      WHERE up.user_id = auth.uid() 
+      AND (
+        up.role = 'super_admin' OR 
+        (up.role = 'school_admin' AND up.school_id = user_profiles.school_id)
+      )
+    )
   );
 
+-- Admins can update users in their school or any school (for super admin)
 CREATE POLICY "User profiles - Admin update users" ON user_profiles
   FOR UPDATE USING (
-    can_access_school(school_id) AND 
-    (SELECT role FROM user_profiles WHERE user_id = auth.uid()) IN ('super_admin', 'school_admin')
+    user_id = auth.uid() OR -- Users can update themselves
+    EXISTS (
+      SELECT 1 FROM user_profiles up 
+      WHERE up.user_id = auth.uid() 
+      AND (
+        up.role = 'super_admin' OR 
+        (up.role = 'school_admin' AND up.school_id = user_profiles.school_id)
+      )
+    )
   );
 
 -- ACADEMIC_SESSIONS TABLE POLICIES
