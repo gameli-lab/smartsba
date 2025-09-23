@@ -43,51 +43,33 @@ After completing steps 1 and 2, try logging in again with:
 - **Email**: (your auth user email)
 - **Password**: (your auth user password)
 
-## Quick Fix Script
+## Quick Fix Steps
 
-Here's the exact script to run (update the UUIDs and email):
+Instead of running individual SQL commands, use the provided migration files:
 
-```sql
--- 1. Fix RLS policies first
-DROP POLICY IF EXISTS "User profiles - Own profile access" ON user_profiles;
-DROP POLICY IF EXISTS "User profiles - School admin read school users" ON user_profiles;
-DROP POLICY IF EXISTS "User profiles - Admin create users" ON user_profiles;
-DROP POLICY IF EXISTS "User profiles - Admin update users" ON user_profiles;
+### Step 1: Fix RLS Policies
 
-CREATE POLICY "User profiles - Own profile access" ON user_profiles
-  FOR SELECT USING (user_id = auth.uid());
+Run the complete migration file: `supabase/migrations/005_fix_rls_policies.sql`
 
-CREATE POLICY "User profiles - Own profile update" ON user_profiles
-  FOR UPDATE USING (user_id = auth.uid());
+This migration:
 
--- 2. Connect your auth user to super admin profile
--- Replace USER_ID and EMAIL with your actual values
-UPDATE user_profiles
-SET
-    user_id = 'YOUR_ACTUAL_USER_ID_HERE',
-    email = 'your-actual-email@example.com',
-    updated_at = NOW()
-WHERE role = 'super_admin';
+- Drops all existing conflicting user_profiles policies
+- Creates new non-recursive policies with proper names
+- Includes verification tests to ensure no circular dependencies
 
--- If no profile exists, create one
-INSERT INTO user_profiles (
-    user_id, school_id, role, email, full_name, staff_id
-)
-SELECT
-    'YOUR_ACTUAL_USER_ID_HERE',
-    NULL,
-    'super_admin',
-    'your-actual-email@example.com',
-    'Super Administrator',
-    'SUPER001'
-WHERE NOT EXISTS (
-    SELECT 1 FROM user_profiles
-    WHERE user_id = 'YOUR_ACTUAL_USER_ID_HERE'
-);
+### Step 2: Connect Your Profile
 
--- Verify it worked
-SELECT * FROM user_profiles WHERE role = 'super_admin';
-```
+Use the parameterized script: `fix_super_admin_profile.sql`
+
+**Important**: Update the script with your actual UUID and email before running.
+
+### Migration Files Reference
+
+- **RLS Fix**: `supabase/migrations/005_fix_rls_policies.sql` (v005)
+- **Profile Connection**: `fix_super_admin_profile.sql`
+- **Emergency Backup**: `emergency_fix_rls.sql`
+
+**Note**: The SQL policies in these files are the canonical source. Do not copy/paste individual commands - always run the complete migration files to ensure consistency.
 
 ## Verification
 

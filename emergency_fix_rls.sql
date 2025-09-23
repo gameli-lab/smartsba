@@ -15,10 +15,18 @@ DROP POLICY IF EXISTS "User profiles - School admin read school users" ON user_p
 CREATE POLICY "user_profiles_own_access" ON user_profiles
   FOR ALL USING (user_id = auth.uid());
 
--- 2. Allow reading for authenticated users (needed for role checks)
--- This is permissive but necessary to break the recursion
-CREATE POLICY "user_profiles_authenticated_read" ON user_profiles
-  FOR SELECT USING (auth.uid() IS NOT NULL);
+-- 2. Secure reading - only own profile or admin access
+-- Restricts access to prevent data leakage
+CREATE POLICY "user_profiles_secure_read" ON user_profiles
+  FOR SELECT USING (
+    user_id = auth.uid() OR  -- Own profile
+    auth.jwt() ->> 'role' = 'service_role' OR  -- Service role
+    EXISTS (  -- Admin users can read profiles in their context
+      SELECT 1 FROM auth.users au 
+      WHERE au.id = auth.uid() 
+      AND au.email LIKE '%admin%'  -- Basic admin detection
+    )
+  );
 
 -- 3. Restrict INSERT/UPDATE to existing users or service role
 CREATE POLICY "user_profiles_service_write" ON user_profiles

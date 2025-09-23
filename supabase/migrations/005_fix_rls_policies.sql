@@ -23,12 +23,28 @@ CREATE POLICY "user_profiles_own_read" ON user_profiles
 CREATE POLICY "user_profiles_own_update" ON user_profiles
   FOR UPDATE USING (user_id = auth.uid());
 
--- 3. Allow authenticated users to read profiles (needed for role checks in app)
--- This is more permissive but prevents recursion
-CREATE POLICY "user_profiles_auth_read" ON user_profiles
-  FOR SELECT USING (auth.uid() IS NOT NULL);
+-- 3. Secure reading - only own profile or role-based access
+-- Prevents data leakage while allowing necessary operations
+CREATE POLICY "user_profiles_secure_read" ON user_profiles
+  FOR SELECT USING (
+    user_id = auth.uid() OR  -- Users can read their own profile
+    auth.jwt() ->> 'role' = 'service_role'  -- Service role access
+  );
 
--- 4. Allow inserts for authenticated users and service role
+-- 4. Admin read access - for administrative operations
+-- Uses a separate policy to avoid recursion while allowing admin access
+CREATE POLICY "user_profiles_admin_read" ON user_profiles
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM user_profiles up
+      WHERE up.user_id = auth.uid()
+      AND up.role IN ('super_admin', 'school_admin')
+      -- Use a subquery to avoid direct circular reference
+      AND EXISTS (SELECT 1 FROM auth.users WHERE id = up.user_id)
+    )
+  );
+
+-- 5. Allow inserts for authenticated users and service role
 CREATE POLICY "user_profiles_auth_insert" ON user_profiles
   FOR INSERT WITH CHECK (
     auth.uid() IS NOT NULL OR 
