@@ -4,13 +4,13 @@
 -- PARAMETERS: Update these variables with your actual values
 DO $$
 DECLARE
-  p_user_id UUID := '4eab9d56-3d74-4f1d-834b-7196b3af41c2'; -- 🔄 UPDATE THIS!
-  p_email TEXT := 'your-email@example.com'; -- 🔄 UPDATE THIS!
+  p_user_id UUID := '00000000-0000-0000-0000-000000000000'; -- 🔄 MUST UPDATE THIS!
+  p_email TEXT := 'PLACEHOLDER_EMAIL@CHANGE.ME'; -- 🔄 MUST UPDATE THIS!
   p_full_name TEXT := 'Super Administrator'; -- 🔄 UPDATE THIS!
   
   -- Safety validation variables
   placeholder_uuid UUID := '00000000-0000-0000-0000-000000000000';
-  placeholder_email TEXT := 'your-email@example.com';
+  placeholder_email TEXT := 'PLACEHOLDER_EMAIL@CHANGE.ME';
   
   -- Result tracking
   update_count INTEGER := 0;
@@ -21,8 +21,8 @@ BEGIN
     RAISE EXCEPTION 'ERROR: Please update p_user_id with your actual Supabase Auth user UUID';
   END IF;
   
-  IF p_email = placeholder_email OR p_email LIKE '%example.com' THEN
-    RAISE EXCEPTION 'ERROR: Please update p_email with your actual email address';
+  IF p_email = placeholder_email OR p_email LIKE '%CHANGE.ME' OR p_email LIKE '%example.com' THEN
+    RAISE EXCEPTION 'ERROR: Please update p_email with your actual email address (current: %)', p_email;
   END IF;
   
   IF p_user_id IS NULL OR p_email IS NULL THEN
@@ -51,8 +51,17 @@ BEGIN
   
   GET DIAGNOSTICS update_count = ROW_COUNT;
   
-  -- If no placeholder record was updated, try creating new one
+  -- If no placeholder record was updated, use atomic upsert to prevent duplicates
   IF update_count = 0 THEN
+    -- Create unique constraint if it doesn't exist (safe to run multiple times)
+    BEGIN
+      ALTER TABLE user_profiles ADD CONSTRAINT unique_user_id_role UNIQUE (user_id, role);
+    EXCEPTION
+      WHEN duplicate_object THEN 
+        NULL; -- Constraint already exists, continue
+    END;
+    
+    -- Use atomic upsert to prevent race conditions
     INSERT INTO user_profiles (
         user_id,
         school_id,
@@ -60,18 +69,18 @@ BEGIN
         email,
         full_name,
         staff_id
-    ) 
-    SELECT 
+    ) VALUES (
         p_user_id,
         NULL,
         'super_admin',
         p_email,
         p_full_name,
         'SUPER001'
-    WHERE NOT EXISTS (
-        SELECT 1 FROM user_profiles 
-        WHERE user_id = p_user_id
-    );
+    )
+    ON CONFLICT (user_id, role) DO UPDATE SET
+        email = EXCLUDED.email,
+        full_name = EXCLUDED.full_name,
+        updated_at = NOW();
     
     GET DIAGNOSTICS insert_count = ROW_COUNT;
   END IF;

@@ -12,26 +12,27 @@ DROP POLICY IF EXISTS "User profiles - School admin read school users" ON user_p
 -- Create simple, non-recursive policies
 
 -- 1. Users can ALWAYS read and update their own profile (no conditions, no recursion)
-CREATE POLICY "user_profiles_own_access" ON user_profiles
-  FOR ALL USING (user_id = auth.uid());
+-- 1. Users can read and update their own profile only
+CREATE POLICY "user_profiles_own_select" ON user_profiles
+  FOR SELECT USING (user_id = auth.uid());
 
--- 2. Secure reading - only own profile or admin access
--- Restricts access to prevent data leakage
-CREATE POLICY "user_profiles_secure_read" ON user_profiles
+CREATE POLICY "user_profiles_own_update" ON user_profiles
+  FOR UPDATE USING (user_id = auth.uid());
+
+CREATE POLICY "user_profiles_own_insert" ON user_profiles
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+
+-- 2. Service role and admin access for system operations
+-- Only grants access to service role or verified admin users
+CREATE POLICY "user_profiles_admin_read" ON user_profiles
   FOR SELECT USING (
-    user_id = auth.uid() OR  -- Own profile
     auth.jwt() ->> 'role' = 'service_role' OR  -- Service role
-    EXISTS (  -- Admin users can read profiles in their context
-      SELECT 1 FROM auth.users au 
-      WHERE au.id = auth.uid() 
-      AND au.email LIKE '%admin%'  -- Basic admin detection
-    )
+    current_setting('request.jwt.claims', true)::json ->> 'app_role' = 'super_admin'  -- JWT admin claim
   );
 
--- 3. Restrict INSERT/UPDATE to existing users or service role
+-- 3. Service role write access for system operations
 CREATE POLICY "user_profiles_service_write" ON user_profiles
   FOR INSERT WITH CHECK (
-    auth.uid() IS NOT NULL OR 
     auth.jwt() ->> 'role' = 'service_role'
   );
 

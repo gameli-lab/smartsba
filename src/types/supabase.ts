@@ -98,7 +98,16 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      set_custom_claims: {
+        Args: {
+          user_id: string
+        }
+        Returns: void
+      }
+      refresh_user_claims: {
+        Args: Record<PropertyKey, never>
+        Returns: void
+      }
     }
     Enums: {
       user_role: UserRole

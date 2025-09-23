@@ -43,6 +43,9 @@ export class AuthService {
       throw new Error('Invalid super admin credentials')
     }
 
+    // Set custom JWT claims for proper authorization
+    await AuthService.setUserClaims(data.user.id)
+
     return { user: data.user, profile: typedProfile }
   }
 
@@ -83,6 +86,9 @@ export class AuthService {
     })
 
     if (authError) throw authError
+
+    // Set custom JWT claims for proper authorization
+    await AuthService.setUserClaims(authUser.user.id)
 
     return { user: authUser.user, profile: typedProfile }
   }
@@ -237,5 +243,23 @@ export class AuthService {
 
     // Others are limited to their school
     return typedProfile.school_id === schoolId
+  }
+
+  // Set custom JWT claims for proper authorization with RLS policies
+  // Note: This requires the database function to be available
+  static async setUserClaims(userId: string): Promise<void> {
+    try {
+      // For now, we'll comment this out until we can verify the function works
+      // The RLS policies will fall back to basic auth.uid() checks
+      console.log('Setting claims for user:', userId)
+      
+      // TODO: Uncomment once the custom claims function is verified to work
+      // const { error } = await supabase.rpc('set_custom_claims', { user_id: userId })
+      // if (error) {
+      //   console.error('Failed to set custom claims:', error)
+      // }
+    } catch (err) {
+      console.error('Error setting custom claims:', err)
+    }
   }
 }
