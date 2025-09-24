@@ -108,6 +108,13 @@ export interface Database {
         Args: Record<PropertyKey, never>
         Returns: void
       }
+      update_school_status: {
+        Args: {
+          school_id: string
+          new_status: string
+        }
+        Returns: void
+      }
     }
     Enums: {
       user_role: UserRole

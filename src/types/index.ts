@@ -30,6 +30,7 @@ export interface School {
   logo_url?: string
   stamp_url?: string
   head_signature_url?: string
+  status: 'active' | 'inactive'
   created_at: string
   updated_at: string
 }

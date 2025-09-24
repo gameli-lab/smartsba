@@ -1,0 +1,996 @@
+"use client";
+
+import { useState, useRef } from "react";
+import {
+  Upload,
+  User,
+  Calendar,
+  Building,
+  FileImage,
+  Stamp,
+  PenTool,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { supabase } from "@/lib/supabase";
+import { uploadSchoolAsset } from "@/lib/storage";
+import { School } from "@/types";
+import Image from "next/image";
+
+interface CreateSchoolFormProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  school?: School; // For editing existing school
+  onSchoolCreated: () => void;
+}
+
+interface SchoolFormData {
+  name: string;
+  motto: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+  current_academic_year: string;
+  current_term: "1" | "2" | "3";
+  vacation_start: string;
+  vacation_end: string;
+  term_end: string;
+  headmaster_name: string;
+  headmaster_staff_id: string;
+  headmaster_email: string;
+  headmaster_phone: string;
+  deputy_name?: string;
+  deputy_staff_id?: string;
+  deputy_email?: string;
+  deputy_phone?: string;
+}
+
+interface FileUpload {
+  file: File | null;
+  preview: string | null;
+  uploading: boolean;
+}
+
+export default function CreateSchoolForm({
+  open,
+  onOpenChange,
+  school,
+  onSchoolCreated,
+}: CreateSchoolFormProps) {
+  const [loading, setLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState<SchoolFormData>({
+    name: school?.name || "",
+    motto: school?.motto || "",
+    address: school?.address || "",
+    phone: school?.phone || "",
+    email: school?.email || "",
+    website: school?.website || "",
+    current_academic_year:
+      new Date().getFullYear() + "/" + (new Date().getFullYear() + 1),
+    current_term: "1",
+    vacation_start: "",
+    vacation_end: "",
+    term_end: "",
+    headmaster_name: "",
+    headmaster_staff_id: "",
+    headmaster_email: "",
+    headmaster_phone: "",
+    deputy_name: "",
+    deputy_staff_id: "",
+    deputy_email: "",
+    deputy_phone: "",
+  });
+
+  const [files, setFiles] = useState({
+    logo: { file: null, preview: null, uploading: false } as FileUpload,
+    stamp: { file: null, preview: null, uploading: false } as FileUpload,
+    signature: { file: null, preview: null, uploading: false } as FileUpload,
+  });
+
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const stampInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
+
+  const handleInputChange = (field: keyof SchoolFormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileSelect = (
+    type: "logo" | "stamp" | "signature",
+    file: File
+  ) => {
+    if (file && file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFiles((prev) => ({
+          ...prev,
+          [type]: {
+            file,
+            preview: e.target?.result as string,
+            uploading: false,
+          },
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const createSchoolAdmins = async (schoolId: string) => {
+    const admins = [];
+
+    // Collect admin information for automatic creation
+    if (formData.headmaster_email) {
+      admins.push({
+        name: formData.headmaster_name,
+        email: formData.headmaster_email,
+        role: "Headmaster/School Admin",
+        staff_id: formData.headmaster_staff_id,
+        phone: formData.headmaster_phone,
+      });
+    }
+
+    // Store deputy info
+    if (formData.deputy_email && formData.deputy_name) {
+      admins.push({
+        name: formData.deputy_name,
+        email: formData.deputy_email,
+        role: "Deputy Head/School Admin",
+        staff_id: formData.deputy_staff_id,
+        phone: formData.deputy_phone,
+      });
+    }
+
+    // If no admins to create, return empty array
+    if (admins.length === 0) {
+      return [];
+    }
+
+    try {
+      // Get current session for authorization
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error("No valid session found");
+        return [];
+      }
+
+      // Call API route to create admin accounts
+      const response = await fetch("/api/create-admins", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          admins,
+          schoolId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        console.log(
+          "Admin accounts created successfully:",
+          result.createdAdmins
+        );
+        return result.createdAdmins;
+      } else {
+        console.error(
+          "Failed to create admin accounts:",
+          result.error || result.errors
+        );
+        // Return admin info for manual creation as fallback
+        return admins.map((admin) => ({
+          ...admin,
+          pending_creation: true,
+          error: result.error || "Failed to create automatically",
+        }));
+      }
+    } catch (error) {
+      console.error("Error calling create-admins API:", error);
+      // Return admin info for manual creation as fallback
+      return admins.map((admin) => ({
+        ...admin,
+        pending_creation: true,
+        error: "API call failed",
+      }));
+    }
+  };
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      // Generate a temporary school ID for file organization
+      const tempSchoolId = school?.id || crypto.randomUUID();
+
+      // Upload files first with proper school folder structure
+      const logoUrl = files.logo.file
+        ? await uploadSchoolAsset(files.logo.file, tempSchoolId, "logo")
+        : school?.logo_url || null;
+
+      const stampUrl = files.stamp.file
+        ? await uploadSchoolAsset(files.stamp.file, tempSchoolId, "stamp")
+        : school?.stamp_url || null;
+
+      const signatureUrl = files.signature.file
+        ? await uploadSchoolAsset(
+            files.signature.file,
+            tempSchoolId,
+            "signature"
+          )
+        : school?.head_signature_url || null;
+
+      // Create/update school
+      const schoolData = {
+        name: formData.name,
+        motto: formData.motto || null,
+        address: formData.address || null,
+        phone: formData.phone || null,
+        email: formData.email || null,
+        website: formData.website || null,
+        logo_url: logoUrl,
+        stamp_url: stampUrl,
+        head_signature_url: signatureUrl,
+        status: "active",
+      };
+
+      let schoolId: string;
+
+      if (school) {
+        // Update existing school
+        const { error } = await supabase
+          .from("schools")
+          .update(schoolData)
+          .eq("id", school.id);
+
+        if (error) throw error;
+        schoolId = school.id;
+      } else {
+        // Create new school
+        const { data, error } = await supabase
+          .from("schools")
+          .insert([schoolData])
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (!data) throw new Error("Failed to create school");
+
+        schoolId = data.id;
+
+        // Automatically create admin accounts for new schools
+        const adminResults = await createSchoolAdmins(schoolId);
+
+        if (adminResults.length > 0) {
+          const successfulCreations = adminResults.filter(
+            (admin) => !admin.pending_creation
+          );
+          const pendingCreations = adminResults.filter(
+            (admin) => admin.pending_creation
+          );
+
+          if (successfulCreations.length > 0) {
+            // Some or all admins created successfully
+            const successList = successfulCreations
+              .map(
+                (admin) =>
+                  `✅ ${admin.name} (${admin.email}) - Password: ${admin.password}`
+              )
+              .join("\n");
+
+            const pendingList = pendingCreations
+              .map(
+                (admin) =>
+                  `⚠️  ${admin.name} (${admin.email}) - Needs manual creation`
+              )
+              .join("\n");
+
+            const message =
+              `🎉 School created successfully!\n\n` +
+              (successfulCreations.length > 0
+                ? `Admin Accounts Created:\n${successList}\n\n`
+                : "") +
+              (pendingCreations.length > 0
+                ? `Manual Creation Required:\n${pendingList}\n\n`
+                : "") +
+              `📧 Please share the temporary passwords securely with the administrators.\n` +
+              `🔐 They should change their passwords on first login.`;
+
+            alert(message);
+          } else {
+            // All admins failed automatic creation
+            const adminList = adminResults
+              .map((admin) => `${admin.name} (${admin.email}) - ${admin.role}`)
+              .join("\n");
+
+            alert(
+              `🎉 School created successfully!\n\n` +
+                `⚠️  Admin accounts need manual creation:\n\n${adminList}\n\n` +
+                `Please create these accounts through the Supabase Auth dashboard or invite them via email.`
+            );
+          }
+        } else {
+          // No admin info provided
+          alert("🎉 School created successfully!");
+        }
+      }
+
+      onSchoolCreated();
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error saving school:", error);
+      alert("Error saving school. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const nextStep = () => {
+    if (currentStep < 4) setCurrentStep((prev) => prev + 1);
+  };
+
+  const prevStep = () => {
+    if (currentStep > 1) setCurrentStep((prev) => prev - 1);
+  };
+
+  const isStepValid = (step: number) => {
+    switch (step) {
+      case 1:
+        return formData.name.trim() !== "";
+      case 2:
+        return true; // Optional branding
+      case 3:
+        return formData.current_academic_year.trim() !== "";
+      case 4:
+        return (
+          formData.headmaster_name.trim() !== "" &&
+          formData.headmaster_email.trim() !== ""
+        );
+      default:
+        return true;
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {school ? "Edit School" : "Create New School"}
+          </DialogTitle>
+          <DialogDescription>
+            {school
+              ? "Update school information and settings"
+              : "Add a new school to the system with all required information"}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Progress Steps */}
+          <div className="flex items-center space-x-4">
+            {[1, 2, 3, 4].map((step) => (
+              <div key={step} className="flex items-center">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    currentStep >= step
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-200 text-gray-600"
+                  }`}
+                >
+                  {step}
+                </div>
+                {step < 4 && (
+                  <div
+                    className={`w-16 h-0.5 ${
+                      currentStep > step ? "bg-blue-600" : "bg-gray-200"
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="text-sm text-muted-foreground">
+            Step {currentStep} of 4:{" "}
+            {currentStep === 1
+              ? "Basic Information"
+              : currentStep === 2
+              ? "Branding & Assets"
+              : currentStep === 3
+              ? "Academic Settings"
+              : "Admin Accounts"}
+          </div>
+
+          {/* Step 1: Basic Information */}
+          {currentStep === 1 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building className="h-5 w-5" />
+                  Basic School Information
+                </CardTitle>
+                <CardDescription>
+                  Enter the basic details about the school
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">School Name *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) =>
+                        handleInputChange("name", e.target.value)
+                      }
+                      placeholder="e.g., Accra Academy"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="motto">School Motto</Label>
+                    <Input
+                      id="motto"
+                      value={formData.motto}
+                      onChange={(e) =>
+                        handleInputChange("motto", e.target.value)
+                      }
+                      placeholder="e.g., Excellence in All Things"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Textarea
+                    id="address"
+                    value={formData.address}
+                    onChange={(e) =>
+                      handleInputChange("address", e.target.value)
+                    }
+                    placeholder="Full school address"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(e) =>
+                        handleInputChange("phone", e.target.value)
+                      }
+                      placeholder="+233 XX XXX XXXX"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) =>
+                        handleInputChange("email", e.target.value)
+                      }
+                      placeholder="info@school.edu.gh"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="website">Website</Label>
+                    <Input
+                      id="website"
+                      value={formData.website}
+                      onChange={(e) =>
+                        handleInputChange("website", e.target.value)
+                      }
+                      placeholder="https://school.edu.gh"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 2: Branding & Assets */}
+          {currentStep === 2 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileImage className="h-5 w-5" />
+                  School Branding & Assets
+                </CardTitle>
+                <CardDescription>
+                  Upload school logo, official stamp, and headmaster signature
+                  (optional)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Logo Upload */}
+                <div className="space-y-2">
+                  <Label>School Logo</Label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    {files.logo.preview ? (
+                      <div className="space-y-2">
+                        <img
+                          src={files.logo.preview}
+                          alt="Logo preview"
+                          className="mx-auto h-24 w-24 object-contain"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setFiles((prev) => ({
+                              ...prev,
+                              logo: {
+                                file: null,
+                                preview: null,
+                                uploading: false,
+                              },
+                            }));
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                        <div>
+                          <Button
+                            variant="outline"
+                            onClick={() => logoInputRef.current?.click()}
+                          >
+                            Upload Logo
+                          </Button>
+                          <p className="text-sm text-gray-500 mt-2">
+                            PNG, JPG up to 2MB
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileSelect("logo", file);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Stamp & Signature in Grid */}
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Stamp Upload */}
+                  <div className="space-y-2">
+                    <Label>Official Stamp/Seal</Label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                      {files.stamp.preview ? (
+                        <div className="space-y-2">
+                          <img
+                            src={files.stamp.preview}
+                            alt="Stamp preview"
+                            className="mx-auto h-16 w-16 object-contain"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setFiles((prev) => ({
+                                ...prev,
+                                stamp: {
+                                  file: null,
+                                  preview: null,
+                                  uploading: false,
+                                },
+                              }));
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Stamp className="mx-auto h-8 w-8 text-gray-400" />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => stampInputRef.current?.click()}
+                          >
+                            Upload Stamp
+                          </Button>
+                        </div>
+                      )}
+                      <input
+                        ref={stampInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileSelect("stamp", file);
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Signature Upload */}
+                  <div className="space-y-2">
+                    <Label>Headmaster Signature</Label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                      {files.signature.preview ? (
+                        <div className="space-y-2">
+                          <img
+                            src={files.signature.preview}
+                            alt="Signature preview"
+                            className="mx-auto h-16 w-24 object-contain"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setFiles((prev) => ({
+                                ...prev,
+                                signature: {
+                                  file: null,
+                                  preview: null,
+                                  uploading: false,
+                                },
+                              }));
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <PenTool className="mx-auto h-8 w-8 text-gray-400" />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => signatureInputRef.current?.click()}
+                          >
+                            Upload Signature
+                          </Button>
+                        </div>
+                      )}
+                      <input
+                        ref={signatureInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileSelect("signature", file);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 3: Academic Settings */}
+          {currentStep === 3 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Academic Settings
+                </CardTitle>
+                <CardDescription>
+                  Configure current academic year, term, and important dates
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="academic-year">
+                      Current Academic Year *
+                    </Label>
+                    <Input
+                      id="academic-year"
+                      value={formData.current_academic_year}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "current_academic_year",
+                          e.target.value
+                        )
+                      }
+                      placeholder="2024/2025"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="current-term">Current Term</Label>
+                    <Select
+                      value={formData.current_term}
+                      onValueChange={(value: "1" | "2" | "3") =>
+                        handleInputChange("current_term", value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">First Term</SelectItem>
+                        <SelectItem value="2">Second Term</SelectItem>
+                        <SelectItem value="3">Third Term</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="vacation-start">Vacation Start Date</Label>
+                    <Input
+                      id="vacation-start"
+                      type="date"
+                      value={formData.vacation_start}
+                      onChange={(e) =>
+                        handleInputChange("vacation_start", e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="vacation-end">Vacation End Date</Label>
+                    <Input
+                      id="vacation-end"
+                      type="date"
+                      value={formData.vacation_end}
+                      onChange={(e) =>
+                        handleInputChange("vacation_end", e.target.value)
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="term-end">Term End Date</Label>
+                    <Input
+                      id="term-end"
+                      type="date"
+                      value={formData.term_end}
+                      onChange={(e) =>
+                        handleInputChange("term_end", e.target.value)
+                      }
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 4: Admin Accounts */}
+          {currentStep === 4 && (
+            <div className="space-y-6">
+              {/* Headmaster */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Headmaster/School Admin *
+                  </CardTitle>
+                  <CardDescription>
+                    Primary administrator account for the school
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="head-name">Full Name *</Label>
+                      <Input
+                        id="head-name"
+                        value={formData.headmaster_name}
+                        onChange={(e) =>
+                          handleInputChange("headmaster_name", e.target.value)
+                        }
+                        placeholder="Dr. John Doe"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="head-staff-id">Staff ID *</Label>
+                      <Input
+                        id="head-staff-id"
+                        value={formData.headmaster_staff_id}
+                        onChange={(e) =>
+                          handleInputChange(
+                            "headmaster_staff_id",
+                            e.target.value
+                          )
+                        }
+                        placeholder="HEAD001"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="head-email">Email Address *</Label>
+                      <Input
+                        id="head-email"
+                        type="email"
+                        value={formData.headmaster_email}
+                        onChange={(e) =>
+                          handleInputChange("headmaster_email", e.target.value)
+                        }
+                        placeholder="headmaster@school.edu.gh"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="head-phone">Phone Number</Label>
+                      <Input
+                        id="head-phone"
+                        value={formData.headmaster_phone}
+                        onChange={(e) =>
+                          handleInputChange("headmaster_phone", e.target.value)
+                        }
+                        placeholder="+233 XX XXX XXXX"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Deputy (Optional) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Deputy Head (Optional)
+                  </CardTitle>
+                  <CardDescription>
+                    Secondary administrator account for the school
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="deputy-name">Full Name</Label>
+                      <Input
+                        id="deputy-name"
+                        value={formData.deputy_name}
+                        onChange={(e) =>
+                          handleInputChange("deputy_name", e.target.value)
+                        }
+                        placeholder="Mrs. Jane Smith"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="deputy-staff-id">Staff ID</Label>
+                      <Input
+                        id="deputy-staff-id"
+                        value={formData.deputy_staff_id}
+                        onChange={(e) =>
+                          handleInputChange("deputy_staff_id", e.target.value)
+                        }
+                        placeholder="DEP001"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="deputy-email">Email Address</Label>
+                      <Input
+                        id="deputy-email"
+                        type="email"
+                        value={formData.deputy_email}
+                        onChange={(e) =>
+                          handleInputChange("deputy_email", e.target.value)
+                        }
+                        placeholder="deputy@school.edu.gh"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="deputy-phone">Phone Number</Label>
+                      <Input
+                        id="deputy-phone"
+                        value={formData.deputy_phone}
+                        onChange={(e) =>
+                          handleInputChange("deputy_phone", e.target.value)
+                        }
+                        placeholder="+233 XX XXX XXXX"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {!school && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-white text-xs font-bold">!</span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-blue-900">
+                        Automatic Account Creation
+                      </h4>
+                      <p className="text-sm text-blue-700 mt-1">
+                        Login accounts will be automatically created for the
+                        administrators with temporary passwords. You&apos;ll be
+                        able to download or email the login credentials after
+                        creating the school.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Navigation Buttons */}
+          <div className="flex items-center justify-between pt-6 border-t">
+            <div className="flex gap-2">
+              {currentStep > 1 && (
+                <Button variant="outline" onClick={prevStep}>
+                  Previous
+                </Button>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              {currentStep < 4 ? (
+                <Button onClick={nextStep} disabled={!isStepValid(currentStep)}>
+                  Next
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSubmit}
+                  disabled={loading || !isStepValid(currentStep)}
+                >
+                  {loading
+                    ? "Saving..."
+                    : school
+                    ? "Update School"
+                    : "Create School"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
