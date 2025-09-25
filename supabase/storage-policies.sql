@@ -13,6 +13,14 @@
 -- Allowed MIME types: image/jpeg, image/png, image/webp, image/gif
 
 -- RLS Policies for school-assets bucket (CREATE VIA DASHBOARD)
+-- 
+-- SECURITY NOTE: All policies include path traversal protection:
+-- 1. Reject paths containing '..' sequences
+-- 2. Reject paths with '/./' sequences  
+-- 3. Reject paths starting with './'
+-- 4. Use anchored regex (^school_id/.+) for strict prefix matching
+-- 5. Validate first path segment explicitly matches school_id
+-- This prevents attacks like "../other_school/file.jpg"
 
 -- 1. UPLOAD Policy: Allow authenticated users to upload files
 -- Super admins can upload to any school folder
@@ -23,10 +31,17 @@ CREATE POLICY "school_assets_upload" ON storage.objects
     (
       -- Super admin can upload anywhere
       (current_setting('request.jwt.claims', true)::json ->> 'app_role' = 'super_admin') OR
-      -- School admin can upload to their school folder only
+      -- School admin can upload to their school folder only with strict path validation
       (
         current_setting('request.jwt.claims', true)::json ->> 'app_role' = 'school_admin' AND
-        name LIKE (current_setting('request.jwt.claims', true)::json ->> 'school_id') || '/%'
+        -- Prevent path traversal attacks
+        name !~ '\.\.' AND
+        name !~ '/\./' AND
+        name !~ '^\./' AND
+        -- Strict prefix match: must start with school_id/ (anchored to beginning)
+        name ~ ('^' || (current_setting('request.jwt.claims', true)::json ->> 'school_id') || '/.+') AND
+        -- Additional validation: first path segment must exactly match school_id
+        split_part(name, '/', 1) = (current_setting('request.jwt.claims', true)::json ->> 'school_id')
       )
     ) AND
     -- Only allow image files
@@ -41,10 +56,17 @@ CREATE POLICY "school_assets_select" ON storage.objects
     (
       -- Super admin can view all files
       (current_setting('request.jwt.claims', true)::json ->> 'app_role' = 'super_admin') OR
-      -- School users can view files from their school
+      -- School users can view files from their school with strict path validation
       (
         current_setting('request.jwt.claims', true)::json ->> 'school_id' IS NOT NULL AND
-        name LIKE (current_setting('request.jwt.claims', true)::json ->> 'school_id') || '/%'
+        -- Prevent path traversal attacks
+        name !~ '\.\.' AND
+        name !~ '/\./' AND
+        name !~ '^\./' AND
+        -- Strict prefix match: must start with school_id/ (anchored to beginning)
+        name ~ ('^' || (current_setting('request.jwt.claims', true)::json ->> 'school_id') || '/.+') AND
+        -- Additional validation: first path segment must exactly match school_id
+        split_part(name, '/', 1) = (current_setting('request.jwt.claims', true)::json ->> 'school_id')
       )
     )
   );
@@ -56,10 +78,17 @@ CREATE POLICY "school_assets_update" ON storage.objects
     (
       -- Super admin can update all files
       (current_setting('request.jwt.claims', true)::json ->> 'app_role' = 'super_admin') OR
-      -- School admin can update files from their school
+      -- School admin can update files from their school with strict path validation
       (
         current_setting('request.jwt.claims', true)::json ->> 'app_role' = 'school_admin' AND
-        name LIKE (current_setting('request.jwt.claims', true)::json ->> 'school_id') || '/%'
+        -- Prevent path traversal attacks
+        name !~ '\.\.' AND
+        name !~ '/\./' AND
+        name !~ '^\./' AND
+        -- Strict prefix match: must start with school_id/ (anchored to beginning)
+        name ~ ('^' || (current_setting('request.jwt.claims', true)::json ->> 'school_id') || '/.+') AND
+        -- Additional validation: first path segment must exactly match school_id
+        split_part(name, '/', 1) = (current_setting('request.jwt.claims', true)::json ->> 'school_id')
       )
     )
   );
@@ -71,10 +100,17 @@ CREATE POLICY "school_assets_delete" ON storage.objects
     (
       -- Only super admin can delete files
       (current_setting('request.jwt.claims', true)::json ->> 'app_role' = 'super_admin') OR
-      -- School admin can delete files from their school
+      -- School admin can delete files from their school with strict path validation
       (
         current_setting('request.jwt.claims', true)::json ->> 'app_role' = 'school_admin' AND
-        name LIKE (current_setting('request.jwt.claims', true)::json ->> 'school_id') || '/%'
+        -- Prevent path traversal attacks
+        name !~ '\.\.' AND
+        name !~ '/\./' AND
+        name !~ '^\./' AND
+        -- Strict prefix match: must start with school_id/ (anchored to beginning)
+        name ~ ('^' || (current_setting('request.jwt.claims', true)::json ->> 'school_id') || '/.+') AND
+        -- Additional validation: first path segment must exactly match school_id
+        split_part(name, '/', 1) = (current_setting('request.jwt.claims', true)::json ->> 'school_id')
       )
     )
   );

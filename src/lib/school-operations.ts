@@ -75,7 +75,7 @@ export const updateUserProfiles = async (
       return { error: fetchError, data: null };
     }
 
-    console.log('Found users for school:', existingUsers?.length || 0, existingUsers);
+    console.log('Found users for school:', existingUsers?.length || 0);
 
     if (!existingUsers || existingUsers.length === 0) {
       console.log('No users found for school, skipping user deactivation');
@@ -108,25 +108,92 @@ export const deleteSchool = async (schoolId: string): Promise<OperationResult> =
   }
 
   try {
-    console.log('Attempting to delete school:', schoolId);
+    console.log('Starting transactional school deletion:', schoolId);
     
-    // TODO: Implement proper transaction handling or use CASCADE constraints
-    // For now, this is a direct delete operation
+    // Begin transaction using Supabase RPC function for atomic operations
+    // First, verify the school exists and get basic info for logging
     // Type assertion needed until Supabase types are regenerated
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data: schoolInfo, error: schoolCheckError } = await (supabase as any)
       .from("schools")
-      .delete()
-      .eq("id", schoolId);
+      .select("id, name, created_at")
+      .eq("id", schoolId)
+      .single();
+
+    if (schoolCheckError) {
+      if (schoolCheckError.code === 'PGRST116') {
+        return { error: new Error(`School with ID ${schoolId} not found`), data: null };
+      }
+      return { error: schoolCheckError, data: null };
+    }
+
+    console.log('School to delete:', {
+      id: schoolInfo.id,
+      name: schoolInfo.name,
+      created_at: schoolInfo.created_at
+    });
+
+    // Get related data counts for logging and verification
+    const relatedDataQueries = await Promise.allSettled([
+      // Type assertion needed until Supabase types are regenerated
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from("user_profiles").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from("classes").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from("students").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from("teachers").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).from("academic_sessions").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
+    ]);
+
+    const relatedCounts = {
+      user_profiles: relatedDataQueries[0].status === 'fulfilled' ? relatedDataQueries[0].value.count || 0 : 'unknown',
+      classes: relatedDataQueries[1].status === 'fulfilled' ? relatedDataQueries[1].value.count || 0 : 'unknown',
+      students: relatedDataQueries[2].status === 'fulfilled' ? relatedDataQueries[2].value.count || 0 : 'unknown',
+      teachers: relatedDataQueries[3].status === 'fulfilled' ? relatedDataQueries[3].value.count || 0 : 'unknown',
+      academic_sessions: relatedDataQueries[4].status === 'fulfilled' ? relatedDataQueries[4].value.count || 0 : 'unknown',
+    };
+
+    console.log('Related data to be cascaded:', relatedCounts);
+
+    // Use the safe database function for deletion with comprehensive logging
+    // Type assertion needed until Supabase types are regenerated
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: deleteResult, error } = await (supabase as any)
+      .rpc('safe_delete_school', { target_school_id: schoolId });
     
     if (error) {
+      console.error('School deletion RPC failed:', error);
       return { error, data: null };
     }
 
-    console.log('School deletion result:', data);
-    return { error: null, data };
+    // Check if the database function succeeded
+    if (!deleteResult || !deleteResult.success) {
+      const errorMessage = deleteResult?.error || 'Unknown database deletion error';
+      console.error('School deletion failed:', errorMessage);
+      return { error: new Error(errorMessage), data: null };
+    }
+
+    console.log('School deletion completed successfully:', {
+      schoolId,
+      result: deleteResult,
+      fallbackCounts: relatedCounts,
+      timestamp: new Date().toISOString()
+    });
+
+    return { 
+      error: null, 
+      data: {
+        deletedSchool: deleteResult.deleted_school,
+        relatedRecordsDeleted: deleteResult.related_records_deleted,
+        timestamp: deleteResult.timestamp,
+        fallbackCounts: relatedCounts
+      }
+    };
   } catch (error) {
-    console.error('Exception in deleteSchool:', error);
-    return { error: error instanceof Error ? error : new Error('Unknown error'), data: null };
+    console.error('Exception during school deletion:', error);
+    return { error: error instanceof Error ? error : new Error('Unknown error during school deletion'), data: null };
   }
 };

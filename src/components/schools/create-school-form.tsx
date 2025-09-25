@@ -61,7 +61,7 @@ interface SchoolSubmissionData {
   logo_url?: string | null;
   stamp_url?: string | null;
   head_signature_url?: string | null;
-  status: string;
+  status: "active" | "inactive";
 }
 
 interface SchoolFormData {
@@ -221,8 +221,7 @@ export default function CreateSchoolForm({
     const objectUrl = URL.createObjectURL(file);
 
     // Test if image loads properly
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const img = new (Image as any)();
+    const img: HTMLImageElement = document.createElement("img");
     img.onload = () => {
       setFiles((prev) => ({
         ...prev,
@@ -304,6 +303,7 @@ export default function CreateSchoolForm({
   ): Promise<string> => {
     if (existingSchool) {
       // Update existing school
+      // Temporarily use explicit typing until database schema types are regenerated
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any)
         .from("schools")
@@ -314,6 +314,7 @@ export default function CreateSchoolForm({
       return existingSchool.id;
     } else {
       // Create new school
+      // Temporarily use explicit typing until database schema types are regenerated
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from("schools")
@@ -414,7 +415,7 @@ export default function CreateSchoolForm({
         logo_url: logoUrl,
         stamp_url: stampUrl,
         head_signature_url: signatureUrl,
-        status: "active",
+        status: "active" as const,
       };
 
       // Step 3: Save school
@@ -661,9 +662,6 @@ export default function CreateSchoolForm({
                           >
                             Upload Logo
                           </Button>
-                          <p className="text-sm text-gray-500 mt-2">
-                            PNG, JPG up to 2MB
-                          </p>
                         </div>
                       </div>
                     )}

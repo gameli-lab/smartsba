@@ -2,43 +2,49 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
 
-// Validate required environment variables
-const requiredEnvVars = {
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-};
-
-// Check for missing environment variables
-const missingVars = Object.entries(requiredEnvVars)
-  .filter(([, value]) => !value)
-  .map(([key]) => key);
-
-if (missingVars.length > 0) {
-  console.error('Missing required environment variables:', missingVars.join(', '));
-  throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
-}
-
-// Create a Supabase client with service role key for admin operations
-const supabaseAdmin = createClient(
-  requiredEnvVars.NEXT_PUBLIC_SUPABASE_URL as string,
-  requiredEnvVars.SUPABASE_SERVICE_ROLE_KEY as string, // Service role key required
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-);
-
-// Create regular client for user verification
-const supabase = createClient(
-  requiredEnvVars.NEXT_PUBLIC_SUPABASE_URL as string,
-  requiredEnvVars.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-);
-
 export async function POST(request: NextRequest) {
   try {
+    // Validate required environment variables at runtime
+    const requiredEnvVars = {
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    };
+
+    // Check for missing environment variables
+    const missingVars = Object.entries(requiredEnvVars)
+      .filter(([, value]) => !value)
+      .map(([key]) => key);
+
+    if (missingVars.length > 0) {
+      console.error('Missing required environment variables:', missingVars);
+      return NextResponse.json(
+        { 
+          error: 'Server configuration error', 
+          message: 'Required environment variables are not configured. Please contact the administrator.',
+          details: `Missing variables: ${missingVars.join(', ')}`
+        }, 
+        { status: 500 }
+      );
+    }
+
+    // Create a Supabase client with service role key for admin operations
+    const supabaseAdmin = createClient(
+      requiredEnvVars.NEXT_PUBLIC_SUPABASE_URL as string,
+      requiredEnvVars.SUPABASE_SERVICE_ROLE_KEY as string, // Service role key required
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    // Create regular client for user verification
+    const supabase = createClient(
+      requiredEnvVars.NEXT_PUBLIC_SUPABASE_URL as string,
+      requiredEnvVars.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+    );
     // Get the authorization header
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.replace('Bearer ', '');
@@ -110,23 +116,56 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Check if user already exists by attempting to create and catching the error
-        // This is more efficient than listing all users for large user bases
+        // Check if user already exists by first checking auth.users, then user_profiles
         let userExists = false;
+        
         try {
-          // Try to get the user profile first (this would exist if user was created)
-          const { data: profileCheck } = await supabaseAdmin
-            .from('user_profiles')
-            .select('user_id')
+          // First check if user exists in auth.users by querying the auth schema directly
+          const { data: authUsers, error: authUserError } = await supabaseAdmin
+            .from('auth.users')
+            .select('id')
             .eq('email', admin.email)
             .single();
           
-          if (profileCheck) {
+          if (authUsers && !authUserError) {
             userExists = true;
+          } else if (authUserError && authUserError.code !== 'PGRST116') {
+            // PGRST116 is "not found" - expected for new users
+            // Log unexpected auth errors
+            console.error(`Unexpected auth error checking user ${admin.email}:`, authUserError);
+            errors.push(`Error checking auth user ${admin.email}: ${authUserError.message}`);
+            continue;
           }
-        } catch (profileError) {
-          // Profile not found is expected for new users
-          console.log('Profile check (expected for new users):', profileError);
+        } catch (authCheckError) {
+          // Log unexpected errors during auth check
+          console.error(`Error during auth user check for ${admin.email}:`, authCheckError);
+          errors.push(`Failed to verify user existence for ${admin.email}`);
+          continue;
+        }
+
+        // If not found in auth.users, also check user_profiles as fallback
+        if (!userExists) {
+          try {
+            const { data: profileCheck, error: profileError } = await supabaseAdmin
+              .from('user_profiles')
+              .select('user_id')
+              .eq('email', admin.email)
+              .single();
+            
+            if (profileCheck && !profileError) {
+              userExists = true;
+            } else if (profileError && profileError.code !== 'PGRST116') {
+              // PGRST116 is "not found" - expected for new users, so don't log
+              // Log other unexpected profile errors
+              console.error(`Unexpected profile error checking user ${admin.email}:`, profileError);
+              errors.push(`Error checking user profile ${admin.email}: ${profileError.message}`);
+              continue;
+            }
+          } catch (profileCheckError) {
+            console.error(`Error during profile check for ${admin.email}:`, profileCheckError);
+            errors.push(`Failed to verify user profile for ${admin.email}`);
+            continue;
+          }
         }
         
         if (userExists) {
@@ -210,7 +249,7 @@ export async function POST(request: NextRequest) {
             authData.user.id,
             {
               app_metadata: {
-                app_role: 'school_admin',
+                role: 'school_admin',
                 school_id: schoolId,
               },
             }
@@ -218,7 +257,7 @@ export async function POST(request: NextRequest) {
 
           if (claimsError) {
             console.error(`Error setting claims for ${admin.email}:`, claimsError);
-            // Don't fail the whole operation for claims error, just log it
+            errors.push(`Warning: Failed to set app metadata for ${admin.email}. User may have limited permissions.`);
           }
 
           createdAdmins.push({

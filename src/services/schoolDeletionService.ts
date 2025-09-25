@@ -18,19 +18,32 @@ export class SchoolDeletionService {
 
   async deleteSchool(schoolId: string, schoolName: string): Promise<SchoolDeletionResult> {
     try {
-      // First confirmation: Soft vs Hard delete
-      const choice = this.callbacks.showConfirm(
-        `What would you like to do with "${schoolName}"?\n\n` +
-        `Click OK for SOFT DELETE (recommended - can be restored)\n` +
-        `Click Cancel for PERMANENT DELETE (cannot be undone)`
+      // First ask if they want to proceed with deletion at all
+      const proceedWithDeletion = this.callbacks.showConfirm(
+        `Are you sure you want to delete "${schoolName}"?`
       );
-
-      if (choice) {
-        // Soft delete - just deactivate
-        return await this.performSoftDelete(schoolId, schoolName);
-      } else {
+      
+      if (!proceedWithDeletion) {
+        return {
+          success: false,
+          action: "cancelled",
+          message: "Deletion cancelled by user."
+        };
+      }
+      
+      // Then ask for deletion type
+      const usePermanentDelete = this.callbacks.showConfirm(
+        `Choose deletion type for "${schoolName}":\n\n` +
+        `Click OK for PERMANENT DELETE (cannot be undone)\n` +
+        `Click Cancel for SOFT DELETE (recommended - can be restored)`
+      );
+      
+      if (usePermanentDelete) {
         // Hard delete - permanent
         return await this.performHardDelete(schoolId, schoolName);
+      } else {
+        // Soft delete - just deactivate
+        return await this.performSoftDelete(schoolId, schoolName);
       }
     } catch (error) {
       console.error("Error in school deletion service:", error);
@@ -90,57 +103,80 @@ export class SchoolDeletionService {
     const errors: unknown[] = [];
 
     // First, try to deactivate related user accounts
-    const { error: usersError } = await updateUserProfiles(schoolId, "inactive");
+    const usersResult = await updateUserProfiles(schoolId, "inactive");
+    
+    // Log the full response for debugging and transparency
+    console.log("User deactivation result:", {
+      error: usersResult.error,
+      data: usersResult.data,
+      schoolId,
+      timestamp: new Date().toISOString()
+    });
 
-    if (usersError) {
-      console.error("Error deactivating users:", usersError);
+    // Check for explicit success/failure based on the OperationResult interface
+    if (usersResult.error !== null) {
+      // Explicit error occurred during user deactivation
+      console.error("Error deactivating users:", usersResult.error);
+      
+      const continueAnyway = this.callbacks.showConfirm(
+        `Warning: Could not deactivate all user accounts.\n\n` +
+        `Error: ${usersResult.error.message}\n\n` +
+        `This could mean:\n` +
+        `• Database permission issues\n` +
+        `• Network connectivity problems\n` +
+        `• Missing table columns or constraints\n\n` +
+        `Do you want to continue with school deletion anyway?`
+      );
 
-      // Empty error object usually means no users found or operation completed
-      const errorIsEmpty = Object.keys(usersError).length === 0;
-
-      if (errorIsEmpty) {
-        console.log("Empty error object - likely no users to deactivate, continuing...");
-      } else {
-        // Check if it's a critical error
-        const continueAnyway = this.callbacks.showConfirm(
-          `Warning: Could not deactivate all user accounts.\n\n` +
-          `Error: ${JSON.stringify(usersError)}\n\n` +
-          `This could mean:\n` +
-          `• No users are associated with this school\n` +
-          `• Database permission issues\n` +
-          `• Missing table columns\n\n` +
-          `Do you want to continue with school deletion anyway?`
-        );
-
-        if (!continueAnyway) {
-          return {
-            success: false,
-            action: "cancelled",
-            message: "Deletion cancelled for safety.",
-            errors: [usersError],
-          };
-        }
-
-        console.log("User chose to continue deletion despite user deactivation error");
-        errors.push(usersError);
+      if (!continueAnyway) {
+        return {
+          success: false,
+          action: "cancelled",
+          message: "Deletion cancelled for safety due to user deactivation failure.",
+          errors: [usersResult.error],
+        };
       }
+
+      console.log("User chose to continue deletion despite user deactivation error");
+      errors.push(usersResult.error);
     } else {
-      console.log("Successfully deactivated associated user accounts");
+      // Explicit success: error is null
+      console.log("User deactivation completed successfully", {
+        result: "success",
+        schoolId,
+        data: usersResult.data,
+        message: usersResult.data === null ? "No users found to deactivate" : "Users successfully deactivated"
+      });
     }
 
     // Then permanently delete the school
-    const { error: deleteError } = await deleteSchool(schoolId);
+    const deleteResult = await deleteSchool(schoolId);
+    
+    // Log the full response for debugging and transparency
+    console.log("School deletion result:", {
+      error: deleteResult.error,
+      data: deleteResult.data,
+      schoolId,
+      timestamp: new Date().toISOString()
+    });
 
-    if (deleteError) {
-      console.error("Error deleting school:", deleteError);
-      errors.push(deleteError);
+    if (deleteResult.error !== null) {
+      console.error("Error deleting school:", deleteResult.error);
+      errors.push(deleteResult.error);
       return {
         success: false,
         action: "hard-delete",
-        message: "Failed to delete school. Please try again.",
+        message: `Failed to delete school "${schoolName}": ${deleteResult.error.message}`,
         errors,
       };
     }
+
+    console.log("School deletion completed successfully", {
+      result: "success",
+      schoolId,
+      schoolName,
+      data: deleteResult.data
+    });
 
     return {
       success: true,

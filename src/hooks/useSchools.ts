@@ -30,6 +30,11 @@ export function useSchools() {
 
       const schoolIds = schoolsData.map((school: School) => school.id);
 
+      if (schoolIds.length === 0) {
+        setSchools([]);
+        return;
+      }
+
       // Batch query for user profiles aggregated by school
       const { data: userAggregates, error: userError } = await supabase
         .from("user_profiles")

@@ -31,7 +31,7 @@ Both **deactivate/activate** and **delete** actions are now fully implemented an
 
   **Option 2: Permanent Delete (Destructive)**
 
-  - Click "Cancel" then type "PERMANENTLY DELETE"
+  - Click "Delete" then type "PERMANENTLY DELETE"
   - Deactivates all associated user accounts
   - Permanently removes school record
   - **Cannot be undone**
