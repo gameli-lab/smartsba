@@ -13,22 +13,43 @@ DECLARE
   school_id_from_path TEXT;
   user_school_id TEXT;
   user_role TEXT;
+  user_jwt jsonb;
 BEGIN
-  -- Extract school ID from file path (assumes format: school_id/file_name)
-  school_id_from_path := split_part(file_path, '/', 1);
-  
-  -- Get user's school and role from JWT
-  user_school_id := auth.jwt() ->> 'school_id';
-  user_role := auth.jwt() ->> 'app_role';
-  
-  -- Check access permissions
-  IF user_role = 'super_admin' OR user_school_id = school_id_from_path THEN
-    -- Return the file path for signed URL generation
-    RETURN file_path;
-  ELSE
-    -- No access
+  -- Input validation
+  IF file_path IS NULL OR trim(file_path) = '' THEN
     RETURN NULL;
   END IF;
+  
+  -- Extract school ID from file path (assumes format: school_id/file_name)
+  school_id_from_path := trim(split_part(file_path, '/', 1));
+  
+  -- Validate extracted school ID
+  IF school_id_from_path IS NULL OR school_id_from_path = '' THEN
+    RETURN NULL;
+  END IF;
+  
+  -- Get JWT safely
+  user_jwt := auth.jwt();
+  
+  -- Handle missing JWT
+  IF user_jwt IS NULL THEN
+    RETURN NULL;
+  END IF;
+  
+  -- Extract user information safely
+  user_school_id := trim(user_jwt ->> 'school_id');
+  user_role := trim(user_jwt ->> 'app_role');
+  
+  -- Check access permissions (only proceed if both values are present)
+  IF user_role IS NOT NULL AND user_school_id IS NOT NULL THEN
+    IF user_role = 'super_admin' OR user_school_id = school_id_from_path THEN
+      -- Return the file path for signed URL generation
+      RETURN file_path;
+    END IF;
+  END IF;
+  
+  -- No access or missing data
+  RETURN NULL;
 END;
 $$;
 

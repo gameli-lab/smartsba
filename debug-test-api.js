@@ -3,6 +3,14 @@
 
 async function testCreateAdmins() {
   try {
+    // Guard: Check if window.supabase exists
+    if (typeof window === "undefined" || !window.supabase) {
+      console.error(
+        "❌ Supabase client is not available. Make sure you're running this in a logged-in browser session with the supabase client loaded."
+      );
+      return;
+    }
+
     // Get session token
     const {
       data: { session },
@@ -12,9 +20,22 @@ async function testCreateAdmins() {
       return;
     }
 
+    // Configuration: Replace with a real school ID from your database
+    const TEST_SCHOOL_ID = "REPLACE_WITH_REAL_SCHOOL_ID"; // TODO: Get this from your schools table
+
+    if (TEST_SCHOOL_ID === "REPLACE_WITH_REAL_SCHOOL_ID") {
+      console.error(
+        "❌ Please update TEST_SCHOOL_ID with a real school ID from your database before running this test."
+      );
+      console.log(
+        "💡 Tip: Run 'SELECT id FROM schools LIMIT 1;' in your Supabase dashboard to get a valid school ID"
+      );
+      return;
+    }
+
     // Test data
     const testData = {
-      schoolId: "test-school-id",
+      schoolId: TEST_SCHOOL_ID,
       admins: [
         {
           name: "Test Headmaster",

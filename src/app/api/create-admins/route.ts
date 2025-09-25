@@ -1,10 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { randomBytes } from 'crypto';
+
+// Validate required environment variables
+const requiredEnvVars = {
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+};
+
+// Check for missing environment variables
+const missingVars = Object.entries(requiredEnvVars)
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
+
+if (missingVars.length > 0) {
+  console.error('Missing required environment variables:', missingVars.join(', '));
+  throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+}
 
 // Create a Supabase client with service role key for admin operations
 const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!, // Service role key required
+  requiredEnvVars.NEXT_PUBLIC_SUPABASE_URL as string,
+  requiredEnvVars.SUPABASE_SERVICE_ROLE_KEY as string, // Service role key required
   {
     auth: {
       autoRefreshToken: false,
@@ -15,8 +33,8 @@ const supabaseAdmin = createClient(
 
 // Create regular client for user verification
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  requiredEnvVars.NEXT_PUBLIC_SUPABASE_URL as string,
+  requiredEnvVars.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 );
 
 export async function POST(request: NextRequest) {
@@ -92,17 +110,55 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Check if user already exists
-        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-        const userExists = existingUsers.users.some(u => u.email === admin.email);
+        // Check if user already exists by attempting to create and catching the error
+        // This is more efficient than listing all users for large user bases
+        let userExists = false;
+        try {
+          // Try to get the user profile first (this would exist if user was created)
+          const { data: profileCheck } = await supabaseAdmin
+            .from('user_profiles')
+            .select('user_id')
+            .eq('email', admin.email)
+            .single();
+          
+          if (profileCheck) {
+            userExists = true;
+          }
+        } catch (profileError) {
+          // Profile not found is expected for new users
+          console.log('Profile check (expected for new users):', profileError);
+        }
         
         if (userExists) {
           errors.push(`User with email ${admin.email} already exists`);
           continue;
         }
 
-        // Generate secure temporary password
-        const tempPassword = "TempPass" + Math.random().toString(36).slice(-4) + Math.random().toString(36).slice(-4) + "!";
+        // Generate cryptographically secure temporary password
+        const generateSecurePassword = (length: number = 16): string => {
+          const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*!';
+          const bytes = randomBytes(length);
+          let password = '';
+          
+          for (let i = 0; i < length; i++) {
+            password += charset[bytes[i] % charset.length];
+          }
+          
+          // Ensure password contains at least one of each required type
+          const hasUpper = /[A-Z]/.test(password);
+          const hasLower = /[a-z]/.test(password);
+          const hasDigit = /\d/.test(password);
+          const hasSymbol = /[@#$%&*!]/.test(password);
+          
+          if (!hasUpper || !hasLower || !hasDigit || !hasSymbol) {
+            // If missing required types, generate again (recursive)
+            return generateSecurePassword(length);
+          }
+          
+          return password;
+        };
+        
+        const tempPassword = generateSecurePassword(16);
 
         // Create auth user using admin client
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({

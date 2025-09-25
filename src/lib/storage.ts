@@ -68,7 +68,9 @@ export const getMultipleSchoolAssetUrls = async (
  */
 export const canAccessSchoolAsset = async (filePath: string): Promise<boolean> => {
   try {
-    const { data, error } = await supabase.rpc('get_school_asset_url', {
+    // Type assertion needed until Supabase types are regenerated
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any).rpc('get_school_asset_url', {
       file_path: filePath
     })
 
@@ -97,26 +99,23 @@ export const uploadSchoolAsset = async (
   type: 'logo' | 'stamp' | 'signature'
 ): Promise<string | null> => {
   try {
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      throw new Error('Only image files are allowed')
+    // Enhanced file validation
+    const validation = await validateImageFile(file);
+    if (!validation.isValid) {
+      throw new Error(validation.error || 'Invalid file');
     }
 
-    // Validate file size (2MB limit)
-    const maxSize = 2 * 1024 * 1024 // 2MB
-    if (file.size > maxSize) {
-      throw new Error('File size must be less than 2MB')
-    }
+    // Create secure file path with timestamp to avoid conflicts
+    const safeName = sanitizeFileName(file.name);
+    const fileName = `${Date.now()}-${safeName}`;
+    const filePath = `${schoolId}/${type}s/${fileName}`;
 
-    // Create file path with timestamp to avoid conflicts
-    const fileName = `${Date.now()}-${file.name}`
-    const filePath = `${schoolId}/${type}s/${fileName}`
-
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('school-assets')
       .upload(filePath, file, {
         cacheControl: '3600',
-        upsert: true
+        upsert: true,
+        contentType: file.type
       })
 
     if (error) throw error
@@ -126,6 +125,67 @@ export const uploadSchoolAsset = async (
     console.error(`Error uploading ${type}:`, error)
     return null
   }
+}
+
+/**
+ * Enhanced file validation with magic number checks
+ */
+async function validateImageFile(file: File): Promise<{ isValid: boolean; error?: string }> {
+  // File size check (5MB limit)
+  const maxSize = 5 * 1024 * 1024;
+  if (file.size > maxSize) {
+    return { isValid: false, error: 'File size must be less than 5MB' };
+  }
+
+  // Extension whitelist
+  const allowedExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+  const fileExtension = file.name.split('.').pop()?.toLowerCase();
+  
+  if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+    return { isValid: false, error: 'Only PNG, JPG, JPEG, GIF, and WebP files are allowed' };
+  }
+
+  // MIME type check
+  const allowedMimeTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+  if (!allowedMimeTypes.includes(file.type)) {
+    return { isValid: false, error: 'Invalid file type' };
+  }
+
+  // Magic number validation
+  try {
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    
+    const isValidImage = 
+      // JPEG: FF D8 FF
+      (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) ||
+      // PNG: 89 50 4E 47
+      (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) ||
+      // GIF: 47 49 46 38
+      (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) ||
+      // WebP: RIFF...WEBP
+      (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+       bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50);
+
+    if (!isValidImage) {
+      return { isValid: false, error: 'File does not match expected image format' };
+    }
+
+    return { isValid: true };
+  } catch {
+    return { isValid: false, error: 'Error reading file data' };
+  }
+}
+
+/**
+ * Sanitize filename to prevent directory traversal and other issues
+ */
+function sanitizeFileName(fileName: string): string {
+  return fileName
+    .replace(/[^a-zA-Z0-9.-]/g, '_') // Replace special chars with underscore
+    .replace(/\.{2,}/g, '.') // Replace multiple dots with single dot
+    .replace(/^\.+|\.+$/g, '') // Remove leading/trailing dots
+    .substring(0, 100); // Limit length
 }
 
 /**

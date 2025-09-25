@@ -39,12 +39,29 @@ import { supabase } from "@/lib/supabase";
 import { uploadSchoolAsset } from "@/lib/storage";
 import { School } from "@/types";
 import Image from "next/image";
+import {
+  createAdminCreationService,
+  type AdminData,
+} from "@/services/adminCreationService";
 
 interface CreateSchoolFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   school?: School; // For editing existing school
   onSchoolCreated: () => void;
+}
+
+interface SchoolSubmissionData {
+  name: string;
+  motto?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  logo_url?: string | null;
+  stamp_url?: string | null;
+  head_signature_url?: string | null;
+  status: string;
 }
 
 interface SchoolFormData {
@@ -120,31 +137,117 @@ export default function CreateSchoolForm({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleFileSelect = (
-    type: "logo" | "stamp" | "signature",
-    file: File
-  ) => {
-    if (file && file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setFiles((prev) => ({
-          ...prev,
-          [type]: {
-            file,
-            preview: e.target?.result as string,
-            uploading: false,
-          },
-        }));
-      };
-      reader.readAsDataURL(file);
+  // Enhanced file validation with security checks
+  const validateImageFile = async (file: File): Promise<boolean> => {
+    // Max size check (5MB)
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      alert("File size must be less than 5MB");
+      return false;
+    }
+
+    // Allowed extensions and MIME types
+    const allowedExtensions = ["jpg", "jpeg", "png", "gif", "webp"];
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+
+    const fileExtension = file.name.split(".").pop()?.toLowerCase();
+
+    if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+      alert("Only JPG, PNG, GIF, and WebP files are allowed");
+      return false;
+    }
+
+    if (!allowedMimeTypes.includes(file.type)) {
+      alert("Invalid file type");
+      return false;
+    }
+
+    // Check magic bytes for security
+    try {
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+
+      // Check magic numbers for common image formats
+      const isValidImage =
+        // JPEG: FF D8 FF
+        (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) ||
+        // PNG: 89 50 4E 47
+        (bytes[0] === 0x89 &&
+          bytes[1] === 0x50 &&
+          bytes[2] === 0x4e &&
+          bytes[3] === 0x47) ||
+        // GIF: 47 49 46 38
+        (bytes[0] === 0x47 &&
+          bytes[1] === 0x49 &&
+          bytes[2] === 0x46 &&
+          bytes[3] === 0x38) ||
+        // WebP: RIFF...WEBP
+        (bytes[0] === 0x52 &&
+          bytes[1] === 0x49 &&
+          bytes[2] === 0x46 &&
+          bytes[3] === 0x46 &&
+          bytes[8] === 0x57 &&
+          bytes[9] === 0x45 &&
+          bytes[10] === 0x42 &&
+          bytes[11] === 0x50);
+
+      if (!isValidImage) {
+        alert("File is not a valid image format");
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error validating file:", error);
+      alert("Error validating file");
+      return false;
     }
   };
 
+  const handleFileSelect = async (
+    type: "logo" | "stamp" | "signature",
+    file: File
+  ) => {
+    // Validate file first
+    const isValid = await validateImageFile(file);
+    if (!isValid) return;
+
+    // Create object URL for preview
+    const objectUrl = URL.createObjectURL(file);
+
+    // Test if image loads properly
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const img = new (Image as any)();
+    img.onload = () => {
+      setFiles((prev) => ({
+        ...prev,
+        [type]: {
+          file,
+          preview: objectUrl,
+          uploading: false,
+        },
+      }));
+      // Clean up will happen when component unmounts or file changes
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      alert("Invalid image file");
+    };
+
+    img.src = objectUrl;
+  };
+
   const createSchoolAdmins = async (schoolId: string) => {
-    const admins = [];
+    const admins: AdminData[] = [];
 
     // Collect admin information for automatic creation
-    if (formData.headmaster_email) {
+    if (formData.headmaster_email && formData.headmaster_name) {
       admins.push({
         name: formData.headmaster_name,
         email: formData.headmaster_email,
@@ -159,69 +262,133 @@ export default function CreateSchoolForm({
       admins.push({
         name: formData.deputy_name,
         email: formData.deputy_email,
-        role: "Deputy Head/School Admin",
+        role: "Deputy Headmaster",
         staff_id: formData.deputy_staff_id,
         phone: formData.deputy_phone,
       });
     }
 
-    // If no admins to create, return empty array
+    // Return empty array if no admins to create
     if (admins.length === 0) {
       return [];
     }
 
-    try {
-      // Get current session for authorization
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        console.error("No valid session found");
-        return [];
-      }
+    // Use admin creation service
+    const adminService = createAdminCreationService(supabase);
+    return await adminService.createAdmins(admins, schoolId);
+  }; // Upload assets to storage
+  const uploadAssets = async (uploadFiles: typeof files, schoolId: string) => {
+    const logoUrl = uploadFiles.logo.file
+      ? await uploadSchoolAsset(uploadFiles.logo.file, schoolId, "logo")
+      : school?.logo_url || null;
 
-      // Call API route to create admin accounts
-      const response = await fetch("/api/create-admins", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          admins,
+    const stampUrl = uploadFiles.stamp.file
+      ? await uploadSchoolAsset(uploadFiles.stamp.file, schoolId, "stamp")
+      : school?.stamp_url || null;
+
+    const signatureUrl = uploadFiles.signature.file
+      ? await uploadSchoolAsset(
+          uploadFiles.signature.file,
           schoolId,
-        }),
-      });
+          "signature"
+        )
+      : school?.head_signature_url || null;
 
-      const result = await response.json();
+    return { logoUrl, stampUrl, signatureUrl };
+  };
 
-      if (response.ok && result.success) {
-        console.log(
-          "Admin accounts created successfully:",
-          result.createdAdmins
-        );
-        return result.createdAdmins;
-      } else {
-        console.error(
-          "Failed to create admin accounts:",
-          result.error || result.errors
-        );
-        // Return admin info for manual creation as fallback
-        return admins.map((admin) => ({
-          ...admin,
-          pending_creation: true,
-          error: result.error || "Failed to create automatically",
-        }));
-      }
-    } catch (error) {
-      console.error("Error calling create-admins API:", error);
-      // Return admin info for manual creation as fallback
-      return admins.map((admin) => ({
-        ...admin,
-        pending_creation: true,
-        error: "API call failed",
-      }));
+  // Save school data to database
+  const saveSchool = async (
+    schoolData: SchoolSubmissionData,
+    existingSchool?: School
+  ): Promise<string> => {
+    if (existingSchool) {
+      // Update existing school
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from("schools")
+        .update(schoolData)
+        .eq("id", existingSchool.id);
+
+      if (error) throw error;
+      return existingSchool.id;
+    } else {
+      // Create new school
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from("schools")
+        .insert([schoolData])
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error("Failed to create school");
+      return data.id;
     }
+  };
+
+  // Handle admin creation and show appropriate messages
+  const handleAdminCreation = async (schoolId: string) => {
+    const adminResults = await createSchoolAdmins(schoolId);
+
+    if (adminResults.length > 0) {
+      const successfulCreations = adminResults.filter(
+        (admin) => !admin.pending_creation
+      );
+      const pendingCreations = adminResults.filter(
+        (admin) => admin.pending_creation
+      );
+
+      if (successfulCreations.length > 0) {
+        // Some or all admins created successfully
+        const successList = successfulCreations
+          .map(
+            (admin) =>
+              `✅ ${admin.name} (${admin.email}) - Password: ${admin.password}`
+          )
+          .join("\n");
+
+        const pendingList = pendingCreations
+          .map(
+            (admin) =>
+              `⚠️  ${admin.name} (${admin.email}) - Needs manual creation`
+          )
+          .join("\n");
+
+        const message =
+          `🎉 School created successfully!\n\n` +
+          (successfulCreations.length > 0
+            ? `Admin Accounts Created:\n${successList}\n\n`
+            : "") +
+          (pendingCreations.length > 0
+            ? `Manual Creation Required:\n${pendingList}\n\n`
+            : "") +
+          `📧 Please share the temporary passwords securely with the administrators.\n` +
+          `🔐 They should change their passwords on first login.`;
+
+        alert(message);
+      } else {
+        // All admins failed automatic creation
+        const adminList = adminResults
+          .map((admin) => `${admin.name} (${admin.email}) - ${admin.role}`)
+          .join("\n");
+
+        alert(
+          `🎉 School created successfully!\n\n` +
+            `⚠️  Admin accounts need manual creation:\n\n${adminList}\n\n` +
+            `Please create these accounts through the Supabase Auth dashboard or invite them via email.`
+        );
+      }
+    } else {
+      // No admin info provided
+      alert("🎉 School created successfully!");
+    }
+  };
+
+  // Handle submission errors
+  const handleSubmissionError = (error: unknown) => {
+    console.error("Error saving school:", error);
+    alert("Error saving school. Please try again.");
   };
 
   const handleSubmit = async () => {
@@ -230,24 +397,13 @@ export default function CreateSchoolForm({
       // Generate a temporary school ID for file organization
       const tempSchoolId = school?.id || crypto.randomUUID();
 
-      // Upload files first with proper school folder structure
-      const logoUrl = files.logo.file
-        ? await uploadSchoolAsset(files.logo.file, tempSchoolId, "logo")
-        : school?.logo_url || null;
+      // Step 1: Upload assets
+      const { logoUrl, stampUrl, signatureUrl } = await uploadAssets(
+        files,
+        tempSchoolId
+      );
 
-      const stampUrl = files.stamp.file
-        ? await uploadSchoolAsset(files.stamp.file, tempSchoolId, "stamp")
-        : school?.stamp_url || null;
-
-      const signatureUrl = files.signature.file
-        ? await uploadSchoolAsset(
-            files.signature.file,
-            tempSchoolId,
-            "signature"
-          )
-        : school?.head_signature_url || null;
-
-      // Create/update school
+      // Step 2: Prepare school data
       const schoolData = {
         name: formData.name,
         motto: formData.motto || null,
@@ -261,92 +417,20 @@ export default function CreateSchoolForm({
         status: "active",
       };
 
-      let schoolId: string;
+      // Step 3: Save school
+      const schoolId = await saveSchool(schoolData, school);
 
-      if (school) {
-        // Update existing school
-        const { error } = await supabase
-          .from("schools")
-          .update(schoolData)
-          .eq("id", school.id);
-
-        if (error) throw error;
-        schoolId = school.id;
+      // Step 4: Handle admin creation for new schools
+      if (!school) {
+        await handleAdminCreation(schoolId);
       } else {
-        // Create new school
-        const { data, error } = await supabase
-          .from("schools")
-          .insert([schoolData])
-          .select()
-          .single();
-
-        if (error) throw error;
-        if (!data) throw new Error("Failed to create school");
-
-        schoolId = data.id;
-
-        // Automatically create admin accounts for new schools
-        const adminResults = await createSchoolAdmins(schoolId);
-
-        if (adminResults.length > 0) {
-          const successfulCreations = adminResults.filter(
-            (admin) => !admin.pending_creation
-          );
-          const pendingCreations = adminResults.filter(
-            (admin) => admin.pending_creation
-          );
-
-          if (successfulCreations.length > 0) {
-            // Some or all admins created successfully
-            const successList = successfulCreations
-              .map(
-                (admin) =>
-                  `✅ ${admin.name} (${admin.email}) - Password: ${admin.password}`
-              )
-              .join("\n");
-
-            const pendingList = pendingCreations
-              .map(
-                (admin) =>
-                  `⚠️  ${admin.name} (${admin.email}) - Needs manual creation`
-              )
-              .join("\n");
-
-            const message =
-              `🎉 School created successfully!\n\n` +
-              (successfulCreations.length > 0
-                ? `Admin Accounts Created:\n${successList}\n\n`
-                : "") +
-              (pendingCreations.length > 0
-                ? `Manual Creation Required:\n${pendingList}\n\n`
-                : "") +
-              `📧 Please share the temporary passwords securely with the administrators.\n` +
-              `🔐 They should change their passwords on first login.`;
-
-            alert(message);
-          } else {
-            // All admins failed automatic creation
-            const adminList = adminResults
-              .map((admin) => `${admin.name} (${admin.email}) - ${admin.role}`)
-              .join("\n");
-
-            alert(
-              `🎉 School created successfully!\n\n` +
-                `⚠️  Admin accounts need manual creation:\n\n${adminList}\n\n` +
-                `Please create these accounts through the Supabase Auth dashboard or invite them via email.`
-            );
-          }
-        } else {
-          // No admin info provided
-          alert("🎉 School created successfully!");
-        }
+        alert("School updated successfully!");
       }
 
       onSchoolCreated();
       onOpenChange(false);
     } catch (error) {
-      console.error("Error saving school:", error);
-      alert("Error saving school. Please try again.");
+      handleSubmissionError(error);
     } finally {
       setLoading(false);
     }
@@ -542,10 +626,13 @@ export default function CreateSchoolForm({
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                     {files.logo.preview ? (
                       <div className="space-y-2">
-                        <img
+                        <Image
                           src={files.logo.preview}
                           alt="Logo preview"
-                          className="mx-auto h-24 w-24 object-contain"
+                          width={96}
+                          height={96}
+                          className="mx-auto object-contain"
+                          unoptimized
                         />
                         <Button
                           variant="outline"
@@ -601,10 +688,13 @@ export default function CreateSchoolForm({
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
                       {files.stamp.preview ? (
                         <div className="space-y-2">
-                          <img
+                          <Image
                             src={files.stamp.preview}
                             alt="Stamp preview"
-                            className="mx-auto h-16 w-16 object-contain"
+                            width={64}
+                            height={64}
+                            className="mx-auto object-contain"
+                            unoptimized
                           />
                           <Button
                             variant="outline"
@@ -654,10 +744,13 @@ export default function CreateSchoolForm({
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
                       {files.signature.preview ? (
                         <div className="space-y-2">
-                          <img
+                          <Image
                             src={files.signature.preview}
                             alt="Signature preview"
-                            className="mx-auto h-16 w-24 object-contain"
+                            width={96}
+                            height={64}
+                            className="mx-auto object-contain"
+                            unoptimized
                           />
                           <Button
                             variant="outline"
