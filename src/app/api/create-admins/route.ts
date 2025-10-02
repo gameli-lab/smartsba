@@ -17,13 +17,16 @@ export async function POST(request: NextRequest) {
       .map(([key]) => key);
 
     if (missingVars.length > 0) {
+      // Log detailed information server-side for debugging
       console.error('Missing required environment variables:', missingVars);
+      console.error('Server configuration incomplete. Check environment setup.');
+
+      // Return generic error to client without exposing variable names
       return NextResponse.json(
-        { 
-          error: 'Server configuration error', 
-          message: 'Required environment variables are not configured. Please contact the administrator.',
-          details: `Missing variables: ${missingVars.join(', ')}`
-        }, 
+        {
+          error: 'Server configuration error',
+          message: 'The server is not properly configured. Please contact the administrator.'
+        },
         { status: 500 }
       );
     }
@@ -48,10 +51,10 @@ export async function POST(request: NextRequest) {
     // Get the authorization header
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.replace('Bearer ', '');
-    
+
     if (!token) {
       return NextResponse.json(
-        { error: 'Authorization header required' }, 
+        { error: 'Authorization header required' },
         { status: 401 }
       );
     }
@@ -61,7 +64,7 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       console.error('Auth error:', authError);
       return NextResponse.json(
-        { error: 'Invalid or expired token' }, 
+        { error: 'Invalid or expired token' },
         { status: 401 }
       );
     }
@@ -76,14 +79,14 @@ export async function POST(request: NextRequest) {
     if (profileError) {
       console.error('Profile error:', profileError);
       return NextResponse.json(
-        { error: 'Unable to verify user permissions' }, 
+        { error: 'Unable to verify user permissions' },
         { status: 500 }
       );
     }
 
     if (!profile || profile.role !== 'super_admin') {
       return NextResponse.json(
-        { error: 'Super admin privileges required' }, 
+        { error: 'Super admin privileges required' },
         { status: 403 }
       );
     }
@@ -93,14 +96,14 @@ export async function POST(request: NextRequest) {
 
     if (!admins || !Array.isArray(admins) || admins.length === 0) {
       return NextResponse.json(
-        { error: 'Admin array is required and must not be empty' }, 
+        { error: 'Admin array is required and must not be empty' },
         { status: 400 }
       );
     }
 
     if (!schoolId) {
       return NextResponse.json(
-        { error: 'School ID is required' }, 
+        { error: 'School ID is required' },
         { status: 400 }
       );
     }
@@ -118,7 +121,7 @@ export async function POST(request: NextRequest) {
 
         // Check if user already exists by first checking auth.users, then user_profiles
         let userExists = false;
-        
+
         try {
           // First check if user exists in auth.users by querying the auth schema directly
           const { data: authUsers, error: authUserError } = await supabaseAdmin
@@ -126,7 +129,7 @@ export async function POST(request: NextRequest) {
             .select('id')
             .eq('email', admin.email)
             .single();
-          
+
           if (authUsers && !authUserError) {
             userExists = true;
           } else if (authUserError && authUserError.code !== 'PGRST116') {
@@ -151,7 +154,7 @@ export async function POST(request: NextRequest) {
               .select('user_id')
               .eq('email', admin.email)
               .single();
-            
+
             if (profileCheck && !profileError) {
               userExists = true;
             } else if (profileError && profileError.code !== 'PGRST116') {
@@ -167,7 +170,7 @@ export async function POST(request: NextRequest) {
             continue;
           }
         }
-        
+
         if (userExists) {
           errors.push(`User with email ${admin.email} already exists`);
           continue;
@@ -178,25 +181,25 @@ export async function POST(request: NextRequest) {
           const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*!';
           const bytes = randomBytes(length);
           let password = '';
-          
+
           for (let i = 0; i < length; i++) {
             password += charset[bytes[i] % charset.length];
           }
-          
+
           // Ensure password contains at least one of each required type
           const hasUpper = /[A-Z]/.test(password);
           const hasLower = /[a-z]/.test(password);
           const hasDigit = /\d/.test(password);
           const hasSymbol = /[@#$%&*!]/.test(password);
-          
+
           if (!hasUpper || !hasLower || !hasDigit || !hasSymbol) {
             // If missing required types, generate again (recursive)
             return generateSecurePassword(length);
           }
-          
+
           return password;
         };
-        
+
         const tempPassword = generateSecurePassword(16);
 
         // Create auth user using admin client
@@ -238,7 +241,7 @@ export async function POST(request: NextRequest) {
           if (profileError) {
             console.error(`Error creating profile for ${admin.email}:`, profileError);
             errors.push(`Failed to create profile for ${admin.email}: ${profileError.message}`);
-            
+
             // Clean up auth user if profile creation failed
             await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
             continue;
@@ -291,9 +294,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in create-admins API:', error);
     return NextResponse.json(
-      { 
-        error: 'Internal server error', 
-        details: error instanceof Error ? error.message : 'Unknown error' 
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );
