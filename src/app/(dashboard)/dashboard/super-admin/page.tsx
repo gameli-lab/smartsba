@@ -30,7 +30,8 @@ export default function SuperAdminPage() {
       }
 
       const json = await res.json();
-      setAdmins((json.superAdmins as UserProfile[]) || []);
+      // API returns { users, total } from /api/super-admin
+      setAdmins((json.users as UserProfile[]) || []);
     } catch (e: unknown) {
       console.error('Error fetching super admins:', e);
       setError(((e as Error)?.message) ?? 'Error');

@@ -16,15 +16,15 @@ interface Row {
 
 export default function UsersPage() {
 	const [users, setUsers] = useState<Row[]>([]);
-	const [total, setTotal] = useState(0);
-	const [page, setPage] = useState(1);
+	const [nextCursor, setNextCursor] = useState<string | null>(null);
+	const [cursorStack, setCursorStack] = useState<string[]>([]); // stack for prev cursors
 	const [perPage] = useState(10);
 	const [q, setQ] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [editing, setEditing] = useState<UserProfile | null>(null);
 
-	const fetchUsers = async () => {
+	const fetchUsers = async (opts?: { cursor?: string | null, reset?: boolean }) => {
 		setLoading(true);
 		setError(null);
 		try {
@@ -33,9 +33,14 @@ export default function UsersPage() {
 			if (!token) throw new Error('Not authenticated');
 
 			const url = new URL('/api/super-admin', window.location.origin);
-			url.searchParams.set('page', String(page));
 			url.searchParams.set('per_page', String(perPage));
 			if (q.trim()) url.searchParams.set('q', q.trim());
+			const useCursor = opts?.cursor ?? null;
+			if (opts?.reset) {
+				url.searchParams.delete('cursor');
+			} else if (useCursor) {
+				url.searchParams.set('cursor', useCursor);
+			}
 
 			const res = await fetch(url.toString(), {
 				headers: { Authorization: `Bearer ${token}` },
@@ -48,7 +53,7 @@ export default function UsersPage() {
 
 			const json = await res.json();
 			setUsers((json.users as Row[]) || []);
-			setTotal(json.total || 0);
+			setNextCursor(json.next_cursor || null);
 		} catch (e: unknown) {
 			console.error('Error fetching users:', e);
 			setError(((e as Error)?.message) ?? 'Error');
@@ -58,9 +63,9 @@ export default function UsersPage() {
 	};
 
 	useEffect(() => {
-		fetchUsers();
+		fetchUsers({ cursor: cursorStack.length ? cursorStack[cursorStack.length - 1] : null });
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [page]);
+	}, [cursorStack]);
 
 	const handleDelete = async (id: string) => {
 		if (!confirm('Delete this user? This action cannot be undone.')) return;
@@ -115,8 +120,8 @@ export default function UsersPage() {
 						value={q}
 						onChange={(e) => setQ(e.target.value)}
 					/>
-					<button className="btn" onClick={() => { setPage(1); fetchUsers(); }} disabled={loading}>Search</button>
-					<button className="btn" onClick={() => { setQ(''); setPage(1); fetchUsers(); }} disabled={loading}>Clear</button>
+					  <button className="btn" onClick={() => { setCursorStack([]); fetchUsers({ reset: true }); }} disabled={loading}>Search</button>
+					  <button className="btn" onClick={() => { setQ(''); setCursorStack([]); fetchUsers({ reset: true }); }} disabled={loading}>Clear</button>
 				</div>
 			</div>
 
@@ -156,10 +161,30 @@ export default function UsersPage() {
 			)}
 
 			<div className="flex items-center justify-between mt-4">
-				<div>Showing page {page} — {total} total</div>
+				<div />
 				<div className="flex items-center gap-2">
-					<button className="btn" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || loading}>Prev</button>
-					<button className="btn" onClick={() => setPage((p) => p + 1)} disabled={users.length < perPage || loading}>Next</button>
+					<button
+						className="btn"
+						onClick={() => {
+							// go back
+							setCursorStack((s) => {
+								if (s.length === 0) return s;
+								const next = [...s];
+								next.pop();
+								return next;
+							});
+						}}
+						disabled={cursorStack.length === 0 || loading}
+					>Prev</button>
+					<button
+						className="btn"
+						onClick={() => {
+							if (!nextCursor) return;
+							// push current cursor and navigate to next
+							setCursorStack((s) => [...s, nextCursor]);
+						}}
+						disabled={!nextCursor || loading}
+					>Next</button>
 				</div>
 			</div>
 
