@@ -93,6 +93,47 @@ export interface Database {
         Insert: Omit<Announcement, 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Omit<Announcement, 'id' | 'created_at' | 'updated_at'>>
       }
+      password_reset_requests: {
+        Row: {
+          id: string
+          user_id: string
+          requesting_profile_id: string
+          school_id?: string | null
+          requested_at: string
+          status: 'pending' | 'approved' | 'rejected' | 'completed'
+          approving_admin_id?: string | null
+          approved_at?: string | null
+          rejection_reason?: string | null
+          reset_token?: string | null
+          expires_at: string
+        }
+        Insert: Omit<{
+          id: string
+          user_id: string
+          requesting_profile_id: string
+          school_id?: string | null
+          requested_at: string
+          status: 'pending' | 'approved' | 'rejected' | 'completed'
+          approving_admin_id?: string | null
+          approved_at?: string | null
+          rejection_reason?: string | null
+          reset_token?: string | null
+          expires_at: string
+        }, 'id' | 'requested_at' | 'approved_at'>
+        Update: Partial<Omit<{
+          id: string
+          user_id: string
+          requesting_profile_id: string
+          school_id?: string | null
+          requested_at: string
+          status: 'pending' | 'approved' | 'rejected' | 'completed'
+          approving_admin_id?: string | null
+          approved_at?: string | null
+          rejection_reason?: string | null
+          reset_token?: string | null
+          expires_at: string
+        }, 'id' | 'requested_at' | 'approved_at'>>
+      }
     }
     Views: {
       [_ in never]: never

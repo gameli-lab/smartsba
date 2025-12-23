@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
+import logAudit from '@/lib/audit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -271,6 +272,17 @@ export async function POST(request: NextRequest) {
             staff_id: admin.staff_id,
             user_id: authData.user.id,
           });
+
+          // Write audit log for admin creation (non-blocking)
+          try {
+            await logAudit(supabaseAdmin, user.id, 'create_admin', 'user_profile', authData.user.id, {
+              email: admin.email,
+              name: admin.name,
+              schoolId,
+            });
+          } catch (e) {
+            console.error('Failed to write audit entry for created admin:', e);
+          }
         }
       } catch (adminError) {
         console.error(`Unexpected error creating admin ${admin.email}:`, adminError);

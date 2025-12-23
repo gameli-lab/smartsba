@@ -43,6 +43,7 @@ export interface UserProfile {
   role: UserRole
   email: string
   full_name: string
+  status?: 'active' | 'disabled'
   staff_id?: string
   admission_number?: string
   phone?: string

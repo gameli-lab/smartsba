@@ -23,6 +23,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AuthService } from "@/lib/auth";
 import { SchoolService, School } from "@/lib/schools";
 import { UserRole } from "@/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [role, setRole] = useState<UserRole>("student");
@@ -36,6 +46,28 @@ export default function LoginPage() {
   const [isLoadingSchools, setIsLoadingSchools] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+
+  // New state for Forgot Password functionality
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [forgotPasswordIdentifier, setForgotPasswordIdentifier] = useState("");
+  const [forgotPasswordRole, setForgotPasswordRole] =
+    useState<UserRole>("student");
+  const [forgotPasswordSchoolSearch, setForgotPasswordSchoolSearch] =
+    useState("");
+  const [forgotPasswordSelectedSchool, setForgotPasswordSelectedSchool] =
+    useState("");
+  const [
+    forgotPasswordWardAdmissionNumber,
+    setForgotPasswordWardAdmissionNumber,
+  ] = useState("");
+  const [forgotPasswordError, setForgotPasswordError] = useState("");
+  const [isRequestingReset, setIsRequestingReset] = useState(false);
+  const [resetRequestMessage, setResetRequestMessage] = useState("");
+  const [forgotPasswordSchools, setForgotPasswordSchools] = useState<School[]>(
+    [],
+  ); // New state for forgot password schools search
+  const [isLoadingForgotPasswordSchools, setIsLoadingForgotPasswordSchools] =
+    useState(false); // New state for forgot password schools search loading
 
   // Load schools when search term changes
   useEffect(() => {
@@ -59,19 +91,43 @@ export default function LoginPage() {
     return () => clearTimeout(timeoutId);
   }, [schoolSearch]);
 
-  // Reset school selection when role changes
+  // Load schools for forgot password when search term changes
   useEffect(() => {
-    setSelectedSchool("");
-    setSchoolSearch("");
-    setSchools([]);
-  }, [role]);
+    const loadForgotPasswordSchools = async () => {
+      if (forgotPasswordSchoolSearch.length >= 2) {
+        setIsLoadingForgotPasswordSchools(true);
+        try {
+          const searchResults = await SchoolService.searchSchools(
+            forgotPasswordSchoolSearch,
+          );
+          setForgotPasswordSchools(searchResults);
+        } catch (error) {
+          console.error("Failed to load forgot password schools:", error);
+        } finally {
+          setIsLoadingForgotPasswordSchools(false);
+        }
+      } else {
+        setForgotPasswordSchools([]);
+      }
+    };
 
-  const requiresSchoolSelection = () => {
-    return role !== "super_admin";
+    const timeoutId = setTimeout(loadForgotPasswordSchools, 300); // Debounce search
+    return () => clearTimeout(timeoutId);
+  }, [forgotPasswordSchoolSearch]);
+
+  // Reset school selection for forgot password when role changes
+  useEffect(() => {
+    setForgotPasswordSelectedSchool("");
+    setForgotPasswordSchoolSearch("");
+    setForgotPasswordSchools([]);
+  }, [forgotPasswordRole]);
+
+  const requiresSchoolSelection = (selectedRole: UserRole) => {
+    return selectedRole !== "super_admin";
   };
 
-  const getIdentifierLabel = () => {
-    switch (role) {
+  const getIdentifierLabel = (selectedRole: UserRole) => {
+    switch (selectedRole) {
       case "super_admin":
         return "Email Address";
       case "school_admin":
@@ -86,8 +142,8 @@ export default function LoginPage() {
     }
   };
 
-  const getIdentifierPlaceholder = () => {
-    switch (role) {
+  const getIdentifierPlaceholder = (selectedRole: UserRole) => {
+    switch (selectedRole) {
       case "super_admin":
         return "admin@smartsba.com";
       case "school_admin":
@@ -102,6 +158,76 @@ export default function LoginPage() {
     }
   };
 
+  const handleForgotPasswordRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsRequestingReset(true);
+    setForgotPasswordError("");
+    setResetRequestMessage("");
+
+    try {
+      if (forgotPasswordRole === "super_admin") {
+        setForgotPasswordError(
+          "Super Admins must reset their password via the Supabase project dashboard.",
+        );
+        setIsRequestingReset(false);
+        return;
+      }
+
+      if (
+        requiresSchoolSelection(forgotPasswordRole) &&
+        !forgotPasswordSelectedSchool
+      ) {
+        throw new Error("Please select your school.");
+      }
+
+      if (
+        forgotPasswordRole === "parent" &&
+        !forgotPasswordWardAdmissionNumber
+      ) {
+        throw new Error(
+          "Ward Admission Number is required for parent password reset requests.",
+        );
+      }
+
+      const response = await fetch("/api/password-reset/request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          identifier: forgotPasswordIdentifier,
+          role: forgotPasswordRole,
+          schoolId: requiresSchoolSelection(forgotPasswordRole)
+            ? forgotPasswordSelectedSchool
+            : undefined,
+          wardAdmissionNumber:
+            forgotPasswordRole === "parent"
+              ? forgotPasswordWardAdmissionNumber
+              : undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Failed to submit password reset request.",
+        );
+      }
+
+      setResetRequestMessage(
+        data.message ||
+          "Your password reset request has been submitted for approval. Please check with your school admin.",
+      );
+    } catch (err) {
+      setForgotPasswordError(
+        err instanceof Error ? err.message : "An unexpected error occurred.",
+      );
+    } finally {
+      setIsRequestingReset(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -109,7 +235,7 @@ export default function LoginPage() {
 
     try {
       // Validate school selection for non-super admin roles
-      if (requiresSchoolSelection() && !selectedSchool) {
+      if (requiresSchoolSelection(role) && !selectedSchool) {
         throw new Error("Please select a school");
       }
 
@@ -117,7 +243,7 @@ export default function LoginPage() {
         identifier,
         password,
         role,
-        schoolId: requiresSchoolSelection() ? selectedSchool : undefined,
+        schoolId: requiresSchoolSelection(role) ? selectedSchool : undefined,
         wardAdmissionNumber:
           role === "parent" ? wardAdmissionNumber : undefined,
       });
@@ -198,7 +324,7 @@ export default function LoginPage() {
               </div>
 
               {/* School Selection - Only for non-super admin roles */}
-              {requiresSchoolSelection() && (
+              {requiresSchoolSelection(role) && (
                 <div className="space-y-2">
                   <Label htmlFor="school">School</Label>
                   <div className="space-y-2">
@@ -252,11 +378,11 @@ export default function LoginPage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="identifier">{getIdentifierLabel()}</Label>
+                <Label htmlFor="identifier">{getIdentifierLabel(role)}</Label>
                 <Input
                   id="identifier"
                   type="text"
-                  placeholder={getIdentifierPlaceholder()}
+                  placeholder={getIdentifierPlaceholder(role)}
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   required
@@ -294,6 +420,211 @@ export default function LoginPage() {
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
+            <div className="mt-4 text-center">
+              <Dialog
+                open={showForgotPasswordModal}
+                onOpenChange={setShowForgotPasswordModal}
+              >
+                <DialogTrigger asChild>
+                  <Button variant="link" className="px-0">
+                    Forgot Password?
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Reset Your Password</DialogTitle>
+                    <DialogDescription>
+                      {forgotPasswordRole === "super_admin"
+                        ? "Super Admins must reset their password via the Supabase project dashboard."
+                        : "Enter your details to request a password reset. Your school admin will approve the request before a reset link is sent to your email."}
+                    </DialogDescription>
+                  </DialogHeader>
+                  {forgotPasswordRole !== "super_admin" && (
+                    <form
+                      onSubmit={handleForgotPasswordRequest}
+                      className="space-y-4 py-4"
+                    >
+                      {forgotPasswordError && (
+                        <Alert variant="destructive">
+                          <AlertDescription>
+                            {forgotPasswordError}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      {resetRequestMessage && (
+                        <Alert
+                          variant="default"
+                          className="bg-green-500 text-white"
+                        >
+                          <AlertDescription>
+                            {resetRequestMessage}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      <div className="space-y-2">
+                        <Label htmlFor="forgot-password-role">Role</Label>
+                        <Select
+                          value={forgotPasswordRole}
+                          onValueChange={(value) => {
+                            setForgotPasswordRole(value as UserRole);
+                            setForgotPasswordError(""); // Clear error when role changes
+                            setResetRequestMessage(""); // Clear message
+                          }}
+                        >
+                          <SelectTrigger id="forgot-password-role">
+                            <SelectValue placeholder="Select your role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="student">Student</SelectItem>
+                            <SelectItem value="teacher">Teacher</SelectItem>
+                            <SelectItem value="school_admin">
+                              School Admin
+                            </SelectItem>
+                            <SelectItem value="parent">Parent</SelectItem>
+                            <SelectItem value="super_admin">
+                              Super Admin
+                            </SelectItem>{" "}
+                            {/* Keep this for the warning message */}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {requiresSchoolSelection(forgotPasswordRole) && (
+                        <div className="space-y-2">
+                          <Label htmlFor="forgot-password-school">School</Label>
+                          <div className="space-y-2">
+                            <Input
+                              id="forgot-password-school-search"
+                              type="text"
+                              placeholder="Type to search schools..."
+                              value={forgotPasswordSchoolSearch}
+                              onChange={(e) =>
+                                setForgotPasswordSchoolSearch(e.target.value)
+                              }
+                            />
+                            {forgotPasswordSchools.length > 0 && (
+                              <Select
+                                value={forgotPasswordSelectedSchool}
+                                onValueChange={setForgotPasswordSelectedSchool}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select your school" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {forgotPasswordSchools.map((school) => (
+                                    <SelectItem
+                                      key={school.id}
+                                      value={school.id}
+                                    >
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">
+                                          {school.name}
+                                        </span>
+                                        {school.address && (
+                                          <span className="text-xs text-gray-500">
+                                            {school.address}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                            {isLoadingForgotPasswordSchools && (
+                              <div className="text-sm text-gray-500">
+                                Searching schools...
+                              </div>
+                            )}
+                            {forgotPasswordSchoolSearch.length >= 2 &&
+                              forgotPasswordSchools.length === 0 &&
+                              !isLoadingForgotPasswordSchools && (
+                                <div className="text-sm text-gray-500">
+                                  No schools found
+                                </div>
+                              )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Label htmlFor="forgot-password-identifier">
+                          {getIdentifierLabel(forgotPasswordRole)}
+                        </Label>
+                        <Input
+                          id="forgot-password-identifier"
+                          type="text"
+                          placeholder={getIdentifierPlaceholder(
+                            forgotPasswordRole,
+                          )}
+                          value={forgotPasswordIdentifier}
+                          onChange={(e) =>
+                            setForgotPasswordIdentifier(e.target.value)
+                          }
+                          required
+                        />
+                      </div>
+
+                      {forgotPasswordRole === "parent" && (
+                        <div className="space-y-2">
+                          <Label htmlFor="forgot-password-ward-admission-number">
+                            Ward Admission Number
+                          </Label>
+                          <Input
+                            id="forgot-password-ward-admission-number"
+                            type="text"
+                            placeholder="SBA2024001"
+                            value={forgotPasswordWardAdmissionNumber}
+                            onChange={(e) =>
+                              setForgotPasswordWardAdmissionNumber(
+                                e.target.value,
+                              )
+                            }
+                            required
+                          />
+                        </div>
+                      )}
+                      <DialogFooter>
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          disabled={isRequestingReset}
+                        >
+                          {isRequestingReset
+                            ? "Requesting..."
+                            : "Request Reset"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  )}
+                  {forgotPasswordRole === "super_admin" && (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-700">
+                        Super Admins should manage their password resets
+                        directly through the{" "}
+                        <a
+                          href="https://app.supabase.com/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          Supabase project dashboard
+                        </a>
+                        .
+                      </p>
+                      <Button
+                        variant="outline"
+                        className="mt-4"
+                        onClick={() => setShowForgotPasswordModal(false)}
+                      >
+                        Close
+                      </Button>
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+            </div>
           </CardContent>
         </Card>
 
