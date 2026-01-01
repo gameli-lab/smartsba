@@ -20,11 +20,22 @@ const testSupabase = createClient(
 
 describe('School Operations - Cascade Delete', () => {
   let testSchoolId: string;
-  // let testUserId: string; // Removed for simplified testing
+  let testUserId: string;
   let testClassId: string;
   let testStudentId: string;
 
   beforeEach(async () => {
+    // Create an auth user to satisfy students.user_id FK
+    const email = `student_test_${Date.now()}@example.com`
+    const { data: userResult, error: userError } = await testSupabase.auth.admin.createUser({
+      email,
+      password: 'TestPassword123!',
+      email_confirm: true,
+    })
+
+    if (userError || !userResult.user) throw userError || new Error('Failed to create test user')
+    testUserId = userResult.user.id
+
     // Create a test school
     const { data: school, error: schoolError } = await testSupabase
       .from('schools')
@@ -59,7 +70,7 @@ describe('School Operations - Cascade Delete', () => {
     const { data: student, error: studentError } = await testSupabase
       .from('students')
       .insert({
-        user_id: '00000000-0000-0000-0000-000000000002',
+        user_id: testUserId,
         school_id: testSchoolId,
         admission_number: 'TEST001',
         class_id: testClassId,
@@ -82,9 +93,11 @@ describe('School Operations - Cascade Delete', () => {
     if (testClassId) {
       await testSupabase.from('classes').delete().eq('id', testClassId);
     }
-    // Skip user_profiles cleanup since we're not creating them
     if (testSchoolId) {
       await testSupabase.from('schools').delete().eq('id', testSchoolId);
+    }
+    if (testUserId) {
+      await testSupabase.auth.admin.deleteUser(testUserId);
     }
   });
 
@@ -173,13 +186,16 @@ describe('School Operations - Cascade Delete', () => {
     await deleteSchool(testSchoolId);
 
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Starting transactional school deletion')
+      expect.stringContaining('Starting transactional school deletion:'),
+      expect.any(String)
     );
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringMatching(/School to delete:/)
+      expect.stringMatching(/School to delete:/),
+      expect.any(Object)
     );
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringMatching(/Related data to be cascaded:/)
+      expect.stringMatching(/Related data to be cascaded:/),
+      expect.any(Object)
     );
 
     consoleSpy.mockRestore();

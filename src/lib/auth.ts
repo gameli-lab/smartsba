@@ -1,5 +1,6 @@
+import { redirect } from 'next/navigation'
 import { supabase } from './supabase'
-import { UserRole, UserProfile } from '@/types'
+import { UserRole, UserProfile, Teacher, TeacherAssignment, Student } from '@/types'
 import type { User } from '@supabase/supabase-js'
 
 export interface LoginCredentials {
@@ -261,5 +262,162 @@ export class AuthService {
     } catch (err) {
       console.error('Error setting custom claims:', err)
     }
+  }
+}
+
+/**
+ * Server-side auth guard for School Admin role
+ * Use this in Server Components and Server Actions to enforce School Admin access
+ * 
+ * @throws {Error} If user is not authenticated or not a school_admin
+ * @returns {Promise<{user: User, profile: UserProfile}>} Authenticated school admin user and profile
+ */
+export async function requireSchoolAdmin(): Promise<AuthResult> {
+  const currentUser = await AuthService.getCurrentUser()
+  
+  if (!currentUser) {
+    redirect('/login')
+  }
+  
+  if (currentUser.profile.role !== 'school_admin') {
+    redirect('/login')
+  }
+  
+  if (!currentUser.profile.school_id) {
+    redirect('/login')
+  }
+  
+  return currentUser
+}
+
+export interface TeacherGuardResult extends AuthResult {
+  teacher: Teacher
+  assignments: TeacherAssignment[]
+  effectiveRole: 'class_teacher' | 'subject_teacher'
+}
+
+export interface StudentGuardResult extends AuthResult {
+  student: Student | null
+}
+
+export interface ParentGuardResult extends AuthResult {
+  wards: Array<{
+    student: Student
+    relationship: string
+    is_primary: boolean
+  }>
+}
+
+/**
+ * Server-side auth guard for Teacher role
+ * Ensures the user is a teacher and returns their assignments.
+ * If no assignments are found, the caller can decide how to render an empty state.
+ */
+export async function requireTeacher(): Promise<TeacherGuardResult> {
+  const currentUser = await AuthService.getCurrentUser()
+
+  if (!currentUser) {
+    redirect('/login')
+  }
+
+  if (currentUser.profile.role !== 'teacher') {
+    redirect('/login')
+  }
+
+  const { data: teacherRow } = await supabase
+    .from('teachers')
+    .select('*')
+    .eq('user_id', currentUser.user.id)
+    .single()
+
+  if (!teacherRow || (teacherRow as Teacher).school_id !== currentUser.profile.school_id) {
+    redirect('/login')
+  }
+
+  const { data: assignmentRows } = await supabase
+    .from('teacher_assignments')
+    .select('id, teacher_id, class_id, subject_id, is_class_teacher, academic_year')
+    .eq('teacher_id', (teacherRow as Teacher).id)
+
+  const assignments = (assignmentRows || []) as TeacherAssignment[]
+  const effectiveRole = assignments.some((a) => a.is_class_teacher) ? 'class_teacher' : 'subject_teacher'
+
+  return {
+    ...currentUser,
+    teacher: teacherRow as Teacher,
+    assignments,
+    effectiveRole,
+  }
+}
+
+/**
+ * Server-side auth guard for Student role.
+ * Redirects if not authenticated or not a student.
+ * Returns student record if found; callers handle missing profile state.
+ */
+export async function requireStudent(): Promise<StudentGuardResult> {
+  const currentUser = await AuthService.getCurrentUser()
+
+  if (!currentUser) {
+    redirect('/login')
+  }
+
+  if (currentUser.profile.role !== 'student') {
+    redirect('/login')
+  }
+
+  const { data: studentRow } = await supabase
+    .from('students')
+    .select('*')
+    .eq('user_id', currentUser.user.id)
+    .maybeSingle()
+
+  return {
+    ...currentUser,
+    student: (studentRow as Student) || null,
+  }
+}
+
+/**
+ * Server-side auth guard for Parent role.
+ * Redirects if not authenticated or not a parent.
+ * Returns linked wards (students); callers handle empty wards state.
+ */
+export async function requireParent(): Promise<ParentGuardResult> {
+  const currentUser = await AuthService.getCurrentUser()
+
+  if (!currentUser) {
+    redirect('/login')
+  }
+
+  if (currentUser.profile.role !== 'parent') {
+    redirect('/login')
+  }
+
+  // Fetch linked students via parent_student_relationships
+  const { data: linksData } = await supabase
+    .from('parent_student_relationships')
+    .select(`
+      relationship,
+      is_primary,
+      student:students(*)
+    `)
+    .eq('parent_id', currentUser.profile.id)
+
+  const links = (linksData || []) as Array<{
+    relationship: string
+    is_primary: boolean
+    student: Student
+  }>
+
+  const wards = links.map((link) => ({
+    student: link.student,
+    relationship: link.relationship,
+    is_primary: link.is_primary,
+  }))
+
+  return {
+    ...currentUser,
+    wards,
   }
 }

@@ -1,0 +1,102 @@
+import { requireSchoolAdmin } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { CreateSubjectDialog } from './create-subject-dialog'
+import { SubjectsList } from './subjects-list'
+import type { Subject, Class } from '@/types'
+
+export default async function SubjectsPage() {
+  const { profile } = await requireSchoolAdmin()
+  const schoolId = profile.school_id
+
+  const [{ data: subjectsData }, { data: classesData }] = await Promise.all([
+    supabase
+      .from('subjects')
+      .select('*')
+      .eq('school_id', schoolId)
+      .order('name'),
+    supabase
+      .from('classes')
+      .select('id, name, level, stream')
+      .eq('school_id', schoolId)
+      .order('level', { ascending: true }),
+  ])
+
+  const subjects = (subjectsData || []) as Subject[]
+  const classes = (classesData || []) as Class[]
+
+  const total = subjects.length
+  const core = subjects.filter((s) => s.is_core).length
+  const elective = total - core
+
+  return (
+    <div className="p-8 space-y-8">
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Subjects</h1>
+          <p className="text-gray-600 mt-1">Manage subjects across all classes</p>
+        </div>
+        <CreateSubjectDialog classes={classes} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Subjects</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{total}</p>
+              </div>
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="h-8 w-8 text-blue-600">📖</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Core Subjects</p>
+                <p className="text-3xl font-bold text-blue-700 mt-2">{core}</p>
+              </div>
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="h-8 w-8 text-blue-600">⭐</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Elective Subjects</p>
+                <p className="text-3xl font-bold text-purple-700 mt-2">{elective}</p>
+              </div>
+              <div className="bg-purple-50 p-3 rounded-lg">
+                <div className="h-8 w-8 text-purple-600">✨</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All Subjects</CardTitle>
+          <CardDescription>View and manage all subjects</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {subjects.length ? (
+            <SubjectsList subjects={subjects} classes={classes} />
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500 mb-4">No subjects created yet</p>
+              <CreateSubjectDialog classes={classes} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

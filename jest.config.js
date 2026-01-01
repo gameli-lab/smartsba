@@ -5,17 +5,12 @@ const config = {
   roots: ["<rootDir>/tests"],
   testMatch: ["**/__tests__/**/*.ts", "**/?(*.)+(spec|test).ts"],
   transform: {
-    "^.+\\.ts$": "ts-jest",
+    "^.+\\.ts$": ["ts-jest", { tsconfig: "tsconfig.json", useESM: false }],
   },
-  moduleNameMapping: {
+  moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   setupFilesAfterEnv: ["<rootDir>/tests/setup.ts"],
-  globals: {
-    "ts-jest": {
-      useESM: false,
-    },
-  },
 };
 
 module.exports = config;

@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { MoreVertical, Edit, Eye, Power, PowerOff, Trash2 } from "lucide-react";
 import { SchoolWithStats } from "@/hooks/useSchools";
 
@@ -29,6 +30,8 @@ interface SchoolsTableProps {
   onToggleStatus: (schoolId: string, currentStatus: string) => void;
   onDeleteSchool: (schoolId: string, schoolName: string) => void;
   onPageChange: (page: number) => void;
+  selectedSchoolIds?: Set<string>;
+  onToggleSelection?: (schoolId: string) => void;
 }
 
 export function SchoolsTable({
@@ -41,6 +44,8 @@ export function SchoolsTable({
   onToggleStatus,
   onDeleteSchool,
   onPageChange,
+  selectedSchoolIds,
+  onToggleSelection,
 }: SchoolsTableProps) {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedSchools = schools.slice(startIndex, startIndex + itemsPerPage);
@@ -74,6 +79,7 @@ export function SchoolsTable({
       <Table>
         <TableHeader>
           <TableRow>
+            {onToggleSelection && <TableHead className="w-12"></TableHead>}
             <TableHead>School Name</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Students</TableHead>
@@ -91,6 +97,14 @@ export function SchoolsTable({
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => onSelectSchool(school)}
             >
+              {onToggleSelection && (
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedSchoolIds?.has(school.id)}
+                    onCheckedChange={() => onToggleSelection(school.id)}
+                  />
+                </TableCell>
+              )}
               <TableCell className="font-medium">{school.name}</TableCell>
               <TableCell>
                 <Badge

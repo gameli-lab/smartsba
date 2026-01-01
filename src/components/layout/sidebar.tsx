@@ -29,6 +29,8 @@ import {
   Calendar,
   BarChart3,
   Bell,
+  Mail,
+  TrendingUp,
 } from "lucide-react";
 import { UserRole } from "@/types";
 import { AuthService } from "@/lib/auth";
@@ -58,6 +60,21 @@ const roleConfig = {
         icon: BarChart3,
         label: "Analytics",
         href: "/dashboard/super-admin/analytics",
+      },
+      {
+        icon: TrendingUp,
+        label: "Reports",
+        href: "/dashboard/super-admin/reports",
+      },
+      {
+        icon: FileText,
+        label: "Audit Logs",
+        href: "/dashboard/super-admin/audit-logs",
+      },
+      {
+        icon: Mail,
+        label: "Email Logs",
+        href: "/dashboard/super-admin/email-logs",
       },
       {
         icon: Settings,

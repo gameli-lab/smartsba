@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { randomBytes } from 'crypto';
 import logAudit from '@/lib/audit';
+import { sendUserCreatedEmail } from '@/services/emailService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -272,6 +273,29 @@ export async function POST(request: NextRequest) {
             staff_id: admin.staff_id,
             user_id: authData.user.id,
           });
+
+          // Get school name for email
+          const { data: schoolData } = await supabaseAdmin
+            .from('schools')
+            .select('name')
+            .eq('id', schoolId)
+            .single();
+
+          // Send welcome email (non-blocking)
+          if (schoolData) {
+            sendUserCreatedEmail({
+              userName: admin.name,
+              userEmail: admin.email,
+              userId: authData.user.id,
+              role: 'school_admin',
+              schoolName: schoolData.name,
+              schoolId,
+              temporaryPassword: tempPassword,
+            }).catch(emailError => {
+              console.error(`Failed to send welcome email to ${admin.email}:`, emailError);
+              // Don't fail the operation if email fails
+            });
+          }
 
           // Write audit log for admin creation (non-blocking)
           try {

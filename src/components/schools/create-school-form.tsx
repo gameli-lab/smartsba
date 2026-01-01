@@ -43,6 +43,7 @@ import {
   createAdminCreationService,
   type AdminData,
 } from "@/services/adminCreationService";
+import { sendSchoolCreatedEmail } from "@/services/emailService";
 
 interface CreateSchoolFormProps {
   open: boolean;
@@ -341,6 +342,23 @@ export default function CreateSchoolForm({
       );
 
       if (successfulCreations.length > 0) {
+        // Send email notifications to successfully created admins
+        for (const admin of successfulCreations) {
+          try {
+            await sendSchoolCreatedEmail({
+              schoolName: formData.name,
+              adminName: admin.name,
+              adminEmail: admin.email,
+              adminUserId: admin.userId || '',
+              temporaryPassword: admin.password,
+              schoolId,
+            });
+          } catch (emailError) {
+            console.error(`Failed to send email to ${admin.email}:`, emailError);
+            // Don't block the flow if email fails
+          }
+        }
+
         // Some or all admins created successfully
         const successList = successfulCreations
           .map(
@@ -364,7 +382,7 @@ export default function CreateSchoolForm({
           (pendingCreations.length > 0
             ? `Manual Creation Required:\n${pendingList}\n\n`
             : "") +
-          `📧 Please share the temporary passwords securely with the administrators.\n` +
+          `📧 Email notifications sent to administrators with login credentials.\n` +
           `🔐 They should change their passwords on first login.`;
 
         alert(message);

@@ -4,6 +4,15 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import EditSuperAdminModal from '@/components/super-admin/EditSuperAdminModal';
 import type { UserProfile } from '@/types';
+import { BulkOperationDialog } from '@/components/super-admin/BulkOperationDialog';
+import { bulkDeleteUsers } from '../bulk-operations/actions';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { CheckSquare, Square } from 'lucide-react';
+import { ExportButton } from '@/components/super-admin/ExportButton';
+import { exportUsersToCSV } from '../exports/actions';
+import { exportUsersToPDF } from '@/lib/pdf-export';
 
 interface Row {
 	id: string;
@@ -23,6 +32,29 @@ export default function UsersPage() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [editing, setEditing] = useState<UserProfile | null>(null);
+	const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+	const [bulkOperation, setBulkOperation] = useState<'delete' | null>(null);
+	const [userId, setUserId] = useState<string | null>(null);
+	const [userRole, setUserRole] = useState<string | null>(null);
+
+	// Get current user session
+	useEffect(() => {
+		async function getUser() {
+			const { data: { session } } = await supabase.auth.getSession();
+			if (session) {
+				setUserId(session.user.id);
+				const profileResponse = (await supabase
+					.from('user_profiles')
+					.select('role')
+					.eq('user_id', session.user.id)
+					.single()) as { data: { role: string } | null };
+				if (profileResponse.data) {
+					setUserRole(profileResponse.data.role);
+				}
+			}
+		}
+		getUser();
+	}, []);
 
 	const fetchUsers = async (opts?: { cursor?: string | null, reset?: boolean }) => {
 		setLoading(true);
@@ -109,11 +141,102 @@ export default function UsersPage() {
 		setEditing(profile);
 	};
 
+	const toggleUserSelection = (userId: string) => {
+		const newSet = new Set(selectedUserIds);
+		if (newSet.has(userId)) {
+			newSet.delete(userId);
+		} else {
+			newSet.add(userId);
+		}
+		setSelectedUserIds(newSet);
+	};
+
+	const toggleSelectAll = () => {
+		if (selectedUserIds.size === users.length) {
+			setSelectedUserIds(new Set());
+		} else {
+			setSelectedUserIds(new Set(users.map((u) => u.id)));
+		}
+	};
+
+	const clearSelection = () => {
+		setSelectedUserIds(new Set());
+	};
+
+	const handleBulkOperation = async () => {
+		if (!bulkOperation || !userId || !userRole) return { success: false, message: 'Not authenticated', successCount: 0, failureCount: selectedUserIds.size };
+
+		const ids = Array.from(selectedUserIds);
+		const result = await bulkDeleteUsers(ids, userId, userRole);
+
+		// Refresh users list after bulk operation
+		await fetchUsers();
+		clearSelection();
+
+		return result;
+	};
+
+	const getSelectedUsersInfo = () => {
+		return users
+			.filter((u) => selectedUserIds.has(u.id))
+			.map((u) => ({ id: u.id, name: u.full_name || u.email || 'Unknown' }));
+	};
+
+	const handleExportCSV = async () => {
+		if (!userId || !userRole) {
+			alert('Not authenticated');
+			return;
+		}
+
+		const result = await exportUsersToCSV(userId, userRole, {
+			search: q,
+		});
+
+		if (result.success && result.data && result.filename) {
+			const blob = new Blob([result.data], { type: 'text/csv;charset=utf-8;' });
+			const link = document.createElement('a');
+			const url = URL.createObjectURL(blob);
+			link.setAttribute('href', url);
+			link.setAttribute('download', result.filename);
+			link.style.visibility = 'hidden';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+		} else {
+			alert(result.error || 'Export failed');
+		}
+	};
+
+	const handleExportPDF = async () => {
+		// Fetch all users with email for PDF
+		const usersWithEmail = await Promise.all(
+			users.map(async (u) => {
+				const { data: authUser } = await supabase.auth.admin.getUserById(u.user_id || '');
+				return {
+					...u,
+					email: authUser?.user?.email || '',
+					school: u.school || '',
+				};
+			})
+		);
+
+		const result = await exportUsersToPDF(usersWithEmail, { search: q });
+
+		if (!result.success) {
+			alert(result.error || 'Export failed');
+		}
+	};
+
 	return (
 		<div className="p-6">
 			<div className="flex items-center justify-between mb-4">
 				<h1 className="text-2xl font-semibold">Users</h1>
 				<div className="flex items-center gap-2">
+					<ExportButton
+						onExportCSV={handleExportCSV}
+						onExportPDF={handleExportPDF}
+						disabled={loading}
+					/>
 					<input
 						className="input"
 						placeholder="Search by name or email"
@@ -125,16 +248,59 @@ export default function UsersPage() {
 				</div>
 			</div>
 
+			{/* Bulk Actions Toolbar */}
+			{selectedUserIds.size > 0 && (
+				<div className="flex items-center gap-3 p-4 bg-muted rounded-lg border mb-4">
+					<Badge variant="secondary" className="text-sm">
+						{selectedUserIds.size} selected
+					</Badge>
+					<Button
+						size="sm"
+						variant="destructive"
+						onClick={() => setBulkOperation('delete')}
+					>
+						Delete Selected
+					</Button>
+					<Button
+						size="sm"
+						variant="ghost"
+						onClick={clearSelection}
+					>
+						Clear Selection
+					</Button>
+				</div>
+			)}
+
 			{loading && <div>Loading…</div>}
 			{error && <div className="text-red-600 mb-2">{error}</div>}
 
 			{!loading && users.length === 0 && <div>No users found.</div>}
+
+			{/* Select All */}
+			{!loading && users.length > 0 && (
+				<div className="mb-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={toggleSelectAll}
+						className="gap-2"
+					>
+						{selectedUserIds.size === users.length ? (
+							<CheckSquare className="h-4 w-4" />
+						) : (
+							<Square className="h-4 w-4" />
+						)}
+						{selectedUserIds.size === users.length ? 'Deselect All' : 'Select All'}
+					</Button>
+				</div>
+			)}
 
 			{!loading && users.length > 0 && (
 				<div className="overflow-x-auto">
 					<table className="min-w-full table-auto border-collapse">
 						<thead>
 							<tr className="text-left">
+								<th className="px-3 py-2 w-12"></th>
 								<th className="px-3 py-2">Name</th>
 								<th className="px-3 py-2">Email</th>
 								<th className="px-3 py-2">Role</th>
@@ -145,6 +311,12 @@ export default function UsersPage() {
 						<tbody>
 							{users.map((u) => (
 								<tr key={u.id} className="border-t">
+									<td className="px-3 py-2">
+										<Checkbox
+											checked={selectedUserIds.has(u.id)}
+											onCheckedChange={() => toggleUserSelection(u.id)}
+										/>
+									</td>
 									<td className="px-3 py-2">{u.full_name}</td>
 									<td className="px-3 py-2">{u.email}</td>
 									<td className="px-3 py-2">{u.role || ''}</td>
@@ -193,6 +365,19 @@ export default function UsersPage() {
 					admin={editing}
 					onClose={() => setEditing(null)}
 					onSaved={() => { setEditing(null); fetchUsers(); }}
+				/>
+			)}
+
+			{/* Bulk Operation Dialog */}
+			{bulkOperation && (
+				<BulkOperationDialog
+					open={bulkOperation !== null}
+					onOpenChange={(open) => !open && setBulkOperation(null)}
+					operation={bulkOperation}
+					entityType="user"
+					selectedCount={selectedUserIds.size}
+					selectedItems={getSelectedUsersInfo()}
+					onConfirm={handleBulkOperation}
 				/>
 			)}
 		</div>

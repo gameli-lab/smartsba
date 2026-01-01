@@ -1,7 +1,10 @@
 // Enhanced school operations with proper validation and error handling
 // Improved from temporary bypass to production-ready functions
 
-import { supabase } from './supabase';
+import { createAdminSupabaseClient } from './supabase';
+
+// Use admin client to bypass RLS for server-side maintenance operations
+const adminSupabase = createAdminSupabaseClient();
 
 interface OperationResult<T = unknown> {
   error: Error | null;
@@ -27,7 +30,7 @@ export const updateSchoolStatus = async (
     
     // Type assertion needed until Supabase types are regenerated
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (adminSupabase as any)
       .from("schools")
       .update({ 
         status,
@@ -65,7 +68,7 @@ export const updateUserProfiles = async (
     // First, check if any users exist for this school
     // Type assertion needed until Supabase types are regenerated
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingUsers, error: fetchError } = await (supabase as any)
+    const { data: existingUsers, error: fetchError } = await (adminSupabase as any)
       .from("user_profiles")
       .select("user_id, email, role")
       .eq("school_id", schoolId);
@@ -84,7 +87,7 @@ export const updateUserProfiles = async (
 
     // Type assertion needed until Supabase types are regenerated
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any)
+    const { data, error } = await (adminSupabase as any)
       .from("user_profiles")
       .update({ status })
       .eq("school_id", schoolId);
@@ -114,7 +117,7 @@ export const deleteSchool = async (schoolId: string): Promise<OperationResult> =
     // First, verify the school exists and get basic info for logging
     // Type assertion needed until Supabase types are regenerated
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: schoolInfo, error: schoolCheckError } = await (supabase as any)
+    const { data: schoolInfo, error: schoolCheckError } = await (adminSupabase as any)
       .from("schools")
       .select("id, name, created_at")
       .eq("id", schoolId)
@@ -137,15 +140,15 @@ export const deleteSchool = async (schoolId: string): Promise<OperationResult> =
     const relatedDataQueries = await Promise.allSettled([
       // Type assertion needed until Supabase types are regenerated
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from("user_profiles").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
+      (adminSupabase as any).from("user_profiles").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from("classes").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
+      (adminSupabase as any).from("classes").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from("students").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
+      (adminSupabase as any).from("students").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from("teachers").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
+      (adminSupabase as any).from("teachers").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from("academic_sessions").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
+      (adminSupabase as any).from("academic_sessions").select("id", { count: 'exact', head: true }).eq("school_id", schoolId),
     ]);
 
     const relatedCounts = {
@@ -161,7 +164,7 @@ export const deleteSchool = async (schoolId: string): Promise<OperationResult> =
     // Use the safe database function for deletion with comprehensive logging
     // Type assertion needed until Supabase types are regenerated
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: deleteResult, error } = await (supabase as any)
+    const { data: deleteResult, error } = await (adminSupabase as any)
       .rpc('safe_delete_school', { target_school_id: schoolId });
     
     if (error) {
