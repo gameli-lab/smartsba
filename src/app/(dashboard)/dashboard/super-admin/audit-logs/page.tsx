@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
-import { FileText, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
+import { FileText, ChevronLeft, ChevronRight, Filter, Search, Activity, AlertCircle } from 'lucide-react'
 import { ExportButton } from '@/components/super-admin/ExportButton'
 import { exportAuditLogsToCSV } from '../exports/actions'
 import { exportAuditLogsToPDF } from '@/lib/pdf-export'
@@ -61,12 +61,14 @@ export default function AuditLogsPage() {
   const [cursorStack, setCursorStack] = useState<string[]>([])
   const [userId, setUserId] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [totalLogs, setTotalLogs] = useState(0)
 
   // Filters
   const [actionType, setActionType] = useState('all')
   const [entityType, setEntityType] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     async function init() {
@@ -88,7 +90,7 @@ export default function AuditLogsPage() {
 
   useEffect(() => {
     fetchLogs()
-  }, [actionType, entityType, dateFrom, dateTo])
+  }, [actionType, entityType, dateFrom, dateTo, searchQuery])
 
   const fetchLogs = async (cursor?: string | null) => {
     setLoading(true)
@@ -109,6 +111,7 @@ export default function AuditLogsPage() {
       if (entityType !== 'all') url.searchParams.set('entity_type', entityType)
       if (dateFrom) url.searchParams.set('date_from', new Date(dateFrom).toISOString())
       if (dateTo) url.searchParams.set('date_to', new Date(dateTo).toISOString())
+      if (searchQuery) url.searchParams.set('search', searchQuery)
       if (cursor) url.searchParams.set('cursor', cursor)
 
       const res = await fetch(url.toString(), {
@@ -123,6 +126,7 @@ export default function AuditLogsPage() {
       const json = await res.json()
       setLogs(json.logs || [])
       setNextCursor(json.next_cursor || null)
+      setTotalLogs(json.total || (json.logs || []).length)
     } catch (err) {
       console.error('Error fetching audit logs:', err)
       setError((err as Error)?.message ?? 'Error loading audit logs')
@@ -151,6 +155,7 @@ export default function AuditLogsPage() {
     setEntityType('all')
     setDateFrom('')
     setDateTo('')
+    setSearchQuery('')
     setCursorStack([])
     fetchLogs()
   }
@@ -229,17 +234,76 @@ export default function AuditLogsPage() {
         />
       </div>
 
+      {/* Summary Statistics */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-blue-600" />
+              Total Events
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalLogs}</div>
+            <p className="text-xs text-gray-500 mt-1">Across all filters</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-orange-600" />
+              Critical Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {logs.filter((l) => l.action_type.includes('deleted') || l.action_type.includes('override')).length}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Deletions & overrides</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-gray-600" />
+              Page Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{logs.length}</div>
+            <p className="text-xs text-gray-500 mt-1">Current page</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <Filter className="h-5 w-5 text-purple-600" />
-            <CardTitle>Filters</CardTitle>
+            <CardTitle>Filters & Search</CardTitle>
           </div>
           <CardDescription>Filter audit logs by action, entity, or date range</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            {/* Search Input */}
+            <div>
+              <Label htmlFor="search">Search Actor or Entity</Label>
+              <div className="relative mt-1">
+                <Search className="absolute left-2 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="search"
+                  placeholder="Search by name or email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+
             <div>
               <Label htmlFor="action-type">Action Type</Label>
               <Select value={actionType} onValueChange={setActionType}>

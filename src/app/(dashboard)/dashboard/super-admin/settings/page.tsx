@@ -30,6 +30,81 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
+  
+  // Grading form state
+  const [gradingValues, setGradingValues] = useState({
+    pass_mark: 40,
+    ca_weight: 40,
+    exam_weight: 60,
+  })
+  const [gradingDirty, setGradingDirty] = useState(false)
+  const [savingGrading, setSavingGrading] = useState(false)
+
+  // Calendar form state
+  const [calendarValues, setCalendarValues] = useState({
+    terms_per_year: 3,
+    default_term_length_weeks: 13,
+    academic_year_start_month: 9,
+  })
+  const [calendarDirty, setCalendarDirty] = useState(false)
+  const [savingCalendar, setSavingCalendar] = useState(false)
+
+  // Results form state
+  const [resultsValues, setResultsValues] = useState({
+    require_approval: true,
+    parent_notification_enabled: true,
+  })
+  const [resultsDirty, setResultsDirty] = useState(false)
+  const [savingResults, setSavingResults] = useState(false)
+
+  // Security form state
+  const [securityValues, setSecurityValues] = useState({
+    password_min_length: 8,
+    password_require_uppercase: true,
+    password_require_lowercase: true,
+    password_require_number: true,
+    password_require_special: false,
+    login_lockout_attempts: 5,
+    login_lockout_duration_minutes: 30,
+    session_timeout_minutes: 60,
+  })
+  const [securityDirty, setSecurityDirty] = useState(false)
+  const [savingSecurity, setSavingSecurity] = useState(false)
+
+  // Email configuration state
+  const [emailValues, setEmailValues] = useState({
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_user: '',
+    smtp_password: '',
+    sender_name: 'SmartSBA System',
+    sender_email: 'noreply@smartsba.local',
+  })
+  const [emailDirty, setEmailDirty] = useState(false)
+  const [savingEmail, setSavingEmail] = useState(false)
+
+  // Maintenance mode state
+  const [maintenanceValues, setMaintenanceValues] = useState({
+    maintenance_mode_enabled: false,
+    maintenance_message: 'System maintenance in progress. Please try again later.',
+  })
+  const [maintenanceDirty, setMaintenanceDirty] = useState(false)
+  const [savingMaintenance, setSavingMaintenance] = useState(false)
+
+  // Feature toggles state
+  const [featureValues, setFeatureValues] = useState({
+    enable_bulk_operations: true,
+    enable_analytics: true,
+    enable_audit_logs: true,
+    enable_email_notifications: true,
+    enable_api_access: false,
+    enable_two_factor_auth: false,
+  })
+  const [featureDirty, setFeatureDirty] = useState(false)
+  const [savingFeatures, setSavingFeatures] = useState(false)
+
+  // Backup state
+  const [backupLoading, setBackupLoading] = useState(false)
 
   useEffect(() => {
     async function checkAuth() {
@@ -76,6 +151,61 @@ export default function SettingsPage() {
       setError(result.error)
     } else {
       setSettings(result.settings)
+      // Initialize grading form values from settings
+      const pass_mark = result.settings.find(s => s.setting_key === 'grading.pass_mark')?.setting_value || 40
+      const ca_weight = result.settings.find(s => s.setting_key === 'grading.ca_weight')?.setting_value || 40
+      const exam_weight = result.settings.find(s => s.setting_key === 'grading.exam_weight')?.setting_value || 60
+      
+      setGradingValues({
+        pass_mark: typeof pass_mark === 'string' ? parseInt(pass_mark) : pass_mark,
+        ca_weight: typeof ca_weight === 'string' ? parseInt(ca_weight) : ca_weight,
+        exam_weight: typeof exam_weight === 'string' ? parseInt(exam_weight) : exam_weight,
+      })
+      setGradingDirty(false)
+
+      // Initialize calendar form values from settings
+      const terms_per_year = result.settings.find(s => s.setting_key === 'calendar.terms_per_year')?.setting_value || 3
+      const default_term_length_weeks = result.settings.find(s => s.setting_key === 'calendar.default_term_length_weeks')?.setting_value || 13
+      const academic_year_start_month = result.settings.find(s => s.setting_key === 'calendar.academic_year_start_month')?.setting_value || 9
+      
+      setCalendarValues({
+        terms_per_year: typeof terms_per_year === 'string' ? parseInt(terms_per_year) : terms_per_year,
+        default_term_length_weeks: typeof default_term_length_weeks === 'string' ? parseInt(default_term_length_weeks) : default_term_length_weeks,
+        academic_year_start_month: typeof academic_year_start_month === 'string' ? parseInt(academic_year_start_month) : academic_year_start_month,
+      })
+      setCalendarDirty(false)
+
+      // Initialize results form values from settings
+      const require_approval = result.settings.find(s => s.setting_key === 'results.require_approval')?.setting_value || true
+      const parent_notification_enabled = result.settings.find(s => s.setting_key === 'results.parent_notification_enabled')?.setting_value || true
+      
+      setResultsValues({
+        require_approval: typeof require_approval === 'string' ? require_approval === 'true' : require_approval,
+        parent_notification_enabled: typeof parent_notification_enabled === 'string' ? parent_notification_enabled === 'true' : parent_notification_enabled,
+      })
+      setResultsDirty(false)
+
+      // Initialize security form values from settings
+      const password_min_length = result.settings.find(s => s.setting_key === 'security.password_min_length')?.setting_value || 8
+      const password_require_uppercase = result.settings.find(s => s.setting_key === 'security.password_require_uppercase')?.setting_value || true
+      const password_require_lowercase = result.settings.find(s => s.setting_key === 'security.password_require_lowercase')?.setting_value || true
+      const password_require_number = result.settings.find(s => s.setting_key === 'security.password_require_number')?.setting_value || true
+      const password_require_special = result.settings.find(s => s.setting_key === 'security.password_require_special')?.setting_value || false
+      const login_lockout_attempts = result.settings.find(s => s.setting_key === 'security.login_lockout_attempts')?.setting_value || 5
+      const login_lockout_duration_minutes = result.settings.find(s => s.setting_key === 'security.login_lockout_duration_minutes')?.setting_value || 30
+      const session_timeout_minutes = result.settings.find(s => s.setting_key === 'security.session_timeout_minutes')?.setting_value || 60
+      
+      setSecurityValues({
+        password_min_length: typeof password_min_length === 'string' ? parseInt(password_min_length) : password_min_length,
+        password_require_uppercase: typeof password_require_uppercase === 'string' ? password_require_uppercase === 'true' : password_require_uppercase,
+        password_require_lowercase: typeof password_require_lowercase === 'string' ? password_require_lowercase === 'true' : password_require_lowercase,
+        password_require_number: typeof password_require_number === 'string' ? password_require_number === 'true' : password_require_number,
+        password_require_special: typeof password_require_special === 'string' ? password_require_special === 'true' : password_require_special,
+        login_lockout_attempts: typeof login_lockout_attempts === 'string' ? parseInt(login_lockout_attempts) : login_lockout_attempts,
+        login_lockout_duration_minutes: typeof login_lockout_duration_minutes === 'string' ? parseInt(login_lockout_duration_minutes) : login_lockout_duration_minutes,
+        session_timeout_minutes: typeof session_timeout_minutes === 'string' ? parseInt(session_timeout_minutes) : session_timeout_minutes,
+      })
+      setSecurityDirty(false)
     }
 
     setLoading(false)
@@ -91,19 +221,297 @@ export default function SettingsPage() {
     setError(null)
     setSuccess(null)
 
+    // Optimistically update local state immediately for instant UI feedback
+    setSettings(prev => prev.map(s => 
+      s.setting_key === settingKey 
+        ? { ...s, setting_value: newValue, updated_at: new Date().toISOString() }
+        : s
+    ))
+
+    console.log('Updating setting:', settingKey, 'to:', newValue)
     const result = await updateSystemSetting(settingKey, newValue, userId, userRole)
+    console.log('Update result:', result)
 
     if (result.success) {
       setSuccess(`Setting "${settingKey}" updated successfully`)
-      await loadSettings()
+      
+      // Reload settings from server after a short delay to ensure DB update propagated
+      setTimeout(async () => {
+        console.log('Reloading settings from server...')
+        await loadSettings()
+      }, 500)
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000)
     } else {
+      // Revert optimistic update on error
+      console.log('Update failed, reverting...')
+      await loadSettings()
       setError(result.error || 'Failed to update setting')
     }
 
     setSaving(null)
+  }
+
+  async function saveGradingSettings() {
+    if (!userId || !userRole) {
+      setError('Not authenticated')
+      return
+    }
+
+    setSavingGrading(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      // Save all grading settings
+      await updateSystemSetting('grading.pass_mark', gradingValues.pass_mark, userId, userRole)
+      await updateSystemSetting('grading.ca_weight', gradingValues.ca_weight, userId, userRole)
+      await updateSystemSetting('grading.exam_weight', gradingValues.exam_weight, userId, userRole)
+      
+      setSuccess('Grading settings saved successfully')
+      setGradingDirty(false)
+      
+      // Reload settings from server
+      setTimeout(async () => {
+        await loadSettings()
+      }, 500)
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError('Failed to save grading settings')
+      console.error('Error saving grading settings:', err)
+    } finally {
+      setSavingGrading(false)
+    }
+  }
+
+  function handleGradingChange(field: 'pass_mark' | 'ca_weight' | 'exam_weight', value: number) {
+    const newValues = { ...gradingValues, [field]: value }
+    
+    // Auto-adjust weights if CA or exam weight changed
+    if (field === 'ca_weight') {
+      newValues.exam_weight = 100 - value
+    } else if (field === 'exam_weight') {
+      newValues.ca_weight = 100 - value
+    }
+    
+    setGradingValues(newValues)
+    setGradingDirty(true)
+  }
+
+  async function saveCalendarSettings() {
+    if (!userId || !userRole) {
+      setError('Not authenticated')
+      return
+    }
+
+    setSavingCalendar(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      // Save all calendar settings
+      await updateSystemSetting('calendar.terms_per_year', calendarValues.terms_per_year, userId, userRole)
+      await updateSystemSetting('calendar.default_term_length_weeks', calendarValues.default_term_length_weeks, userId, userRole)
+      await updateSystemSetting('calendar.academic_year_start_month', calendarValues.academic_year_start_month, userId, userRole)
+      
+      setSuccess('Calendar settings saved successfully')
+      setCalendarDirty(false)
+      
+      // Reload settings from server
+      setTimeout(async () => {
+        await loadSettings()
+      }, 500)
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError('Failed to save calendar settings')
+      console.error('Error saving calendar settings:', err)
+    } finally {
+      setSavingCalendar(false)
+    }
+  }
+
+  function handleCalendarChange(field: 'terms_per_year' | 'default_term_length_weeks' | 'academic_year_start_month', value: number) {
+    setCalendarValues(prev => ({
+      ...prev,
+      [field]: value
+    }))
+    setCalendarDirty(true)
+  }
+
+  async function saveResultsSettings() {
+    if (!userId || !userRole) {
+      setError('Not authenticated')
+      return
+    }
+
+    setSavingResults(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      // Save all results settings
+      await updateSystemSetting('results.require_approval', resultsValues.require_approval, userId, userRole)
+      await updateSystemSetting('results.parent_notification_enabled', resultsValues.parent_notification_enabled, userId, userRole)
+      
+      setSuccess('Results settings saved successfully')
+      setResultsDirty(false)
+      
+      // Reload settings from server
+      setTimeout(async () => {
+        await loadSettings()
+      }, 500)
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError('Failed to save results settings')
+      console.error('Error saving results settings:', err)
+    } finally {
+      setSavingResults(false)
+    }
+  }
+
+  function handleResultsChange(field: 'require_approval' | 'parent_notification_enabled', value: boolean) {
+    setResultsValues(prev => ({
+      ...prev,
+      [field]: value
+    }))
+    setResultsDirty(true)
+  }
+
+  async function saveSecuritySettings() {
+    if (!userId || !userRole) {
+      setError('Not authenticated')
+      return
+    }
+
+    setSavingSecurity(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      // Save all security settings
+      await updateSystemSetting('security.password_min_length', securityValues.password_min_length, userId, userRole)
+      await updateSystemSetting('security.password_require_uppercase', securityValues.password_require_uppercase, userId, userRole)
+      await updateSystemSetting('security.password_require_lowercase', securityValues.password_require_lowercase, userId, userRole)
+      await updateSystemSetting('security.password_require_number', securityValues.password_require_number, userId, userRole)
+      await updateSystemSetting('security.password_require_special', securityValues.password_require_special, userId, userRole)
+      await updateSystemSetting('security.login_lockout_attempts', securityValues.login_lockout_attempts, userId, userRole)
+      await updateSystemSetting('security.login_lockout_duration_minutes', securityValues.login_lockout_duration_minutes, userId, userRole)
+      await updateSystemSetting('security.session_timeout_minutes', securityValues.session_timeout_minutes, userId, userRole)
+      
+      setSuccess('Security settings saved successfully')
+      setSecurityDirty(false)
+      
+      // Reload settings from server
+      setTimeout(async () => {
+        await loadSettings()
+      }, 500)
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError('Failed to save security settings')
+      console.error('Error saving security settings:', err)
+    } finally {
+      setSavingSecurity(false)
+    }
+  }
+
+  function handleSecurityChange(field: keyof typeof securityValues, value: any) {
+    setSecurityValues(prev => ({
+      ...prev,
+      [field]: value
+    }))
+    setSecurityDirty(true)
+  }
+
+  async function saveEmailSettings() {
+    if (!userId || !userRole) {
+      setError('Not authenticated')
+      return
+    }
+
+    setSavingEmail(true)
+    setError(null)
+
+    try {
+      await updateSystemSetting('email.smtp_host', emailValues.smtp_host, userId, userRole)
+      await updateSystemSetting('email.smtp_port', emailValues.smtp_port, userId, userRole)
+      await updateSystemSetting('email.smtp_user', emailValues.smtp_user, userId, userRole)
+      await updateSystemSetting('email.smtp_password', emailValues.smtp_password, userId, userRole)
+      await updateSystemSetting('email.sender_name', emailValues.sender_name, userId, userRole)
+      await updateSystemSetting('email.sender_email', emailValues.sender_email, userId, userRole)
+      
+      setSuccess('Email settings saved successfully')
+      setEmailDirty(false)
+      
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError('Failed to save email settings')
+      console.error('Error saving email settings:', err)
+    } finally {
+      setSavingEmail(false)
+    }
+  }
+
+  async function saveMaintenanceSettings() {
+    if (!userId || !userRole) {
+      setError('Not authenticated')
+      return
+    }
+
+    setSavingMaintenance(true)
+    setError(null)
+
+    try {
+      await updateSystemSetting('system.maintenance_mode_enabled', maintenanceValues.maintenance_mode_enabled, userId, userRole)
+      await updateSystemSetting('system.maintenance_message', maintenanceValues.maintenance_message, userId, userRole)
+      
+      setSuccess('Maintenance settings saved successfully')
+      setMaintenanceDirty(false)
+      
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError('Failed to save maintenance settings')
+      console.error('Error saving maintenance settings:', err)
+    } finally {
+      setSavingMaintenance(false)
+    }
+  }
+
+  async function saveFeatureSettings() {
+    if (!userId || !userRole) {
+      setError('Not authenticated')
+      return
+    }
+
+    setSavingFeatures(true)
+    setError(null)
+
+    try {
+      await updateSystemSetting('features.enable_bulk_operations', featureValues.enable_bulk_operations, userId, userRole)
+      await updateSystemSetting('features.enable_analytics', featureValues.enable_analytics, userId, userRole)
+      await updateSystemSetting('features.enable_audit_logs', featureValues.enable_audit_logs, userId, userRole)
+      await updateSystemSetting('features.enable_email_notifications', featureValues.enable_email_notifications, userId, userRole)
+      await updateSystemSetting('features.enable_api_access', featureValues.enable_api_access, userId, userRole)
+      await updateSystemSetting('features.enable_two_factor_auth', featureValues.enable_two_factor_auth, userId, userRole)
+      
+      setSuccess('Feature settings saved successfully')
+      setFeatureDirty(false)
+      
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError('Failed to save feature settings')
+      console.error('Error saving feature settings:', err)
+    } finally {
+      setSavingFeatures(false)
+    }
   }
 
   function getSetting(key: string): SystemSetting | undefined {
@@ -112,7 +520,16 @@ export default function SettingsPage() {
 
   function getSettingValue(key: string, defaultValue: any = null): any {
     const setting = getSetting(key)
-    return setting ? setting.setting_value : defaultValue
+    if (!setting) return defaultValue
+    
+    // Handle boolean values stored as strings or actual booleans
+    const value = setting.setting_value
+    if (typeof value === 'string') {
+      if (value === 'true') return true
+      if (value === 'false') return false
+    }
+    
+    return value !== undefined && value !== null ? value : defaultValue
   }
 
   if (loading) {
@@ -162,6 +579,9 @@ export default function SettingsPage() {
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="results">Results</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+          <TabsTrigger value="advanced">Advanced</TabsTrigger>
         </TabsList>
 
         {/* Features Tab */}
@@ -173,12 +593,12 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {[
-                { key: 'features.students_module', label: 'Students Module' },
-                { key: 'features.parents_module', label: 'Parents Module' },
-                { key: 'features.teachers_module', label: 'Teachers Module' },
-                { key: 'features.analytics_module', label: 'Analytics Module' },
-                { key: 'features.reports_module', label: 'Reports Module' },
-                { key: 'features.announcements_module', label: 'Announcements Module' },
+                { key: 'features.students_enabled', label: 'Students Module' },
+                { key: 'features.parents_enabled', label: 'Parents Module' },
+                { key: 'features.teachers_enabled', label: 'Teachers Module' },
+                { key: 'features.analytics_enabled', label: 'Analytics Module' },
+                { key: 'features.reports_enabled', label: 'Reports Module' },
+                { key: 'features.announcements_enabled', label: 'Announcements Module' },
               ].map(({ key, label }) => {
                 const setting = getSetting(key)
                 const isEnabled = getSettingValue(key, true)
@@ -224,14 +644,14 @@ export default function SettingsPage() {
                   type="number"
                   min="0"
                   max="100"
-                  value={getSettingValue('grading.default_pass_mark', 40)}
+                  value={gradingValues.pass_mark}
                   onChange={(e) => {
                     const value = parseInt(e.target.value)
                     if (!isNaN(value) && value >= 0 && value <= 100) {
-                      handleUpdateSetting('grading.default_pass_mark', value)
+                      handleGradingChange('pass_mark', value)
                     }
                   }}
-                  disabled={saving === 'grading.default_pass_mark'}
+                  disabled={savingGrading}
                 />
               </div>
 
@@ -242,14 +662,14 @@ export default function SettingsPage() {
                   type="number"
                   min="0"
                   max="100"
-                  value={getSettingValue('grading.default_ca_weight', 40)}
+                  value={gradingValues.ca_weight}
                   onChange={(e) => {
                     const value = parseInt(e.target.value)
                     if (!isNaN(value) && value >= 0 && value <= 100) {
-                      handleUpdateSetting('grading.default_ca_weight', value)
+                      handleGradingChange('ca_weight', value)
                     }
                   }}
-                  disabled={saving === 'grading.default_ca_weight'}
+                  disabled={savingGrading}
                 />
               </div>
 
@@ -260,14 +680,14 @@ export default function SettingsPage() {
                   type="number"
                   min="0"
                   max="100"
-                  value={getSettingValue('grading.default_exam_weight', 60)}
+                  value={gradingValues.exam_weight}
                   onChange={(e) => {
                     const value = parseInt(e.target.value)
                     if (!isNaN(value) && value >= 0 && value <= 100) {
-                      handleUpdateSetting('grading.default_exam_weight', value)
+                      handleGradingChange('exam_weight', value)
                     }
                   }}
-                  disabled={saving === 'grading.default_exam_weight'}
+                  disabled={savingGrading}
                 />
               </div>
 
@@ -277,6 +697,32 @@ export default function SettingsPage() {
                   CA Weight + Exam Weight should equal 100%. Schools can customize these values after creation.
                 </AlertDescription>
               </Alert>
+
+              {gradingDirty && (
+                <Alert className="border-yellow-200 bg-yellow-50 text-yellow-900">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    You have unsaved changes
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  onClick={saveGradingSettings}
+                  disabled={!gradingDirty || savingGrading}
+                  className="w-full"
+                >
+                  {savingGrading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Grading Settings'
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -289,6 +735,11 @@ export default function SettingsPage() {
               <CardDescription>Default calendar settings for new schools</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {calendarDirty && (
+                <Alert>
+                  <AlertDescription>You have unsaved changes</AlertDescription>
+                </Alert>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="terms_per_year">Terms Per Year</Label>
                 <Input
@@ -296,14 +747,14 @@ export default function SettingsPage() {
                   type="number"
                   min="1"
                   max="4"
-                  value={getSettingValue('calendar.terms_per_year', 3)}
+                  value={calendarValues.terms_per_year}
                   onChange={(e) => {
                     const value = parseInt(e.target.value)
                     if (!isNaN(value) && value >= 1 && value <= 4) {
-                      handleUpdateSetting('calendar.terms_per_year', value)
+                      handleCalendarChange('terms_per_year', value)
                     }
                   }}
-                  disabled={saving === 'calendar.terms_per_year'}
+                  disabled={savingCalendar}
                 />
               </div>
 
@@ -314,14 +765,14 @@ export default function SettingsPage() {
                   type="number"
                   min="1"
                   max="20"
-                  value={getSettingValue('calendar.weeks_per_term', 13)}
+                  value={calendarValues.default_term_length_weeks}
                   onChange={(e) => {
                     const value = parseInt(e.target.value)
                     if (!isNaN(value) && value >= 1 && value <= 20) {
-                      handleUpdateSetting('calendar.weeks_per_term', value)
+                      handleCalendarChange('default_term_length_weeks', value)
                     }
                   }}
-                  disabled={saving === 'calendar.weeks_per_term'}
+                  disabled={savingCalendar}
                 />
               </div>
 
@@ -330,9 +781,9 @@ export default function SettingsPage() {
                 <select
                   id="academic_year_start"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                  value={getSettingValue('calendar.academic_year_start_month', 9)}
-                  onChange={(e) => handleUpdateSetting('calendar.academic_year_start_month', parseInt(e.target.value))}
-                  disabled={saving === 'calendar.academic_year_start_month'}
+                  value={calendarValues.academic_year_start_month}
+                  onChange={(e) => handleCalendarChange('academic_year_start_month', parseInt(e.target.value))}
+                  disabled={savingCalendar}
                 >
                   {[
                     { value: 1, label: 'January' },
@@ -354,6 +805,13 @@ export default function SettingsPage() {
                   ))}
                 </select>
               </div>
+              <Button
+                onClick={saveCalendarSettings}
+                disabled={!calendarDirty || savingCalendar}
+                className="w-full"
+              >
+                {savingCalendar ? 'Saving...' : 'Save Calendar Settings'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -366,6 +824,11 @@ export default function SettingsPage() {
               <CardDescription>Control how results are published and distributed</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {resultsDirty && (
+                <Alert>
+                  <AlertDescription>You have unsaved changes</AlertDescription>
+                </Alert>
+              )}
               <div className="flex items-center justify-between space-x-2">
                 <div className="flex-1">
                   <Label htmlFor="require_approval">Require Admin Approval Before Publishing</Label>
@@ -374,11 +837,10 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2">
                   <Switch
                     id="require_approval"
-                    checked={getSettingValue('results.require_admin_approval', true)}
-                    onCheckedChange={(checked: boolean) => handleUpdateSetting('results.require_admin_approval', checked)}
-                    disabled={saving === 'results.require_admin_approval'}
+                    checked={resultsValues.require_approval}
+                    onCheckedChange={(checked: boolean) => handleResultsChange('require_approval', checked)}
+                    disabled={savingResults}
                   />
-                  {saving === 'results.require_admin_approval' && <Loader2 className="h-4 w-4 animate-spin" />}
                 </div>
               </div>
 
@@ -390,19 +852,30 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2">
                   <Switch
                     id="notify_parents"
-                    checked={getSettingValue('results.notify_parents_on_publish', true)}
-                    onCheckedChange={(checked: boolean) => handleUpdateSetting('results.notify_parents_on_publish', checked)}
-                    disabled={saving === 'results.notify_parents_on_publish'}
+                    checked={resultsValues.parent_notification_enabled}
+                    onCheckedChange={(checked: boolean) => handleResultsChange('parent_notification_enabled', checked)}
+                    disabled={savingResults}
                   />
-                  {saving === 'results.notify_parents_on_publish' && <Loader2 className="h-4 w-4 animate-spin" />}
                 </div>
               </div>
+              <Button
+                onClick={saveResultsSettings}
+                disabled={!resultsDirty || savingResults}
+                className="w-full"
+              >
+                {savingResults ? 'Saving...' : 'Save Results Settings'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-4">
+          {securityDirty && (
+            <Alert>
+              <AlertDescription>You have unsaved changes</AlertDescription>
+            </Alert>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Password Policy</CardTitle>
@@ -416,14 +889,14 @@ export default function SettingsPage() {
                   type="number"
                   min="6"
                   max="20"
-                  value={getSettingValue('security.password_min_length', 8)}
+                  value={securityValues.password_min_length}
                   onChange={(e) => {
                     const value = parseInt(e.target.value)
                     if (!isNaN(value) && value >= 6 && value <= 20) {
-                      handleUpdateSetting('security.password_min_length', value)
+                      handleSecurityChange('password_min_length', value)
                     }
                   }}
-                  disabled={saving === 'security.password_min_length'}
+                  disabled={savingSecurity}
                 />
               </div>
 
@@ -432,11 +905,10 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2">
                   <Switch
                     id="require_uppercase"
-                    checked={getSettingValue('security.password_require_uppercase', true)}
-                    onCheckedChange={(checked: boolean) => handleUpdateSetting('security.password_require_uppercase', checked)}
-                    disabled={saving === 'security.password_require_uppercase'}
+                    checked={securityValues.password_require_uppercase}
+                    onCheckedChange={(checked: boolean) => handleSecurityChange('password_require_uppercase', checked)}
+                    disabled={savingSecurity}
                   />
-                  {saving === 'security.password_require_uppercase' && <Loader2 className="h-4 w-4 animate-spin" />}
                 </div>
               </div>
 
@@ -445,11 +917,10 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2">
                   <Switch
                     id="require_lowercase"
-                    checked={getSettingValue('security.password_require_lowercase', true)}
-                    onCheckedChange={(checked: boolean) => handleUpdateSetting('security.password_require_lowercase', checked)}
-                    disabled={saving === 'security.password_require_lowercase'}
+                    checked={securityValues.password_require_lowercase}
+                    onCheckedChange={(checked: boolean) => handleSecurityChange('password_require_lowercase', checked)}
+                    disabled={savingSecurity}
                   />
-                  {saving === 'security.password_require_lowercase' && <Loader2 className="h-4 w-4 animate-spin" />}
                 </div>
               </div>
 
@@ -458,11 +929,22 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-2">
                   <Switch
                     id="require_number"
-                    checked={getSettingValue('security.password_require_number', true)}
-                    onCheckedChange={(checked: boolean) => handleUpdateSetting('security.password_require_number', checked)}
-                    disabled={saving === 'security.password_require_number'}
+                    checked={securityValues.password_require_number}
+                    onCheckedChange={(checked: boolean) => handleSecurityChange('password_require_number', checked)}
+                    disabled={savingSecurity}
                   />
-                  {saving === 'security.password_require_number' && <Loader2 className="h-4 w-4 animate-spin" />}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between space-x-2">
+                <Label htmlFor="require_special">Require Special Character</Label>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="require_special"
+                    checked={securityValues.password_require_special}
+                    onCheckedChange={(checked: boolean) => handleSecurityChange('password_require_special', checked)}
+                    disabled={savingSecurity}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -481,14 +963,14 @@ export default function SettingsPage() {
                   type="number"
                   min="3"
                   max="10"
-                  value={getSettingValue('security.max_login_attempts', 5)}
+                  value={securityValues.login_lockout_attempts}
                   onChange={(e) => {
                     const value = parseInt(e.target.value)
                     if (!isNaN(value) && value >= 3 && value <= 10) {
-                      handleUpdateSetting('security.max_login_attempts', value)
+                      handleSecurityChange('login_lockout_attempts', value)
                     }
                   }}
-                  disabled={saving === 'security.max_login_attempts'}
+                  disabled={savingSecurity}
                 />
               </div>
 
@@ -499,14 +981,14 @@ export default function SettingsPage() {
                   type="number"
                   min="5"
                   max="120"
-                  value={getSettingValue('security.lockout_duration_minutes', 30)}
+                  value={securityValues.login_lockout_duration_minutes}
                   onChange={(e) => {
                     const value = parseInt(e.target.value)
                     if (!isNaN(value) && value >= 5 && value <= 120) {
-                      handleUpdateSetting('security.lockout_duration_minutes', value)
+                      handleSecurityChange('login_lockout_duration_minutes', value)
                     }
                   }}
-                  disabled={saving === 'security.lockout_duration_minutes'}
+                  disabled={savingSecurity}
                 />
               </div>
 
@@ -517,16 +999,268 @@ export default function SettingsPage() {
                   type="number"
                   min="15"
                   max="480"
-                  value={getSettingValue('security.session_timeout_minutes', 60)}
+                  value={securityValues.session_timeout_minutes}
                   onChange={(e) => {
                     const value = parseInt(e.target.value)
                     if (!isNaN(value) && value >= 15 && value <= 480) {
-                      handleUpdateSetting('security.session_timeout_minutes', value)
+                      handleSecurityChange('session_timeout_minutes', value)
                     }
                   }}
-                  disabled={saving === 'security.session_timeout_minutes'}
+                  disabled={savingSecurity}
                 />
               </div>
+              <Button
+                onClick={saveSecuritySettings}
+                disabled={!securityDirty || savingSecurity}
+                className="w-full"
+              >
+                {savingSecurity ? 'Saving...' : 'Save Security Settings'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Email Configuration Tab */}
+        <TabsContent value="email" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Email Configuration</CardTitle>
+              <CardDescription>Configure SMTP settings for system email notifications</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="smtp_host">SMTP Host</Label>
+                <Input
+                  id="smtp_host"
+                  type="text"
+                  placeholder="mail.example.com"
+                  value={emailValues.smtp_host}
+                  onChange={(e) => {
+                    setEmailValues({ ...emailValues, smtp_host: e.target.value })
+                    setEmailDirty(true)
+                  }}
+                  disabled={savingEmail}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="smtp_port">SMTP Port</Label>
+                  <Input
+                    id="smtp_port"
+                    type="number"
+                    value={emailValues.smtp_port}
+                    onChange={(e) => {
+                      setEmailValues({ ...emailValues, smtp_port: parseInt(e.target.value) || 587 })
+                      setEmailDirty(true)
+                    }}
+                    disabled={savingEmail}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smtp_user">SMTP Username</Label>
+                  <Input
+                    id="smtp_user"
+                    type="text"
+                    placeholder="username"
+                    value={emailValues.smtp_user}
+                    onChange={(e) => {
+                      setEmailValues({ ...emailValues, smtp_user: e.target.value })
+                      setEmailDirty(true)
+                    }}
+                    disabled={savingEmail}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="smtp_password">SMTP Password</Label>
+                <Input
+                  id="smtp_password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={emailValues.smtp_password}
+                  onChange={(e) => {
+                    setEmailValues({ ...emailValues, smtp_password: e.target.value })
+                    setEmailDirty(true)
+                  }}
+                  disabled={savingEmail}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sender_name">Sender Name</Label>
+                <Input
+                  id="sender_name"
+                  type="text"
+                  value={emailValues.sender_name}
+                  onChange={(e) => {
+                    setEmailValues({ ...emailValues, sender_name: e.target.value })
+                    setEmailDirty(true)
+                  }}
+                  disabled={savingEmail}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sender_email">Sender Email Address</Label>
+                <Input
+                  id="sender_email"
+                  type="email"
+                  value={emailValues.sender_email}
+                  onChange={(e) => {
+                    setEmailValues({ ...emailValues, sender_email: e.target.value })
+                    setEmailDirty(true)
+                  }}
+                  disabled={savingEmail}
+                />
+              </div>
+
+              <Button
+                onClick={saveEmailSettings}
+                disabled={!emailDirty || savingEmail}
+                className="w-full"
+              >
+                {savingEmail ? 'Saving...' : 'Save Email Settings'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Maintenance Mode Tab */}
+        <TabsContent value="maintenance" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Maintenance Mode</CardTitle>
+              <CardDescription>Put the system in maintenance mode to prevent user access</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between rounded-lg border p-4 bg-yellow-50">
+                <div className="space-y-1">
+                  <Label className="text-base font-medium">Enable Maintenance Mode</Label>
+                  <p className="text-sm text-gray-600">Users will see a maintenance message and cannot access the system</p>
+                </div>
+                <Switch
+                  checked={maintenanceValues.maintenance_mode_enabled}
+                  onCheckedChange={(checked) => {
+                    setMaintenanceValues({ ...maintenanceValues, maintenance_mode_enabled: checked })
+                    setMaintenanceDirty(true)
+                  }}
+                  disabled={savingMaintenance}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="maintenance_message">Maintenance Message</Label>
+                <textarea
+                  id="maintenance_message"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={4}
+                  value={maintenanceValues.maintenance_message}
+                  onChange={(e) => {
+                    setMaintenanceValues({ ...maintenanceValues, maintenance_message: e.target.value })
+                    setMaintenanceDirty(true)
+                  }}
+                  disabled={savingMaintenance}
+                  placeholder="Enter the message users will see during maintenance..."
+                />
+              </div>
+
+              <Button
+                onClick={saveMaintenanceSettings}
+                disabled={!maintenanceDirty || savingMaintenance}
+                className="w-full"
+              >
+                {savingMaintenance ? 'Saving...' : 'Save Maintenance Settings'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Advanced Settings Tab */}
+        <TabsContent value="advanced" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Feature Toggles</CardTitle>
+              <CardDescription>Enable or disable platform features globally</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                {[
+                  { key: 'enable_bulk_operations', label: 'Bulk Operations', description: 'Allow bulk import/export operations' },
+                  { key: 'enable_analytics', label: 'Analytics', description: 'Enable platform analytics and reporting' },
+                  { key: 'enable_audit_logs', label: 'Audit Logging', description: 'Track all system actions' },
+                  { key: 'enable_email_notifications', label: 'Email Notifications', description: 'Send email notifications to users' },
+                  { key: 'enable_api_access', label: 'API Access', description: 'Allow third-party API access' },
+                  { key: 'enable_two_factor_auth', label: 'Two-Factor Authentication', description: 'Require 2FA for accounts' },
+                ].map((feature) => (
+                  <div key={feature.key} className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-1">
+                      <Label className="text-base font-medium">{feature.label}</Label>
+                      <p className="text-sm text-gray-600">{feature.description}</p>
+                    </div>
+                    <Switch
+                      checked={featureValues[feature.key as keyof typeof featureValues]}
+                      onCheckedChange={(checked) => {
+                        setFeatureValues({ ...featureValues, [feature.key]: checked })
+                        setFeatureDirty(true)
+                      }}
+                      disabled={savingFeatures}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                onClick={saveFeatureSettings}
+                disabled={!featureDirty || savingFeatures}
+                className="w-full"
+              >
+                {savingFeatures ? 'Saving...' : 'Save Feature Settings'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Backup & Restore Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Backup & System Management</CardTitle>
+              <CardDescription>Manage system backups and maintenance tasks</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Button
+                  variant="outline"
+                  disabled={backupLoading}
+                  className="w-full"
+                >
+                  {backupLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating Backup...
+                    </>
+                  ) : (
+                    'Create Database Backup'
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={backupLoading}
+                  className="w-full"
+                >
+                  Download Backup
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                disabled={backupLoading}
+                className="w-full"
+              >
+                Clear Cache
+              </Button>
+              <p className="text-xs text-gray-500 mt-4">
+                Last backup: Never • Backup frequency: Daily (automatic)
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

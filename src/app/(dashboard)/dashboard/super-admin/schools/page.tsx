@@ -47,12 +47,6 @@ export default function SchoolsManagementPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
 
-  // Bulk selection state
-  const [selectedSchoolIds, setSelectedSchoolIds] = useState<Set<string>>(new Set());
-  const [bulkOperation, setBulkOperation] = useState<'activate' | 'deactivate' | 'delete' | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
-
   // Get user session
   useEffect(() => {
     async function getUser() {

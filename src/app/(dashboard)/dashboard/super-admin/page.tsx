@@ -1,80 +1,1084 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import SuperAdminTable from '@/components/super-admin/SuperAdminTable';
-import EditSuperAdminModal from '@/components/super-admin/EditSuperAdminModal';
 import { supabase } from '@/lib/supabase';
-import type { UserProfile } from '@/types';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { RefreshCw, School, Users, UserCheck, TrendingUp, AlertCircle, CheckCircle2, AlertTriangle, Clock, BarChart3 } from 'lucide-react';
+import Link from 'next/link';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-export default function SuperAdminPage() {
-  const [admins, setAdmins] = useState<UserProfile[]>([]);
+interface KPIData {
+  totalSchools: number;
+  activeSchools: number;
+  inactiveSchools: number;
+  totalUsers: number;
+  newSchoolsLastMonth: number;
+  systemHealth: {
+    database: 'healthy' | 'degraded' | 'down';
+    auth: 'healthy' | 'degraded' | 'down';
+    api: 'healthy' | 'degraded' | 'down';
+  };
+}
+
+interface AttentionItem {
+  id: string;
+  type: 'pending_activation' | 'recently_deactivated' | 'failed_operation' | 'admin_override';
+  title: string;
+  entity: string;
+  timestamp?: string;
+  severity: 'info' | 'warning' | 'critical';
+}
+
+interface ActivityLog {
+  id: string;
+  actor_name: string;
+  actor_email: string | null;
+  action_type: string;
+  entity_type: string;
+  entity_id: string | null;
+  created_at: string;
+}
+
+interface TrendDataPoint {
+  date: string;
+  schools: number;
+  users: number;
+}
+
+interface UserDistribution {
+  role: string;
+  count: number;
+}
+
+interface SchoolSnapshot {
+  id: string;
+  name: string;
+  status: 'active' | 'inactive';
+  created_at: string;
+  updated_at: string;
+  student_count: number;
+  teacher_count: number;
+}
+
+const KPISkeleton = () => (
+  <div className="animate-pulse">
+    <div className="h-8 bg-gray-200 rounded w-24 mb-2"></div>
+    <div className="h-4 bg-gray-100 rounded w-32"></div>
+  </div>
+);
+
+const ActivitySkeleton = () => (
+  <div className="animate-pulse space-y-3">
+    {[...Array(3)].map((_, i) => (
+      <div key={i} className="h-12 bg-gray-100 rounded"></div>
+    ))}
+  </div>
+);
+
+const HealthBadge = ({ status }: { status: 'healthy' | 'degraded' | 'down' }) => {
+  const config = {
+    healthy: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircle2 },
+    degraded: { bg: 'bg-yellow-50', text: 'text-yellow-700', icon: AlertCircle },
+    down: { bg: 'bg-red-50', text: 'text-red-700', icon: AlertCircle },
+  };
+  const { bg, text, icon: Icon } = config[status];
+  return (
+    <div className={`flex items-center gap-1 ${bg} ${text} px-2 py-1 rounded text-xs font-medium`}>
+      <Icon className="w-3 h-3" />
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </div>
+  );
+};
+
+const KPICard = ({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  href,
+  loading,
+}: {
+  title: string;
+  value: number;
+  subtitle: string;
+  icon: React.ElementType;
+  href: string;
+  loading?: boolean;
+}) => (
+  <Link href={href}>
+    <Card className="cursor-pointer hover:shadow-lg transition-shadow h-full">
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-gray-600">{title}</p>
+            {loading ? (
+              <KPISkeleton />
+            ) : (
+              <>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
+                <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+              </>
+            )}
+          </div>
+          <div className="flex-shrink-0 p-3 bg-gray-100 rounded-lg">
+            <Icon className="w-6 h-6 text-gray-600" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  </Link>
+);
+
+const AttentionBadge = ({ type, severity }: { type: string; severity: 'info' | 'warning' | 'critical' }) => {
+  const config = {
+    pending_activation: { label: 'Pending Activation', color: 'bg-blue-50 text-blue-700' },
+    recently_deactivated: { label: 'Recently Deactivated', color: 'bg-yellow-50 text-yellow-700' },
+    failed_operation: { label: 'Failed Operation', color: 'bg-red-50 text-red-700' },
+    admin_override: { label: 'Admin Override', color: 'bg-purple-50 text-purple-700' },
+  };
+  const typeConfig = config[type as keyof typeof config];
+  return (
+    <Badge className={`text-xs font-medium ${typeConfig.color}`}>
+      {typeConfig.label}
+    </Badge>
+  );
+};
+
+const formatActivityTime = (timestamp: string) => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (diffSeconds < 60) return 'Just now';
+  if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
+  if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h ago`;
+  if (diffSeconds < 604800) return `${Math.floor(diffSeconds / 86400)}d ago`;
+  return date.toLocaleDateString();
+};
+
+const formatActionLabel = (actionType: string) => {
+  const labels: Record<string, string> = {
+    school_created: 'Created School',
+    school_updated: 'Updated School',
+    school_deleted: 'Deleted School',
+    school_activated: 'Activated School',
+    school_deactivated: 'Deactivated School',
+    user_role_changed: 'Changed User Role',
+    bulk_import: 'Bulk Import',
+    admin_override: 'Admin Override',
+    bulk_activate: 'Bulk Activated',
+    bulk_deactivate: 'Bulk Deactivated',
+    bulk_delete: 'Bulk Deleted',
+  };
+  return labels[actionType] || actionType.replace(/_/g, ' ');
+};
+
+export default function SuperAdminDashboard() {
+  const [kpiData, setKpiData] = useState<KPIData | null>(null);
+  const [attentionItems, setAttentionItems] = useState<AttentionItem[]>([]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [trendsData, setTrendsData] = useState<TrendDataPoint[]>([]);
+  const [userDistribution, setUserDistribution] = useState<UserDistribution[]>([]);
+  const [schoolsSnapshot, setSchoolsSnapshot] = useState<SchoolSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<UserProfile | null>(null);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [trendsLoading, setTrendsLoading] = useState(true);
+  const [schoolsLoading, setSchoolsLoading] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
-  const fetchAdmins = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchKPIData = async () => {
+    setIsRefreshing(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      if (!token) throw new Error('Not authenticated');
+      // Fetch total schools
+      const { count: totalSchools } = await supabase
+        .from('schools')
+        .select('*', { count: 'exact', head: true });
 
-      const res = await fetch('/api/super-admin', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const { count: activeSchools } = await supabase
+        .from('schools')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active');
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed to fetch super admins');
+      const { count: inactiveSchools } = await supabase
+        .from('schools')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'inactive');
+
+      // Fetch total users
+      const { count: totalUsers } = await supabase
+        .from('user_profiles')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch new schools last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const { count: newSchoolsLastMonth } = await supabase
+        .from('schools')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      // System health checks
+      let authStatus: 'healthy' | 'degraded' | 'down' = 'healthy';
+      let databaseStatus: 'healthy' | 'degraded' | 'down' = 'healthy';
+      let apiStatus: 'healthy' | 'degraded' | 'down' = 'healthy';
+
+      try {
+        const { data: session } = await supabase.auth.getSession();
+        if (!session?.session) authStatus = 'degraded';
+      } catch {
+        authStatus = 'down';
       }
 
-      const json = await res.json();
-      // API returns { users, total } from /api/super-admin
-      setAdmins((json.users as UserProfile[]) || []);
-    } catch (e: unknown) {
-      console.error('Error fetching super admins:', e);
-      setError(((e as Error)?.message) ?? 'Error');
+      try {
+        const { error } = await supabase.from('schools').select('id', { count: 'exact', head: true });
+        if (error) databaseStatus = 'degraded';
+      } catch {
+        databaseStatus = 'down';
+      }
+
+      // TODO: Add real API health check endpoint when available
+      apiStatus = 'healthy';
+
+      setKpiData({
+        totalSchools: totalSchools || 0,
+        activeSchools: activeSchools || 0,
+        inactiveSchools: inactiveSchools || 0,
+        totalUsers: totalUsers || 0,
+        newSchoolsLastMonth: newSchoolsLastMonth || 0,
+        systemHealth: {
+          database: databaseStatus,
+          auth: authStatus,
+          api: apiStatus,
+        },
+      });
+
+      setLastRefresh(new Date());
+    } catch (error) {
+      console.error('Error fetching KPI data:', error);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  const fetchAttentionItems = async () => {
+    try {
+      // TODO: Implement backend endpoints for:
+      // 1. Pending school activations
+      // 2. Recently deactivated schools (last 24h)
+      // 3. Failed bulk operations
+      // 4. Admin overrides
+      
+      // For now, return empty array with placeholder logic
+      const items: AttentionItem[] = [];
+      
+      // Check for recently deactivated schools
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+      
+      const { data: recentlyDeactivated } = await supabase
+        .from('schools')
+        .select('id, name, status')
+        .eq('status', 'inactive')
+        .gte('updated_at', oneDayAgo.toISOString())
+        .limit(5);
+
+      if (recentlyDeactivated) {
+        recentlyDeactivated.forEach((school: any) => {
+          items.push({
+            id: school.id,
+            type: 'recently_deactivated',
+            title: 'School Deactivated',
+            entity: school.name,
+            severity: 'warning',
+          });
+        });
+      }
+
+      setAttentionItems(items);
+    } catch (error) {
+      console.error('Error fetching attention items:', error);
+    }
+  };
+
+  const fetchActivityLogs = async () => {
+    setActivityLoading(true);
+    try {
+      const { data: logs, error } = await supabase
+        .from('audit_logs')
+        .select('id, actor_name, actor_email, action_type, entity_type, entity_id, created_at')
+        .in('action_type', [
+          'school_created',
+          'school_deleted',
+          'school_activated',
+          'school_deactivated',
+          'bulk_activate',
+          'bulk_deactivate',
+          'bulk_delete',
+          'admin_override',
+        ])
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Error fetching activity logs:', error?.message || JSON.stringify(error));
+        setActivityLogs([]);
+      } else {
+        setActivityLogs(logs || []);
+      }
+    } catch (error) {
+      console.error('Error in fetchActivityLogs:', error instanceof Error ? error.message : String(error));
+      setActivityLogs([]);
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
+  const fetchTrendsData = async () => {
+    setTrendsLoading(true);
+    try {
+      // Generate date range for last 30 days
+      const dates: string[] = [];
+      const schoolsByDate: { [key: string]: number } = {};
+      const usersByDate: { [key: string]: number } = {};
+      
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        dates.push(dateStr);
+        schoolsByDate[dateStr] = 0;
+        usersByDate[dateStr] = 0;
+      }
+
+      // Fetch schools created in last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data: schools } = await supabase
+        .from('schools')
+        .select('id, created_at')
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      if (schools) {
+        schools.forEach((school: any) => {
+          const dateStr = school.created_at.split('T')[0];
+          if (schoolsByDate[dateStr] !== undefined) {
+            schoolsByDate[dateStr]++;
+          }
+        });
+      }
+
+      // Fetch users created in last 30 days
+      const { data: users } = await supabase
+        .from('user_profiles')
+        .select('id, created_at')
+        .gte('created_at', thirtyDaysAgo.toISOString());
+
+      if (users) {
+        users.forEach((user: any) => {
+          const dateStr = user.created_at.split('T')[0];
+          if (usersByDate[dateStr] !== undefined) {
+            usersByDate[dateStr]++;
+          }
+        });
+      }
+
+      // Aggregate data: cumulative counts
+      const trends: TrendDataPoint[] = [];
+      let cumulativeSchools = 0;
+      let cumulativeUsers = 0;
+
+      dates.forEach((date) => {
+        cumulativeSchools += schoolsByDate[date];
+        cumulativeUsers += usersByDate[date];
+        trends.push({
+          date: new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+          }),
+          schools: cumulativeSchools,
+          users: cumulativeUsers,
+        });
+      });
+
+      setTrendsData(trends);
+    } catch (error) {
+      console.error('Error fetching trends data:', error instanceof Error ? error.message : String(error));
+      setTrendsData([]);
+    } finally {
+      setTrendsLoading(false);
+    }
+  };
+
+  const fetchUserDistribution = async () => {
+    try {
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('role');
+
+      if (profiles) {
+        const distribution: { [key: string]: number } = {
+          super_admin: 0,
+          school_admin: 0,
+          teacher: 0,
+          student: 0,
+          parent: 0,
+        };
+
+        profiles.forEach((profile: any) => {
+          if (profile.role && distribution[profile.role] !== undefined) {
+            distribution[profile.role]++;
+          }
+        });
+
+        const distArray: UserDistribution[] = Object.entries(distribution)
+          .map(([role, count]) => ({
+            role: role.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
+            count,
+          }))
+          .filter((d) => d.count > 0);
+
+        setUserDistribution(distArray);
+      }
+    } catch (error) {
+      console.error('Error fetching user distribution:', error instanceof Error ? error.message : String(error));
+      setUserDistribution([]);
+    }
+  };
+
+  const fetchSchoolsSnapshot = async () => {
+    setSchoolsLoading(true);
+    try {
+      let query = supabase
+        .from('schools')
+        .select('id, name, status, created_at, updated_at');
+
+      // Apply status filter
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
+
+      // Apply search filter
+      if (searchQuery.trim()) {
+        query = query.ilike('name', `%${searchQuery}%`);
+      }
+
+      // Order by created_at descending
+      query = query.order('created_at', { ascending: false });
+
+      const { data: schools, error } = await query;
+
+      if (error) {
+        console.error('Error fetching schools snapshot:', error?.message || JSON.stringify(error));
+        setSchoolsSnapshot([]);
+        return;
+      }
+
+      if (!schools) {
+        setSchoolsSnapshot([]);
+        return;
+      }
+
+      // For each school, fetch student and teacher counts
+      const enrichedSchools = await Promise.all(
+        schools.map(async (school: any) => {
+          const { count: studentCount } = await supabase
+            .from('user_profiles')
+            .select('id', { count: 'exact', head: true })
+            .eq('school_id', school.id)
+            .eq('role', 'student');
+
+          const { count: teacherCount } = await supabase
+            .from('user_profiles')
+            .select('id', { count: 'exact', head: true })
+            .eq('school_id', school.id)
+            .eq('role', 'teacher');
+
+          return {
+            id: school.id,
+            name: school.name,
+            status: school.status,
+            created_at: school.created_at,
+            updated_at: school.updated_at,
+            student_count: studentCount || 0,
+            teacher_count: teacherCount || 0,
+          };
+        })
+      );
+
+      setSchoolsSnapshot(enrichedSchools);
+    } catch (error) {
+      console.error('Error in fetchSchoolsSnapshot:', error instanceof Error ? error.message : String(error));
+      setSchoolsSnapshot([]);
+    } finally {
+      setSchoolsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAdmins();
+    fetchKPIData();
+    fetchAttentionItems();
+    fetchActivityLogs();
+    fetchTrendsData();
+    fetchUserDistribution();
+    fetchSchoolsSnapshot();
   }, []);
 
+  // Refetch schools when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+    fetchSchoolsSnapshot();
+  }, [searchQuery, statusFilter]);
+
+  const getEnvironment = () => {
+    // TODO: Add environment detection from env vars when available
+    return 'Production';
+  };
+
+  const formatRefreshTime = (date: Date | null) => {
+    if (!date) return 'Never';
+    const now = new Date();
+    const diffSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (diffSeconds < 60) return 'Just now';
+    if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
+    if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h ago`;
+    return date.toLocaleDateString();
+  };
+
+  const formatSchoolDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  // Pagination helpers
+  const filteredSchools = schoolsSnapshot;
+  const totalPages = Math.ceil(filteredSchools.length / pageSize);
+  const paginatedSchools = filteredSchools.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">Super Admin</h1>
+    <div className="space-y-8">
+      {/* Header Section */}
+      <div className="flex items-start justify-between">
         <div>
-          <button className="btn" onClick={fetchAdmins} disabled={loading}>
-            Refresh
-          </button>
+          <h1 className="text-4xl font-bold text-gray-900">Super Admin Command Center</h1>
+          <p className="text-lg text-gray-600 mt-2">Global Platform Oversight</p>
+          <div className="flex items-center gap-3 mt-4">
+            <Badge variant="outline" className="font-mono">
+              {getEnvironment()}
+            </Badge>
+            <span className="text-xs text-gray-500">Last refresh: {formatRefreshTime(lastRefresh)}</span>
+          </div>
         </div>
+        <Button
+          onClick={fetchKPIData}
+          disabled={isRefreshing}
+          variant="outline"
+          size="lg"
+          className="gap-2"
+        >
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
-      {loading && <div>Loading…</div>}
-      {error && <div className="text-red-600">{error}</div>}
-
-      {!loading && !error && (
-        <SuperAdminTable
-          admins={admins}
-          onEdit={(admin) => setEditing(admin)}
+      {/* KPI Cards - Above the Fold */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <KPICard
+          title="Total Schools"
+          value={kpiData?.totalSchools || 0}
+          subtitle={`${kpiData?.activeSchools || 0} active, ${kpiData?.inactiveSchools || 0} inactive`}
+          icon={School}
+          href="/dashboard/super-admin/schools"
+          loading={loading}
         />
-      )}
-
-      {editing && (
-        <EditSuperAdminModal
-          admin={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null);
-            fetchAdmins();
-          }}
+        <KPICard
+          title="Active Schools"
+          value={kpiData?.activeSchools || 0}
+          subtitle="Currently operational"
+          icon={CheckCircle2}
+          href="/dashboard/super-admin/schools"
+          loading={loading}
         />
-      )}
+        <KPICard
+          title="Inactive Schools"
+          value={kpiData?.inactiveSchools || 0}
+          subtitle="Paused or deactivated"
+          icon={AlertCircle}
+          href="/dashboard/super-admin/schools"
+          loading={loading}
+        />
+        <KPICard
+          title="Total Users"
+          value={kpiData?.totalUsers || 0}
+          subtitle="All roles across platform"
+          icon={Users}
+          href="/dashboard/super-admin/users"
+          loading={loading}
+        />
+        <KPICard
+          title="New Schools (30d)"
+          value={kpiData?.newSchoolsLastMonth || 0}
+          subtitle="Last 30 days"
+          icon={TrendingUp}
+          href="/dashboard/super-admin/schools"
+          loading={loading}
+        />
+      </div>
+
+      {/* System Health */}
+      <Card>
+        <CardHeader>
+          <CardTitle>System Health</CardTitle>
+          <CardDescription>Platform service status</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">Authentication</p>
+              {loading ? (
+                <KPISkeleton />
+              ) : (
+                <HealthBadge status={kpiData?.systemHealth.auth || 'healthy'} />
+              )}
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">Database</p>
+              {loading ? (
+                <KPISkeleton />
+              ) : (
+                <HealthBadge status={kpiData?.systemHealth.database || 'healthy'} />
+              )}
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">API</p>
+              {loading ? (
+                <KPISkeleton />
+              ) : (
+                <HealthBadge status={kpiData?.systemHealth.api || 'healthy'} />
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Platform Trends & Distribution - STAGE 3 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Growth Trends Chart */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+              <CardTitle>Growth Trends (30 Days)</CardTitle>
+            </div>
+            <CardDescription>Cumulative schools and users created</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {trendsLoading ? (
+              <div className="h-80 bg-gray-100 rounded animate-pulse"></div>
+            ) : trendsData.length === 0 ? (
+              <div className="h-80 flex items-center justify-center text-gray-500">
+                No trend data available
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={trendsData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="date" 
+                    fontSize={12}
+                    tick={{ fill: '#6b7280' }}
+                  />
+                  <YAxis 
+                    fontSize={12}
+                    tick={{ fill: '#6b7280' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#fff', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="schools" 
+                    stroke="#3b82f6" 
+                    strokeWidth={2}
+                    dot={false}
+                    name="Schools"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="users" 
+                    stroke="#8b5cf6" 
+                    strokeWidth={2}
+                    dot={false}
+                    name="Users"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* User Distribution Chart */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-purple-600" />
+              <CardTitle>User Distribution</CardTitle>
+            </div>
+            <CardDescription>Users by role across platform</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {trendsLoading ? (
+              <div className="h-80 bg-gray-100 rounded animate-pulse"></div>
+            ) : userDistribution.length === 0 ? (
+              <div className="h-80 flex items-center justify-center text-gray-500">
+                No user data available
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={userDistribution} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="role" 
+                    fontSize={12}
+                    tick={{ fill: '#6b7280' }}
+                  />
+                  <YAxis 
+                    fontSize={12}
+                    tick={{ fill: '#6b7280' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#fff', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Bar dataKey="count" fill="#10b981" name="Count" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Attention Required Panel - STAGE 2 */}
+      <Card className={attentionItems.length > 0 ? 'border-yellow-200 bg-yellow-50' : ''}>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-600" />
+            <CardTitle>Attention Required</CardTitle>
+          </div>
+          <CardDescription>Items requiring immediate action</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {attentionItems.length === 0 ? (
+            <div className="text-center py-8">
+              <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-3" />
+              <p className="text-gray-600">No issues detected</p>
+              <p className="text-xs text-gray-500 mt-1">Platform is operating normally</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {attentionItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-start justify-between p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">{item.title}</p>
+                    <p className="text-sm text-gray-600 mt-1">{item.entity}</p>
+                  </div>
+                  <AttentionBadge type={item.type} severity={item.severity} />
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Activity Feed - STAGE 2 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-gray-600" />
+            <CardTitle>Recent Activity</CardTitle>
+          </div>
+          <CardDescription>Last 10 critical platform actions</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {activityLoading ? (
+            <ActivitySkeleton />
+          ) : activityLogs.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600">No recent activity</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {activityLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-start justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="font-medium text-gray-900 truncate">
+                        {formatActionLabel(log.action_type)}
+                      </p>
+                      <Badge variant="secondary" className="text-xs flex-shrink-0">
+                        {log.entity_type}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span className="truncate">{log.actor_name || 'System'}</span>
+                      {log.actor_email && (
+                        <>
+                          <span className="text-gray-400">•</span>
+                          <span className="truncate">{log.actor_email}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-500 flex-shrink-0 ml-4">
+                    {formatActivityTime(log.created_at)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* School Status Snapshot - STAGE 4 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <School className="w-5 h-5 text-blue-600" />
+            <CardTitle>School Status Snapshot</CardTitle>
+          </div>
+          <CardDescription>Platform-wide school overview with search and filtering</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Search and Filter Controls */}
+            <div className="flex flex-col md:flex-row gap-4">
+              <input
+                type="text"
+                placeholder="Search schools..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            {/* Results Count */}
+            <div className="text-sm text-gray-600">
+              {filteredSchools.length} school{filteredSchools.length !== 1 ? 's' : ''} found
+              {totalPages > 1 && ` • Page ${currentPage} of ${totalPages}`}
+            </div>
+
+            {/* Table */}
+            {schoolsLoading ? (
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-16 bg-gray-100 rounded animate-pulse"></div>
+                ))}
+              </div>
+            ) : paginatedSchools.length === 0 ? (
+              <div className="text-center py-12">
+                <School className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-600">No schools found</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {searchQuery || statusFilter !== 'all'
+                    ? 'Try adjusting your search or filter'
+                    : 'No schools exist yet'}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-gray-200 bg-gray-50">
+                    <tr>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700">School Name</th>
+                      <th className="text-center px-4 py-3 font-semibold text-gray-700">Status</th>
+                      <th className="text-center px-4 py-3 font-semibold text-gray-700">Students</th>
+                      <th className="text-center px-4 py-3 font-semibold text-gray-700">Teachers</th>
+                      <th className="text-center px-4 py-3 font-semibold text-gray-700">Created</th>
+                      <th className="text-center px-4 py-3 font-semibold text-gray-700">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedSchools.map((school) => (
+                      <tr key={school.id} className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 text-gray-900 font-medium">{school.name}</td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge
+                            variant={school.status === 'active' ? 'default' : 'secondary'}
+                            className={
+                              school.status === 'active'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }
+                          >
+                            {school.status.charAt(0).toUpperCase() + school.status.slice(1)}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-center text-gray-600">{school.student_count}</td>
+                        <td className="px-4 py-3 text-center text-gray-600">{school.teacher_count}</td>
+                        <td className="px-4 py-3 text-center text-gray-600">{formatSchoolDate(school.created_at)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <Link
+                            href={`/dashboard/super-admin/schools/${school.id}`}
+                            className="text-blue-600 hover:underline text-xs font-medium"
+                          >
+                            View
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {!schoolsLoading && totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                <Button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  variant="outline"
+                  size="sm"
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-gray-600">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  variant="outline"
+                  size="sm"
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Access Navigation - STAGE 5 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Access</CardTitle>
+          <CardDescription>Fast navigation to key platform management areas</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Manage Schools */}
+            <Link href="/dashboard/super-admin/schools">
+              <div className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer group">
+                <School className="w-6 h-6 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
+                <h3 className="font-medium text-gray-900 text-sm">Manage Schools</h3>
+                <p className="text-xs text-gray-500 mt-1">View and manage all schools</p>
+              </div>
+            </Link>
+
+            {/* Manage Users */}
+            <Link href="/dashboard/super-admin/users">
+              <div className="p-4 border border-gray-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all cursor-pointer group">
+                <Users className="w-6 h-6 text-purple-600 mb-2 group-hover:scale-110 transition-transform" />
+                <h3 className="font-medium text-gray-900 text-sm">Manage Users</h3>
+                <p className="text-xs text-gray-500 mt-1">View and manage platform users</p>
+              </div>
+            </Link>
+
+            {/* Analytics */}
+            <Link href="/dashboard/super-admin/analytics">
+              <div className="p-4 border border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all cursor-pointer group">
+                <TrendingUp className="w-6 h-6 text-green-600 mb-2 group-hover:scale-110 transition-transform" />
+                <h3 className="font-medium text-gray-900 text-sm">Analytics</h3>
+                <p className="text-xs text-gray-500 mt-1">View platform analytics & insights</p>
+              </div>
+            </Link>
+
+            {/* Audit Logs */}
+            <Link href="/dashboard/super-admin/audit-logs">
+              <div className="p-4 border border-gray-200 rounded-lg hover:border-yellow-500 hover:bg-yellow-50 transition-all cursor-pointer group">
+                <Clock className="w-6 h-6 text-yellow-600 mb-2 group-hover:scale-110 transition-transform" />
+                <h3 className="font-medium text-gray-900 text-sm">Audit Logs</h3>
+                <p className="text-xs text-gray-500 mt-1">View system activity logs</p>
+              </div>
+            </Link>
+
+            {/* Bulk Operations */}
+            <Link href="/dashboard/super-admin/bulk-operations">
+              <div className="p-4 border border-gray-200 rounded-lg hover:border-red-500 hover:bg-red-50 transition-all cursor-pointer group">
+                <AlertCircle className="w-6 h-6 text-red-600 mb-2 group-hover:scale-110 transition-transform" />
+                <h3 className="font-medium text-gray-900 text-sm">Bulk Operations</h3>
+                <p className="text-xs text-gray-500 mt-1">Perform bulk actions</p>
+              </div>
+            </Link>
+
+            {/* Reports */}
+            <Link href="/dashboard/super-admin/reports">
+              <div className="p-4 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all cursor-pointer group">
+                <BarChart3 className="w-6 h-6 text-indigo-600 mb-2 group-hover:scale-110 transition-transform" />
+                <h3 className="font-medium text-gray-900 text-sm">Reports</h3>
+                <p className="text-xs text-gray-500 mt-1">Generate system reports</p>
+              </div>
+            </Link>
+
+            {/* Email Logs */}
+            <Link href="/dashboard/super-admin/email-logs">
+              <div className="p-4 border border-gray-200 rounded-lg hover:border-pink-500 hover:bg-pink-50 transition-all cursor-pointer group">
+                <Clock className="w-6 h-6 text-pink-600 mb-2 group-hover:scale-110 transition-transform" />
+                <h3 className="font-medium text-gray-900 text-sm">Email Logs</h3>
+                <p className="text-xs text-gray-500 mt-1">View email delivery history</p>
+              </div>
+            </Link>
+
+            {/* Settings */}
+            <Link href="/dashboard/super-admin/settings">
+              <div className="p-4 border border-gray-200 rounded-lg hover:border-gray-500 hover:bg-gray-50 transition-all cursor-pointer group">
+                <AlertTriangle className="w-6 h-6 text-gray-600 mb-2 group-hover:scale-110 transition-transform" />
+                <h3 className="font-medium text-gray-900 text-sm">Settings</h3>
+                <p className="text-xs text-gray-500 mt-1">Configure platform settings</p>
+              </div>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

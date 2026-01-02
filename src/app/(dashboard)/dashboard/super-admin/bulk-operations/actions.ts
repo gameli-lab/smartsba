@@ -1,6 +1,6 @@
 "use server"
 
-import { supabase } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase'
 import { revalidatePath } from 'next/cache'
 
 interface BulkResult {
@@ -16,6 +16,7 @@ export async function bulkActivateSchools(
   userId: string,
   userRole: string
 ): Promise<BulkResult> {
+  const supabase = createServerSupabaseClient()
   try {
     // Verify user is super_admin
     const profileResponse = (await supabase
@@ -95,6 +96,7 @@ export async function bulkDeactivateSchools(
   userId: string,
   userRole: string
 ): Promise<BulkResult> {
+  const supabase = createServerSupabaseClient()
   try {
     const profileResponse = (await supabase
       .from('user_profiles')
@@ -173,6 +175,7 @@ export async function bulkDeleteSchools(
   userId: string,
   userRole: string
 ): Promise<BulkResult> {
+  const supabase = createServerSupabaseClient()
   try {
     const profileResponse = (await supabase
       .from('user_profiles')
@@ -251,6 +254,7 @@ export async function bulkDeleteUsers(
   userId: string,
   userRole: string
 ): Promise<BulkResult> {
+  const supabase = createServerSupabaseClient()
   try {
     const profileResponse = (await supabase
       .from('user_profiles')
@@ -333,6 +337,164 @@ export async function bulkDeleteUsers(
       failureCount: userIds.length,
       failures: userIds.map(id => ({ id, error: 'Operation failed' })),
       message: 'Failed to delete users',
+    }
+  }
+}
+
+export async function bulkActivateUsers(
+  profileIds: string[],
+  userId: string,
+  userRole: string
+): Promise<BulkResult> {
+  const supabase = createServerSupabaseClient()
+  try {
+    const profileResponse = (await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('user_id', userId)
+      .single()) as { data: { role: string } | null }
+
+    const profile = profileResponse.data
+
+    if (!profile || profile.role !== 'super_admin') {
+      return {
+        success: false,
+        successCount: 0,
+        failureCount: profileIds.length,
+        failures: profileIds.map(id => ({ id, error: 'Unauthorized' })),
+        message: 'Unauthorized: Super admin privileges required',
+      }
+    }
+
+    const failures: Array<{ id: string; error: string }> = []
+    let successCount = 0
+
+    for (const profileId of profileIds) {
+      const { error } = (await (supabase
+        .from('user_profiles') as any)
+        .update({ status: 'active' })
+        .eq('id', profileId)) as { error: any }
+
+      if (error) {
+        failures.push({ id: profileId, error: error.message })
+      } else {
+        successCount++
+      }
+    }
+
+    // Log to audit trail
+    await supabase.rpc('log_audit_action' as any, {
+      p_actor_user_id: userId,
+      p_actor_role: userRole,
+      p_action_type: 'bulk_activate',
+      p_entity_type: 'user',
+      p_entity_id: null,
+      p_metadata: {
+        user_profile_ids: profileIds,
+        success_count: successCount,
+        failure_count: failures.length,
+        failures: failures,
+      },
+    } as any)
+
+    revalidatePath('/dashboard/super-admin/users')
+
+    return {
+      success: failures.length === 0,
+      successCount,
+      failureCount: failures.length,
+      failures,
+      message: `Activated ${successCount} of ${profileIds.length} users${
+        failures.length > 0 ? ` (${failures.length} failed)` : ''
+      }`,
+    }
+  } catch (err) {
+    console.error('Error in bulkActivateUsers:', err)
+    return {
+      success: false,
+      successCount: 0,
+      failureCount: profileIds.length,
+      failures: profileIds.map(id => ({ id, error: 'Operation failed' })),
+      message: 'Failed to activate users',
+    }
+  }
+}
+
+export async function bulkDeactivateUsers(
+  profileIds: string[],
+  userId: string,
+  userRole: string
+): Promise<BulkResult> {
+  const supabase = createServerSupabaseClient()
+  try {
+    const profileResponse = (await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('user_id', userId)
+      .single()) as { data: { role: string } | null }
+
+    const profile = profileResponse.data
+
+    if (!profile || profile.role !== 'super_admin') {
+      return {
+        success: false,
+        successCount: 0,
+        failureCount: profileIds.length,
+        failures: profileIds.map(id => ({ id, error: 'Unauthorized' })),
+        message: 'Unauthorized: Super admin privileges required',
+      }
+    }
+
+    const failures: Array<{ id: string; error: string }> = []
+    let successCount = 0
+
+    for (const profileId of profileIds) {
+      const { error } = (await (supabase
+        .from('user_profiles') as any)
+        .update({ status: 'inactive' })
+        .eq('id', profileId)) as { error: any }
+
+      if (error) {
+        failures.push({ id: profileId, error: error.message })
+      } else {
+        successCount++
+      }
+    }
+
+    // Log to audit trail
+    await supabase.rpc('log_audit_action' as any, {
+      p_actor_user_id: userId,
+      p_actor_role: userRole,
+      p_action_type: 'bulk_deactivate',
+      p_entity_type: 'user',
+      p_entity_id: null,
+      p_metadata: {
+        user_profile_ids: profileIds,
+        success_count: successCount,
+        failure_count: failures.length,
+        failures: failures,
+      },
+    } as any)
+
+    revalidatePath('/dashboard/super-admin/users')
+
+    return {
+      success: failures.length === 0,
+      successCount,
+      failureCount: failures.length,
+      failures,
+      message: `Deactivated ${successCount} of ${profileIds.length} users${
+        failures.length > 0 ? ` (${failures.length} failed)` : ''
+      }`,
+    }
+  } catch (err) {
+    console.error('Error in bulkDeactivateUsers:', err)
+    return {
+      success: false,
+      successCount: 0,
+      failureCount: profileIds.length,
+      failures: profileIds.map(id => ({ id, error: 'Operation failed' })),
+      message: 'Failed to deactivate users',
     }
   }
 }

@@ -18,14 +18,15 @@ export const supabase = createBrowserClient<Database>(supabaseUrl as string, sup
 
 // Server-side Supabase client factory (for use in server components/API routes)
 export function createServerSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   
-  if (!serviceRoleKey) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY is missing from environment variables')
+  if (!url || !serviceRoleKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL is missing from environment variables')
   }
 
   return createServerClient<Database>(
-    supabaseUrl as string,
+    url as string,
     serviceRoleKey,
     {
       cookies: {
@@ -45,19 +46,20 @@ export function createServerSupabaseClient() {
 
 // Admin client factory for server-side operations with service role key
 export function createAdminSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!url || !serviceRoleKey) {
     throw new Error(
       'Missing Supabase environment variables for admin client:\n' +
-      `NEXT_PUBLIC_SUPABASE_URL: ${supabaseUrl ? 'SET' : 'MISSING'}\n` +
+      `NEXT_PUBLIC_SUPABASE_URL: ${url ? 'SET' : 'MISSING'}\n` +
       `SUPABASE_SERVICE_ROLE_KEY: ${serviceRoleKey ? 'SET' : 'MISSING'}\n` +
       'Make sure these are set in your .env.local file and restart your development server.'
     )
   }
 
   return createServerClient<Database>(
-    supabaseUrl as string,
+    url as string,
     serviceRoleKey,
     {
       cookies: {

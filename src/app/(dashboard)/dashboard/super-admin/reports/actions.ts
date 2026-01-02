@@ -1,7 +1,17 @@
 'use server'
 
-import { supabase } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase'
 import { unstable_noStore as noStore } from 'next/cache'
+
+// Lazy initialize server client
+let serverClient: ReturnType<typeof createServerSupabaseClient> | null = null
+
+function getSupabase() {
+  if (!serverClient) {
+    serverClient = createServerSupabaseClient()
+  }
+  return serverClient
+}
 
 export interface DateRange {
   startDate?: string
@@ -42,7 +52,7 @@ export async function getSchoolPerformanceReport(dateRange: DateRange = {}) {
   try {
     // Get all schools with aggregated metrics
     // Type assertion needed until types are regenerated
-    const { data: schools, error } = await (supabase as any)
+    const { data: schools, error } = await (getSupabase() as any)
       .from('schools')
       .select(`
         id,
@@ -58,21 +68,21 @@ export async function getSchoolPerformanceReport(dateRange: DateRange = {}) {
     const performanceData: SchoolPerformance[] = await Promise.all(
       (schools || []).map(async (school: any) => {
         // Count students
-        const { count: studentCount } = await (supabase as any)
+        const { count: studentCount } = await (getSupabase() as any)
           .from('user_profiles')
           .select('*', { count: 'exact', head: true })
           .eq('school_id', school.id)
           .eq('role', 'student')
 
         // Count teachers
-        const { count: teacherCount } = await (supabase as any)
+        const { count: teacherCount } = await (getSupabase() as any)
           .from('user_profiles')
           .select('*', { count: 'exact', head: true })
           .eq('school_id', school.id)
           .eq('role', 'teacher')
 
         // Count classes
-        const { count: classCount } = await (supabase as any)
+        const { count: classCount } = await (getSupabase() as any)
           .from('classes')
           .select('*', { count: 'exact', head: true })
           .eq('school_id', school.id)
@@ -81,7 +91,7 @@ export async function getSchoolPerformanceReport(dateRange: DateRange = {}) {
         const thirtyDaysAgo = new Date()
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
         
-        const { count: activeUserCount } = await (supabase as any)
+        const { count: activeUserCount } = await (getSupabase() as any)
           .from('user_profiles')
           .select('*', { count: 'exact', head: true })
           .eq('school_id', school.id)
@@ -89,13 +99,13 @@ export async function getSchoolPerformanceReport(dateRange: DateRange = {}) {
           .gte('updated_at', dateRange.startDate || thirtyDaysAgo.toISOString())
 
         // Count assessments
-        const { count: assessmentCount } = await (supabase as any)
+        const { count: assessmentCount } = await (getSupabase() as any)
           .from('assessments')
           .select('*', { count: 'exact', head: true })
           .eq('school_id', school.id)
 
         // Count announcements
-        const { count: announcementCount } = await (supabase as any)
+        const { count: announcementCount } = await (getSupabase() as any)
           .from('announcements')
           .select('*', { count: 'exact', head: true })
           .eq('school_id', school.id)
@@ -141,9 +151,9 @@ export async function getUsageTrendsReport(dateRange: DateRange = {}) {
     })()
 
     // Get daily aggregated data from audit logs
-    const { data: auditData, error: auditError } = await (supabase as any)
+    const { data: auditData, error: auditError } = await (getSupabase() as any)
       .from('audit_logs')
-      .select('created_at, action, user_id')
+      .select('created_at, action_type, actor_user_id')
       .gte('created_at', startDate)
       .lte('created_at', endDate)
       .order('created_at')
@@ -176,20 +186,20 @@ export async function getUsageTrendsReport(dateRange: DateRange = {}) {
       const trend = trendsMap.get(dateKey)
       
       if (trend) {
-        if (log.action === 'login' || log.action === 'sign_in') {
+        if (log.action_type === 'login' || log.action_type === 'sign_in') {
           trend.total_logins++
           
           if (!activeUsersPerDay.has(dateKey)) {
             activeUsersPerDay.set(dateKey, new Set())
           }
-          activeUsersPerDay.get(dateKey)?.add(log.user_id)
+          activeUsersPerDay.get(dateKey)?.add(log.actor_user_id)
         }
         
-        if (log.action === 'create_school') {
+        if (log.action_type === 'school_created') {
           trend.new_schools++
         }
         
-        if (log.action === 'create_user' || log.action === 'create_admin') {
+        if (log.action_type === 'user_created' || log.action_type === 'admin_created') {
           trend.new_users++
         }
       }
@@ -227,7 +237,7 @@ export async function getFeatureAdoptionReport(dateRange: DateRange = {}) {
 
   try {
     // Get total active schools
-    const { count: totalSchools } = await (supabase as any)
+    const { count: totalSchools } = await (getSupabase() as any)
       .from('schools')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'active')
@@ -235,14 +245,14 @@ export async function getFeatureAdoptionReport(dateRange: DateRange = {}) {
     const features: FeatureAdoption[] = []
 
     // Assessments feature
-    const { data: assessmentSchools } = await (supabase as any)
+    const { data: assessmentSchools } = await (getSupabase() as any)
       .from('assessments')
       .select('school_id')
       .then(({ data }: { data: any[] }) => ({
         data: [...new Set(data?.map((a: any) => a.school_id) || [])]
       }))
 
-    const { count: assessmentCount } = await (supabase as any)
+    const { count: assessmentCount } = await (getSupabase() as any)
       .from('assessments')
       .select('*', { count: 'exact', head: true })
 
@@ -255,14 +265,14 @@ export async function getFeatureAdoptionReport(dateRange: DateRange = {}) {
     })
 
     // Announcements feature
-    const { data: announcementSchools } = await (supabase as any)
+    const { data: announcementSchools } = await (getSupabase() as any)
       .from('announcements')
       .select('school_id')
       .then(({ data }: { data: any[] }) => ({
         data: [...new Set(data?.map((a: any) => a.school_id) || [])]
       }))
 
-    const { count: announcementCount } = await (supabase as any)
+    const { count: announcementCount } = await (getSupabase() as any)
       .from('announcements')
       .select('*', { count: 'exact', head: true })
 
@@ -275,14 +285,14 @@ export async function getFeatureAdoptionReport(dateRange: DateRange = {}) {
     })
 
     // Classes feature
-    const { data: classSchools } = await (supabase as any)
+    const { data: classSchools } = await (getSupabase() as any)
       .from('classes')
       .select('school_id')
       .then(({ data }: { data: any[] }) => ({
         data: [...new Set(data?.map((c: any) => c.school_id) || [])]
       }))
 
-    const { count: classCount } = await (supabase as any)
+    const { count: classCount } = await (getSupabase() as any)
       .from('classes')
       .select('*', { count: 'exact', head: true })
 
@@ -295,14 +305,14 @@ export async function getFeatureAdoptionReport(dateRange: DateRange = {}) {
     })
 
     // Academic Sessions feature
-    const { data: sessionSchools } = await (supabase as any)
+    const { data: sessionSchools } = await (getSupabase() as any)
       .from('academic_sessions')
       .select('school_id')
       .then(({ data }: { data: any[] }) => ({
         data: [...new Set(data?.map((s: any) => s.school_id) || [])]
       }))
 
-    const { count: sessionCount } = await (supabase as any)
+    const { count: sessionCount } = await (getSupabase() as any)
       .from('academic_sessions')
       .select('*', { count: 'exact', head: true })
 
@@ -315,14 +325,14 @@ export async function getFeatureAdoptionReport(dateRange: DateRange = {}) {
     })
 
     // Subjects feature
-    const { data: subjectSchools } = await (supabase as any)
+    const { data: subjectSchools } = await (getSupabase() as any)
       .from('subjects')
       .select('school_id')
       .then(({ data }: { data: any[] }) => ({
         data: [...new Set(data?.map((s: any) => s.school_id) || [])]
       }))
 
-    const { count: subjectCount } = await (supabase as any)
+    const { count: subjectCount } = await (getSupabase() as any)
       .from('subjects')
       .select('*', { count: 'exact', head: true })
 

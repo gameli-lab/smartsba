@@ -84,8 +84,7 @@ export async function GET(request: NextRequest) {
         entity_type,
         entity_id,
         metadata,
-        created_at,
-        user_profiles!audit_logs_actor_user_id_fkey(full_name, email)
+        created_at
       `
       )
 
@@ -142,19 +141,39 @@ export async function GET(request: NextRequest) {
       rows.length = perPage
     }
 
+    // Get user profiles for actor_user_ids
+    const userIds = [...new Set(rows.map((row: any) => row.actor_user_id).filter(Boolean))]
+    let userProfiles: Record<string, any> = {}
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from('user_profiles')
+        .select('user_id, full_name, email')
+        .in('user_id', userIds)
+
+      if (profiles) {
+        userProfiles = Object.fromEntries(
+          profiles.map((p: any) => [p.user_id, { full_name: p.full_name, email: p.email }])
+        )
+      }
+    }
+
     // Format logs for response
-    const logs = rows.map((row: any) => ({
-      id: row.id,
-      actor_user_id: row.actor_user_id,
-      actor_name: row.user_profiles?.full_name || 'Unknown',
-      actor_email: row.user_profiles?.email || null,
-      actor_role: row.actor_role,
-      action_type: row.action_type,
-      entity_type: row.entity_type,
-      entity_id: row.entity_id || null,
-      metadata: row.metadata || null,
-      created_at: row.created_at,
-    }))
+    const logs = rows.map((row: any) => {
+      const profile = userProfiles[row.actor_user_id]
+      return {
+        id: row.id,
+        actor_user_id: row.actor_user_id,
+        actor_name: profile?.full_name || 'Unknown',
+        actor_email: profile?.email || null,
+        actor_role: row.actor_role,
+        action_type: row.action_type,
+        entity_type: row.entity_type,
+        entity_id: row.entity_id || null,
+        metadata: row.metadata || null,
+        created_at: row.created_at,
+      }
+    })
 
     return NextResponse.json({ logs, next_cursor }, { status: 200 })
   } catch (err) {
