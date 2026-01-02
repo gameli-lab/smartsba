@@ -251,7 +251,7 @@ describe('Student - Class & Subjects', () => {
 
     const { data, error } = await supabase
       .from('students')
-      .select('id, user_id, is_active')
+      .select('id, user_id, is_active, class_id')
       .eq('class_id', testClassId)
       .eq('is_active', true)
 
@@ -260,7 +260,7 @@ describe('Student - Class & Subjects', () => {
 
     if (data && data.length > 0) {
       data.forEach((student) => {
-        expect(student.class_id || testClassId).toBe(testClassId)
+        expect(student.class_id).toBe(testClassId)
       })
     }
   })

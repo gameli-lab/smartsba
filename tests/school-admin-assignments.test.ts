@@ -11,7 +11,7 @@ const supabase = createClient(
 const SCHOOL_ID = '00000000-0000-0000-0000-000000000001' // Test school ID
 
 describe('School Admin - Teacher Assignments Management', () => {
-  let testAssignmentId: string
+  let testAssignmentId: string = ''
 
   beforeAll(async () => {
     // Ensure school exists

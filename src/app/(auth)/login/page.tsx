@@ -630,13 +630,6 @@ export default function LoginPage() {
 
         <div className="text-center text-sm text-gray-600">
           <p>Multi-School System - Select your school before logging in</p>
-          <div className="mt-2">
-            <p>Demo Credentials:</p>
-            <p>Super Admin: admin@demo.com / password</p>
-            <p>School Admin: ADMIN001 / password</p>
-            <p>Teacher: TEACH001 / password</p>
-            <p>Student: STU2024001 / password</p>
-          </div>
         </div>
       </div>
     </div>
