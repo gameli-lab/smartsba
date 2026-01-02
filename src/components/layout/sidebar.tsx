@@ -34,13 +34,15 @@ import {
 } from "lucide-react";
 import { UserRole } from "@/types";
 import { AuthService } from "@/lib/auth";
+import { useEffect, useRef } from "react";
 
 interface SidebarProps {
   userRole: UserRole;
   userName: string;
   schoolName?: string;
-  isCollapsed?: boolean;
-  onToggle?: () => void;
+  isOpen?: boolean;
+  onOpen?: () => void;
+  onClose?: () => void;
 }
 
 const roleConfig = {
@@ -213,11 +215,26 @@ export function Sidebar({
   userRole,
   userName,
   schoolName,
-  isCollapsed = false,
-  onToggle,
+  isOpen = false,
+  onOpen,
+  onClose,
 }: SidebarProps) {
   const pathname = usePathname();
   const config = roleConfig[userRole];
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
+        onClose?.();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isOpen, onClose]);
 
   const handleSignOut = async () => {
     try {
@@ -229,12 +246,32 @@ export function Sidebar({
   };
 
   return (
-    <div
-      className={cn(
-        "flex flex-col h-full bg-white border-r border-gray-200 transition-all duration-300",
-        isCollapsed ? "w-16" : "w-64"
+    <>
+      {/* Hamburger Button */}
+      {!isOpen && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onOpen}
+          className="fixed left-4 top-4 z-50"
+        >
+          <Menu className="h-6 w-6" />
+        </Button>
       )}
-    >
+
+      {/* Overlay */}
+      {isOpen && (
+        <div className="fixed inset-0 z-30 bg-black/50" onClick={onClose} />
+      )}
+
+      {/* Sidebar */}
+      <div
+        ref={sidebarRef}
+        className={cn(
+          "fixed left-0 top-0 z-40 h-full w-64 bg-white border-r border-gray-200 transition-all duration-300 transform",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b border-gray-200">
         <div
@@ -245,27 +282,21 @@ export function Sidebar({
         >
           {config.badge}
         </div>
-        {!isCollapsed && (
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-semibold text-gray-900 truncate">
-              Smart SBA
-            </h1>
-            {schoolName && (
-              <p className="text-xs text-gray-500 truncate">{schoolName}</p>
-            )}
-          </div>
-        )}
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg font-semibold text-gray-900 truncate">
+            Smart SBA
+          </h1>
+          {schoolName && (
+            <p className="text-xs text-gray-500 truncate">{schoolName}</p>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="sm"
-          onClick={onToggle}
+          onClick={onClose}
           className="flex-shrink-0"
         >
-          {isCollapsed ? (
-            <Menu className="h-4 w-4" />
-          ) : (
-            <X className="h-4 w-4" />
-          )}
+          <X className="h-4 w-4" />
         </Button>
       </div>
 
@@ -282,16 +313,14 @@ export function Sidebar({
                 .toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          {!isCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {userName}
-              </p>
-              <Badge variant="secondary" className="text-xs">
-                {config.title}
-              </Badge>
-            </div>
-          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">
+              {userName}
+            </p>
+            <Badge variant="secondary" className="text-xs">
+              {config.title}
+            </Badge>
+          </div>
         </div>
       </div>
 
@@ -311,7 +340,7 @@ export function Sidebar({
               )}
             >
               <item.icon className="h-4 w-4 flex-shrink-0" />
-              {!isCollapsed && <span>{item.label}</span>}
+              <span>{item.label}</span>
             </Link>
           );
         })}
@@ -323,7 +352,7 @@ export function Sidebar({
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="w-full justify-start">
               <Settings className="h-4 w-4 mr-2" />
-              {!isCollapsed && <span>Account</span>}
+              <span>Account</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
@@ -341,6 +370,7 @@ export function Sidebar({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

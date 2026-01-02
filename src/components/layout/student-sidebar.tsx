@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { LayoutDashboard, FileText, Activity, Megaphone, UserCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, FileText, Activity, Megaphone, UserCircle, Menu, X } from 'lucide-react'
 
 interface SidebarItem {
   href: string
@@ -24,56 +24,80 @@ const items: SidebarItem[] = [
 
 export function StudentSidebar() {
   const pathname = usePathname()
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
+  const sidebarRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const saved = localStorage.getItem('student-sidebar-collapsed')
-    if (saved !== null) setIsCollapsed(JSON.parse(saved))
-  }, [])
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
 
-  const toggle = () => {
-    const next = !isCollapsed
-    setIsCollapsed(next)
-    localStorage.setItem('student-sidebar-collapsed', JSON.stringify(next))
-  }
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isOpen])
 
   return (
-    <aside
-      className={cn(
-        'fixed left-0 top-0 z-40 h-screen border-r bg-white transition-all duration-300',
-        isCollapsed ? 'w-16' : 'w-64'
-      )}
-    >
-      <div className="flex h-16 items-center justify-between border-b px-4">
-        {!isCollapsed && <span className="text-lg font-semibold text-gray-900">Student</span>}
+    <>
+      {/* Hamburger Button */}
+      {!isOpen && (
         <Button
           variant="ghost"
           size="icon"
-          onClick={toggle}
-          className={cn('h-8 w-8', isCollapsed && 'mx-auto')}
+          onClick={() => setIsOpen(true)}
+          className="fixed left-4 top-4 z-50"
         >
-          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          <Menu className="h-6 w-6" />
         </Button>
-      </div>
+      )}
 
-      <nav className="flex-1 overflow-y-auto p-2 space-y-1">
-        {items.map((item) => {
-          const active = pathname === item.href
-          return (
-            <Link key={item.href} href={item.href}>
-              <div
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'
-                )}
-              >
-                <span className="shrink-0">{item.icon}</span>
-                {!isCollapsed && <span>{item.label}</span>}
-              </div>
-            </Link>
-          )
-        })}
-      </nav>
-    </aside>
+      {/* Overlay */}
+      {isOpen && (
+        <div className="fixed inset-0 z-30 bg-black/50" onClick={() => setIsOpen(false)} />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        ref={sidebarRef}
+        className={cn(
+          'fixed left-0 top-0 z-40 h-screen w-64 border-r bg-white transition-all duration-300 transform',
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        <div className="flex h-16 items-center justify-between border-b px-4">
+          <span className="text-lg font-semibold text-gray-900">Student</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsOpen(false)}
+            className="h-8 w-8"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+          {items.map((item) => {
+            const active = pathname === item.href
+            return (
+              <Link key={item.href} href={item.href}>
+                <div
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'
+                  )}
+                >
+                  <span className="shrink-0">{item.icon}</span>
+                  <span>{item.label}</span>
+                </div>
+              </Link>
+            )
+          })}
+        </nav>
+      </aside>
+    </>
   )
 }

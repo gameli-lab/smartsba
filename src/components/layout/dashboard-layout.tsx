@@ -19,7 +19,7 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<{ profile: UserProfile } | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -55,14 +55,24 @@ export function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50">
       <Sidebar
         userRole={user.profile.role}
         userName={user.profile.full_name}
         schoolName="Demo School" // This would come from user.profile.school
-        isCollapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        isOpen={sidebarOpen}
+        onOpen={() => setSidebarOpen(true)}
+        onClose={() => setSidebarOpen(false)}
       />
+
+      {/* Hamburger button container for showing menu */}
+      {!sidebarOpen && (
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="sr-only"
+          id="open-sidebar-btn"
+        />
+      )}
 
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}

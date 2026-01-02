@@ -313,7 +313,7 @@ export default function SuperAdminDashboard() {
     try {
       const { data: logs, error } = await supabase
         .from('audit_logs')
-        .select('id, actor_name, actor_email, action_type, entity_type, entity_id, created_at')
+        .select('id, actor_user_id, actor_role, action_type, entity_type, entity_id, created_at')
         .in('action_type', [
           'school_created',
           'school_deleted',
@@ -330,8 +330,36 @@ export default function SuperAdminDashboard() {
       if (error) {
         console.error('Error fetching activity logs:', error?.message || JSON.stringify(error));
         setActivityLogs([]);
+      } else if (logs) {
+        // Fetch user profiles to get names and emails for each log entry
+        const userIds = [...new Set(logs.map((log: any) => log.actor_user_id))];
+        
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('user_profiles')
+            .select('user_id, first_name, last_name, email')
+            .in('user_id', userIds);
+
+          const profileMap = (profiles || []).reduce((acc: any, profile: any) => {
+            acc[profile.user_id] = profile;
+            return acc;
+          }, {});
+
+          const enrichedLogs = logs.map((log: any) => {
+            const profile = profileMap[log.actor_user_id];
+            return {
+              ...log,
+              actor_name: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown User',
+              actor_email: profile?.email || 'N/A',
+            };
+          });
+
+          setActivityLogs(enrichedLogs);
+        } else {
+          setActivityLogs([]);
+        }
       } else {
-        setActivityLogs(logs || []);
+        setActivityLogs([]);
       }
     } catch (error) {
       console.error('Error in fetchActivityLogs:', error instanceof Error ? error.message : String(error));
