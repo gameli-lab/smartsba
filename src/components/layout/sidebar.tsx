@@ -272,38 +272,10 @@ export function Sidebar({
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-      {/* Header */}
-      <div className="flex items-center gap-3 p-4 border-b border-gray-200">
-        <div
-          className={cn(
-            "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold",
-            config.color
-          )}
-        >
-          {config.badge}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-semibold text-gray-900 truncate">
-            Smart SBA
-          </h1>
-          {schoolName && (
-            <p className="text-xs text-gray-500 truncate">{schoolName}</p>
-          )}
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClose}
-          className="flex-shrink-0"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {/* User Info */}
+      {/* User Info Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8">
+          <Avatar className="h-10 w-10">
             <AvatarImage src="" />
             <AvatarFallback className={cn("text-white text-sm", config.color)}>
               {userName
@@ -321,6 +293,14 @@ export function Sidebar({
               {config.title}
             </Badge>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="flex-shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
