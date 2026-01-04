@@ -1,7 +1,9 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createAdminSupabaseClient } from '@/lib/supabase'
 import { AssignmentsClient } from './assignments-client'
 import type { Class, Subject, Teacher, UserProfile } from '@/types'
+
+export const dynamic = 'force-dynamic'
 
 interface TeacherWithProfile extends Teacher {
   user_profile: UserProfile
@@ -10,6 +12,7 @@ interface TeacherWithProfile extends Teacher {
 export default async function TeacherAssignmentsPage() {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = createAdminSupabaseClient()
 
   const [{ data: classesData }, { data: subjectsData }, { data: teachersData }] = await Promise.all([
     supabase
@@ -19,7 +22,7 @@ export default async function TeacherAssignmentsPage() {
       .order('level', { ascending: true }),
     supabase
       .from('subjects')
-      .select('id, name, code, class_id')
+      .select('id, name, code, level_group')
       .eq('school_id', schoolId)
       .order('name'),
     supabase
@@ -28,11 +31,7 @@ export default async function TeacherAssignmentsPage() {
         id,
         staff_id,
         is_active,
-        user_profile:user_profiles!inner(
-          id,
-          full_name,
-          email
-        )
+        user_id
       `)
       .eq('school_id', schoolId)
       .order('staff_id'),
@@ -40,7 +39,27 @@ export default async function TeacherAssignmentsPage() {
 
   const classes = (classesData || []) as Class[]
   const subjects = (subjectsData || []) as Subject[]
-  const teachers = (teachersData || []) as TeacherWithProfile[]
+  
+  // Fetch user profiles for teachers separately (no FK)
+  const enrichedTeachers: TeacherWithProfile[] = []
+  if (teachersData && teachersData.length > 0) {
+    const userIds = (teachersData as any[]).map(t => t.user_id)
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('user_id, id, full_name, email')
+      .in('user_id', userIds)
+
+    // Create a map of user_id -> profile
+    const profileMap = new Map((profiles || []).map(p => [p.user_id, p]))
+
+    // Attach profiles to teachers
+    const teachersData_typed = teachersData as any[]
+    enrichedTeachers.push(...teachersData_typed.map(t => ({
+      ...t,
+      user_profile: profileMap.get(t.user_id) || { id: '', user_id: t.user_id, full_name: 'Unknown', email: '' },
+    })))
+  }
+  const teachers = enrichedTeachers
 
   const classIds = classes.map((c) => c.id)
 
@@ -82,12 +101,19 @@ export default async function TeacherAssignmentsPage() {
     class_teacher_id: (c as any).class_teacher_id || null,
   }))
 
-  const clientSubjects = subjects.map((s) => ({
+  const clientSubjects = subjects.map((s: any) => ({
     id: s.id,
     name: s.name,
     code: s.code,
-    class_id: s.class_id,
+    level_group: s.level_group,
   }))
+
+  console.log('Teacher assignments page data:', {
+    classesCount: classes.length,
+    subjectsCount: clientSubjects.length,
+    teachersCount: teachers.length,
+    subjectsData: clientSubjects.slice(0, 3)
+  })
 
   const clientTeachers = teachers.map((t) => ({
     id: t.id,

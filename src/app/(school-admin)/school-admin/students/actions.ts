@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import ExcelJS from 'exceljs'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { createServerComponentClient } from '@/lib/supabase'
+import { createServerComponentClient, createAdminSupabaseClient } from '@/lib/supabase'
 import type { Student } from '@/types'
 
 interface CreateStudentInput {
@@ -146,6 +146,7 @@ export async function createStudent(input: CreateStudentInput) {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const supabase = await createServerComponentClient()
+    const adminSupabase = createAdminSupabaseClient()
 
     if (!input.full_name || !input.email || !input.admission_number || !input.class_id || !input.gender || !input.date_of_birth || !input.admission_date) {
       return { success: false, error: 'All required fields must be provided' }
@@ -192,7 +193,7 @@ export async function createStudent(input: CreateStudentInput) {
 
     const tempPassword = randomTempPassword('Student')
 
-    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+    const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
       email: input.email,
       password: tempPassword,
       email_confirm: true,
@@ -206,7 +207,7 @@ export async function createStudent(input: CreateStudentInput) {
     const userId = authUser.user.id
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: profileError } = await (supabase as any)
+    const { error: profileError } = await (adminSupabase as any)
       .from('user_profiles')
       .insert({
         user_id: userId,
@@ -224,12 +225,12 @@ export async function createStudent(input: CreateStudentInput) {
 
     if (profileError) {
       console.error('Rollback: deleting auth user after profile error', profileError)
-      await supabase.auth.admin.deleteUser(userId)
+      await adminSupabase.auth.admin.deleteUser(userId)
       return { success: false, error: 'Failed to create student profile' }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: studentError } = await (supabase as any)
+    const { error: studentError } = await (adminSupabase as any)
       .from('students')
       .insert({
         user_id: userId,
@@ -249,11 +250,17 @@ export async function createStudent(input: CreateStudentInput) {
 
     if (studentError) {
       console.error('Rollback: deleting auth user after student error', studentError)
-      await supabase.auth.admin.deleteUser(userId)
+      await adminSupabase.auth.admin.deleteUser(userId)
       return { success: false, error: 'Failed to create student record' }
     }
 
-    revalidatePath('/school-admin/students')
+    // Revalidate after successful creation, but catch any errors to avoid breaking the response
+    try {
+      revalidatePath('/school-admin/students')
+    } catch (revalidateError) {
+      console.warn('Warning: revalidatePath failed (this may be expected):', revalidateError)
+    }
+
     return { success: true, tempPassword }
   } catch (error) {
     console.error('Error in createStudent:', error)

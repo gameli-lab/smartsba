@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import ExcelJS from 'exceljs'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { createServerComponentClient } from '@/lib/supabase'
+import { createServerComponentClient, createAdminSupabaseClient } from '@/lib/supabase'
 import { UserProfile, Teacher } from '@/types'
 
 interface CreateTeacherInput {
@@ -54,6 +54,7 @@ export async function createTeacher(input: CreateTeacherInput) {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const supabase = await createServerComponentClient()
+    const adminSupabase = createAdminSupabaseClient()
 
     // Validate required fields
     if (!input.full_name || !input.email || !input.staff_id) {
@@ -92,7 +93,7 @@ export async function createTeacher(input: CreateTeacherInput) {
     const tempPassword = `Teacher@${Math.random().toString(36).slice(-8)}`
 
     // Create auth user
-    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+    const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
       email: input.email,
       password: tempPassword,
       email_confirm: true,
@@ -105,7 +106,7 @@ export async function createTeacher(input: CreateTeacherInput) {
 
     // Create user profile
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: profileError } = await (supabase as any)
+    const { error: profileError } = await (adminSupabase as any)
       .from('user_profiles')
       .insert({
         user_id: authUser.user.id,
@@ -123,14 +124,14 @@ export async function createTeacher(input: CreateTeacherInput) {
 
     if (profileError) {
       // Rollback: delete auth user if profile creation fails
-      await supabase.auth.admin.deleteUser(authUser.user.id)
+      await adminSupabase.auth.admin.deleteUser(authUser.user.id)
       console.error('Error creating user profile:', profileError)
       return { success: false, error: 'Failed to create teacher profile' }
     }
 
     // Create teacher record
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: teacherError } = await (supabase as any)
+    const { error: teacherError } = await (adminSupabase as any)
       .from('teachers')
       .insert({
         school_id: schoolId,
@@ -144,13 +145,18 @@ export async function createTeacher(input: CreateTeacherInput) {
 
     if (teacherError) {
       // Rollback: delete user profile and auth user
-      await supabase.from('user_profiles').delete().eq('user_id', authUser.user.id)
-      await supabase.auth.admin.deleteUser(authUser.user.id)
+      await adminSupabase.from('user_profiles').delete().eq('user_id', authUser.user.id)
+      await adminSupabase.auth.admin.deleteUser(authUser.user.id)
       console.error('Error creating teacher record:', teacherError)
       return { success: false, error: 'Failed to create teacher record' }
     }
 
-    revalidatePath('/school-admin/teachers')
+    // Revalidate after successful creation, but catch any errors to avoid breaking the response
+    try {
+      revalidatePath('/school-admin/teachers')
+    } catch (revalidateError) {
+      console.warn('Warning: revalidatePath failed (this may be expected):', revalidateError)
+    }
     
     return { 
       success: true, 

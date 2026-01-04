@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { createServerComponentClient } from '@/lib/supabase'
+import { createAdminSupabaseClient } from '@/lib/supabase'
 import { isValidNumericLevel } from '@/lib/constants/level-groups'
 
 interface ClassInput {
@@ -18,7 +18,7 @@ interface UpdateClassInput extends Partial<ClassInput> {
 }
 
 async function ensureTeacherValid(teacherId: string, schoolId: string) {
-  const supabase = await createServerComponentClient()
+  const supabase = createAdminSupabaseClient()
   const { data: teacherRow } = await supabase
     .from('teachers')
     .select('id, school_id, is_active')
@@ -41,7 +41,7 @@ export async function createClass(input: ClassInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
-    const supabase = await createServerComponentClient()
+    const supabase = createAdminSupabaseClient()
 
     if (!input.name || !input.level) {
       return { success: false, error: 'Name and level are required' }
@@ -241,7 +241,7 @@ export async function setClassTeacher(classId: string, teacherId: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
-    const supabase = await createServerComponentClient()
+    const supabase = createAdminSupabaseClient()
     const actorUserId = profile.user_id // TODO: use for audit logging
     void actorUserId
 
@@ -276,9 +276,14 @@ export async function setClassTeacher(classId: string, teacherId: string) {
 
     // TODO: Emit audit log for class teacher changes (actor_user_id: actorUserId)
 
-    revalidatePath('/school-admin/classes')
-    revalidatePath('/school-admin/teacher-assignments')
-    revalidatePath(`/school-admin/classes/${classId}`)
+    try {
+      revalidatePath('/school-admin/classes')
+      revalidatePath('/school-admin/teacher-assignments')
+      revalidatePath(`/school-admin/classes/${classId}`)
+    } catch (revalidateError) {
+      console.warn('Warning: revalidatePath failed:', revalidateError)
+    }
+
     return { success: true }
   } catch (error) {
     console.error('Error in setClassTeacher:', error)

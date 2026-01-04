@@ -1,12 +1,13 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { getLevelGroupByNumber } from '@/lib/constants/level-groups'
 import {
   Table,
   TableBody,
@@ -40,7 +41,7 @@ interface SubjectOption {
   id: string
   name: string
   code?: string | null
-  class_id: string
+  level_group?: string
 }
 
 interface AssignmentRow {
@@ -113,8 +114,24 @@ export function AssignmentsClient({ classes, subjects, teachers, assignments }: 
 
   const filteredSubjects = useMemo(() => {
     if (!createForm.class_id) return subjects
-    return subjects.filter((s) => s.class_id === createForm.class_id)
-  }, [createForm.class_id, subjects])
+    
+    // Get the selected class and its level group
+    const selectedClass = classes.find((c) => c.id === createForm.class_id)
+    if (!selectedClass) return subjects
+    
+    const levelGroup = getLevelGroupByNumber(selectedClass.level)
+    if (!levelGroup) return subjects
+    
+    // Filter subjects to show only those matching the class's level group
+    return subjects.filter((s) => s.level_group === levelGroup.key)
+  }, [createForm.class_id, subjects, classes])
+
+  // Clear subject selection if it's not in the filtered list
+  useEffect(() => {
+    if (createForm.subject_id && !filteredSubjects.find((s) => s.id === createForm.subject_id)) {
+      setCreateForm((p) => ({ ...p, subject_id: '' }))
+    }
+  }, [filteredSubjects, createForm.subject_id])
 
   const handleCreate = async () => {
     setIsSubmitting(true)

@@ -1,5 +1,5 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { createServerComponentClient } from '@/lib/supabase'
+import { createAdminSupabaseClient } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { CreateStudentDialog } from '@/app/(school-admin)/school-admin/students/create-student-dialog'
@@ -13,13 +13,15 @@ interface StudentWithRelations extends Student {
   classes: Class
 }
 
+export const dynamic = 'force-dynamic'
+
 export default async function StudentsPage(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const searchParams = await props.searchParams
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
-  const supabase = await createServerComponentClient()
+  const supabase = createAdminSupabaseClient()
 
   // Get current academic session
   const { data: currentSession } = await supabase
@@ -29,38 +31,11 @@ export default async function StudentsPage(props: {
     .eq('is_current', true)
     .single()
 
-  // Build base queries with filters
+  // Fetch students and classes separately, then manually join profiles
   let studentsQuery = supabase
     .from('students')
-    .select(`
-      *,
-      user_profile:user_profiles!inner(
-        id,
-        full_name,
-        email,
-        admission_number,
-        phone,
-        address,
-        gender,
-        date_of_birth,
-        status
-      ),
-      classes!inner(
-        id,
-        name,
-        level,
-        stream
-      )
-    `)
+    .select('*')
     .eq('school_id', schoolId)
-
-  // Apply search filter (name or admission number)
-  const search = searchParams.search as string | undefined
-  if (search) {
-    studentsQuery = studentsQuery.or(
-      `user_profile.full_name.ilike.%${search}%,admission_number.ilike.%${search}%`
-    )
-  }
 
   // Apply class filter
   const classId = searchParams.classId as string | undefined
@@ -85,11 +60,45 @@ export default async function StudentsPage(props: {
       .order('level', { ascending: true }),
   ])
 
-  const students = (studentsData || []) as unknown as StudentWithRelations[]
+  const students = (studentsData || []) as Student[]
   const classes = (classesData || []) as Class[]
 
-  const total = students.length
-  const active = students.filter((s) => s.is_active).length
+  // Manually fetch user profiles for all students
+  const userIds = students.map(s => s.user_id).filter(Boolean)
+  
+  const { data: profilesData } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .in('user_id', userIds)
+
+  const profilesMap = new Map((profilesData || []).map(p => [p.user_id, p]))
+  const classesMap = new Map(classes.map(c => [c.id, c]))
+
+  // Combine data manually
+  const studentsWithRelations: StudentWithRelations[] = students
+    .map(student => {
+      const user_profile = profilesMap.get(student.user_id)
+      const studentClass = classesMap.get(student.class_id)
+      if (!user_profile || !studentClass) return null
+      return {
+        ...student,
+        user_profile,
+        classes: studentClass
+      }
+    })
+    .filter(Boolean) as StudentWithRelations[]
+
+  // Apply search filter on the combined data
+  const search = searchParams.search as string | undefined
+  const filteredStudents = search
+    ? studentsWithRelations.filter(s =>
+        s.user_profile.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+        s.user_profile.admission_number?.toLowerCase().includes(search.toLowerCase())
+      )
+    : studentsWithRelations
+
+  const total = filteredStudents.length
+  const active = filteredStudents.filter((s) => s.is_active).length
   const inactive = total - active
 
   return (
@@ -161,8 +170,8 @@ export default async function StudentsPage(props: {
         </CardHeader>
         <CardContent>
           <StudentsFilters classes={classes} />
-          {students.length ? (
-            <StudentsList students={students} classes={classes} />
+          {filteredStudents.length ? (
+            <StudentsList students={filteredStudents} classes={classes} />
           ) : (
             <div className="text-center py-12">
               <p className="text-gray-500 mb-4">No students found</p>

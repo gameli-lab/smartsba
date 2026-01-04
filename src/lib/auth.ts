@@ -400,27 +400,40 @@ export interface ParentGuardResult extends AuthResult {
  * If no assignments are found, the caller can decide how to render an empty state.
  */
 export async function requireTeacher(): Promise<TeacherGuardResult> {
-  const currentUser = await AuthService.getCurrentUser()
-
-  if (!currentUser) {
+  const serverSupabase = await createServerComponentClient()
+  
+  const { data: { session }, error } = await serverSupabase.auth.getSession()
+  
+  if (error || !session) {
     redirect('/login')
   }
 
-  if (currentUser.profile.role !== 'teacher') {
-    redirect('/login')
-  }
-
-  const { data: teacherRow } = await supabase
-    .from('teachers')
+  // Get user profile
+  const { data: profile, error: profileError } = await serverSupabase
+    .from('user_profiles')
     .select('*')
-    .eq('user_id', currentUser.user.id)
+    .eq('user_id', session.user.id)
     .single()
 
-  if (!teacherRow || (teacherRow as Teacher).school_id !== currentUser.profile.school_id) {
+  if (profileError || !profile) {
     redirect('/login')
   }
 
-  const { data: assignmentRows } = await supabase
+  if (profile.role !== 'teacher') {
+    redirect('/login')
+  }
+
+  const { data: teacherRow } = await serverSupabase
+    .from('teachers')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .single()
+
+  if (!teacherRow || (teacherRow as Teacher).school_id !== profile.school_id) {
+    redirect('/login')
+  }
+
+  const { data: assignmentRows } = await serverSupabase
     .from('teacher_assignments')
     .select('id, teacher_id, class_id, subject_id, is_class_teacher, academic_year')
     .eq('teacher_id', (teacherRow as Teacher).id)
@@ -429,7 +442,8 @@ export async function requireTeacher(): Promise<TeacherGuardResult> {
   const effectiveRole = assignments.some((a) => a.is_class_teacher) ? 'class_teacher' : 'subject_teacher'
 
   return {
-    ...currentUser,
+    user: session.user,
+    profile: profile as UserProfile,
     teacher: teacherRow as Teacher,
     assignments,
     effectiveRole,
@@ -442,24 +456,38 @@ export async function requireTeacher(): Promise<TeacherGuardResult> {
  * Returns student record if found; callers handle missing profile state.
  */
 export async function requireStudent(): Promise<StudentGuardResult> {
-  const currentUser = await AuthService.getCurrentUser()
-
-  if (!currentUser) {
+  const serverSupabase = await createServerComponentClient()
+  
+  const { data: { session }, error } = await serverSupabase.auth.getSession()
+  
+  if (error || !session) {
     redirect('/login')
   }
 
-  if (currentUser.profile.role !== 'student') {
+  // Get user profile
+  const { data: profile, error: profileError } = await serverSupabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .single()
+
+  if (profileError || !profile) {
     redirect('/login')
   }
 
-  const { data: studentRow } = await supabase
+  if (profile.role !== 'student') {
+    redirect('/login')
+  }
+
+  const { data: studentRow } = await serverSupabase
     .from('students')
     .select('*')
-    .eq('user_id', currentUser.user.id)
+    .eq('user_id', session.user.id)
     .maybeSingle()
 
   return {
-    ...currentUser,
+    user: session.user,
+    profile: profile as UserProfile,
     student: (studentRow as Student) || null,
   }
 }
@@ -470,25 +498,38 @@ export async function requireStudent(): Promise<StudentGuardResult> {
  * Returns linked wards (students); callers handle empty wards state.
  */
 export async function requireParent(): Promise<ParentGuardResult> {
-  const currentUser = await AuthService.getCurrentUser()
-
-  if (!currentUser) {
+  const serverSupabase = await createServerComponentClient()
+  
+  const { data: { session }, error } = await serverSupabase.auth.getSession()
+  
+  if (error || !session) {
     redirect('/login')
   }
 
-  if (currentUser.profile.role !== 'parent') {
+  // Get user profile
+  const { data: profile, error: profileError } = await serverSupabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .single()
+
+  if (profileError || !profile) {
+    redirect('/login')
+  }
+
+  if (profile.role !== 'parent') {
     redirect('/login')
   }
 
   // Fetch linked students via parent_student_relationships
-  const { data: linksData } = await supabase
+  const { data: linksData } = await serverSupabase
     .from('parent_student_relationships')
     .select(`
       relationship,
       is_primary,
       student:students(*)
     `)
-    .eq('parent_id', currentUser.profile.id)
+    .eq('parent_id', profile.id)
 
   const links = (linksData || []) as Array<{
     relationship: string
@@ -503,7 +544,8 @@ export async function requireParent(): Promise<ParentGuardResult> {
   }))
 
   return {
-    ...currentUser,
+    user: session.user,
+    profile: profile as UserProfile,
     wards,
   }
 }

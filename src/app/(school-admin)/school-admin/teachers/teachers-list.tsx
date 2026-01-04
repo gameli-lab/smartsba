@@ -20,7 +20,6 @@ import type { Teacher, UserProfile } from '@/types'
 
 interface TeacherWithProfile extends Teacher {
   user_profile: UserProfile
-  teacher_assignments: { count: number }[]
 }
 
 interface TeachersListProps {
@@ -59,10 +58,6 @@ export function TeachersList({ teachers }: TeachersListProps) {
       alert(result.error || 'Failed to delete teacher')
     }
     setLoadingId(null)
-  }
-
-  const getAssignmentsCount = (teacher: TeacherWithProfile) => {
-    return teacher.teacher_assignments?.[0]?.count || 0
   }
 
   return (
@@ -105,7 +100,7 @@ export function TeachersList({ teachers }: TeachersListProps) {
               </TableCell>
               <TableCell>
                 <span className="text-sm font-medium text-blue-600">
-                  {getAssignmentsCount(teacher)} classes/subjects
+                  — classes/subjects
                 </span>
               </TableCell>
               <TableCell>

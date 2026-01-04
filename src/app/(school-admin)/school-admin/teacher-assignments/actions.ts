@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createAdminSupabaseClient } from '@/lib/supabase'
 import type { TeacherAssignment } from '@/types'
 
 interface CreateAssignmentInput {
@@ -35,6 +35,7 @@ export async function createAssignment(input: CreateAssignmentInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = createAdminSupabaseClient()
 
     if (!input.class_id || !input.subject_id || !input.teacher_id) {
       return { success: false, error: 'Class, subject, and teacher are required' }
@@ -106,7 +107,11 @@ export async function createAssignment(input: CreateAssignmentInput) {
       return { success: false, error: 'Failed to create assignment' }
     }
 
-    revalidatePath('/school-admin/teacher-assignments')
+    try {
+      revalidatePath('/school-admin/teacher-assignments')
+    } catch (e) {
+      console.error('Revalidation error:', e)
+    }
     return { success: true }
   } catch (error) {
     console.error('Error in createAssignment:', error)
@@ -118,6 +123,7 @@ export async function updateAssignment(input: UpdateAssignmentInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = createAdminSupabaseClient()
 
     if (!input.id) return { success: false, error: 'Assignment ID is required' }
 
@@ -174,7 +180,11 @@ export async function updateAssignment(input: UpdateAssignmentInput) {
       return { success: false, error: 'Failed to update assignment' }
     }
 
-    revalidatePath('/school-admin/teacher-assignments')
+    try {
+      revalidatePath('/school-admin/teacher-assignments')
+    } catch (e) {
+      console.error('Revalidation error:', e)
+    }
     return { success: true }
   } catch (error) {
     console.error('Error in updateAssignment:', error)
@@ -186,6 +196,7 @@ export async function deleteAssignment(id: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = createAdminSupabaseClient()
 
     if (!id) return { success: false, error: 'Assignment ID is required' }
 
@@ -219,7 +230,11 @@ export async function deleteAssignment(id: string) {
       return { success: false, error: 'Failed to delete assignment' }
     }
 
-    revalidatePath('/school-admin/teacher-assignments')
+    try {
+      revalidatePath('/school-admin/teacher-assignments')
+    } catch (e) {
+      console.error('Revalidation error:', e)
+    }
     return { success: true }
   } catch (error) {
     console.error('Error in deleteAssignment:', error)
@@ -231,6 +246,7 @@ export async function setClassTeacher(classId: string, teacherId: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = createAdminSupabaseClient()
 
     if (!classId || !teacherId) return { success: false, error: 'Class and teacher are required' }
 
@@ -266,7 +282,11 @@ export async function setClassTeacher(classId: string, teacherId: string) {
       return { success: false, error: 'Failed to set class teacher' }
     }
 
-    revalidatePath('/school-admin/teacher-assignments')
+    try {
+      revalidatePath('/school-admin/teacher-assignments')
+    } catch (e) {
+      console.error('Revalidation error:', e)
+    }
     return { success: true }
   } catch (error) {
     console.error('Error in setClassTeacher:', error)

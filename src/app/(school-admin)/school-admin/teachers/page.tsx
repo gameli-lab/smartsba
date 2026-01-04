@@ -1,5 +1,7 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createAdminSupabaseClient } from '@/lib/supabase'
+
+export const dynamic = 'force-dynamic'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { TeachersList } from '@/app/(school-admin)/school-admin/teachers/teachers-list'
 import { CreateTeacherDialog } from '@/app/(school-admin)/school-admin/teachers/create-teacher-dialog'
@@ -22,6 +24,7 @@ export default async function TeachersPage(props: {
   const searchParams = await props.searchParams
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = createAdminSupabaseClient()
 
   // Current academic session badge
   const { data: currentSession } = await supabase
@@ -48,19 +51,7 @@ export default async function TeachersPage(props: {
   let teachersQuery = supabase
     .from('teachers')
     .select(`
-      *,
-      user_profile:user_profiles!inner(
-        id,
-        full_name,
-        email,
-        staff_id,
-        phone,
-        gender,
-        date_of_birth,
-        address,
-        status
-      ),
-      teacher_assignments(count)
+      *
     `)
     .eq('school_id', schoolId)
 
@@ -103,10 +94,47 @@ export default async function TeachersPage(props: {
     }
   }
 
-  const { data: rawTeachers } = await teachersQuery.order('created_at', { ascending: false })
+  const { data: rawTeachers, error: teachersError } = await teachersQuery.order('created_at', { ascending: false })
   
-  const teachers = (rawTeachers || []) as TeacherWithProfile[]
+  if (teachersError) {
+    console.error('Error fetching teachers:', teachersError)
+  }
 
+  console.log('Teachers query result:', { count: rawTeachers?.length, error: teachersError })
+
+  // Fetch user profiles for all teachers
+  if (rawTeachers && rawTeachers.length > 0) {
+    const userIds = (rawTeachers as any[]).map(t => t.user_id)
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('user_id, id, full_name, email, staff_id, phone, gender, date_of_birth, address, status')
+      .in('user_id', userIds)
+
+    // Create a map of user_id -> profile
+    const profileMap = new Map((profiles || []).map(p => [p.user_id, p]))
+
+    // Attach profiles to teachers
+    const teachersWithProfiles = (rawTeachers as any[]).map(t => ({
+      ...t,
+      user_profile: profileMap.get(t.user_id),
+      teacher_assignments: []
+    }))
+
+    const teachers = teachersWithProfiles as TeacherWithProfile[]
+    
+    return renderTeachersPage(teachers, classesData, subjectsData, currentSession)
+  }
+
+  const teachers: TeacherWithProfile[] = []
+  return renderTeachersPage(teachers, classesData, subjectsData, currentSession)
+}
+
+function renderTeachersPage(
+  teachers: TeacherWithProfile[],
+  classesData: any,
+  subjectsData: any,
+  currentSession: any
+) {
   return (
     <div className="p-8 space-y-8">
       {/* Page Header */}
