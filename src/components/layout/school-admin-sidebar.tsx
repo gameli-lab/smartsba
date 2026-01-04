@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { 
@@ -24,7 +24,9 @@ import {
   UserCircle,
   Shield,
   Settings,
+  LogOut,
 } from 'lucide-react'
+import { AuthService } from '@/lib/auth'
 
 interface SidebarProps {
   schoolId: string
@@ -33,7 +35,18 @@ interface SidebarProps {
 export function SchoolAdminSidebar({ schoolId }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
+  const router = useRouter()
   const sidebarRef = useRef<HTMLDivElement>(null)
+
+  const handleLogout = async () => {
+    try {
+      await AuthService.signOut()
+      router.push('/login')
+      router.refresh()
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+  }
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -258,6 +271,17 @@ export function SchoolAdminSidebar({ schoolId }: SidebarProps) {
           isActive={pathname === '/school-admin/settings'}
         />
       </nav>
+
+      <div className="border-t p-3">
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-red-600"
+          onClick={handleLogout}
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Logout
+        </Button>
+      </div>
       </aside>
     </>
   )

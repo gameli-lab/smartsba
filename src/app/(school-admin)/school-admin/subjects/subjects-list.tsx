@@ -15,6 +15,7 @@ import {
 import { Edit, Archive, RotateCcw } from 'lucide-react'
 import { deactivateSubject, reactivateSubject } from './actions'
 import { EditSubjectDialog } from './edit-subject-dialog'
+import { LEVEL_GROUPS } from '@/lib/constants/level-groups'
 import type { Subject, Class } from '@/types'
 
 interface Props {
@@ -27,8 +28,9 @@ export function SubjectsList({ subjects, classes }: Props) {
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null)
 
-  const getClassName = (classId: string) => {
-    return classes.find((c) => c.id === classId)?.name || 'Unknown'
+  const getLevelLabel = (levelGroup: string) => {
+    const group = LEVEL_GROUPS[levelGroup as keyof typeof LEVEL_GROUPS]
+    return group ? group.label : levelGroup
   }
 
   const handleDelete = async (id: string, name: string) => {
@@ -63,7 +65,7 @@ export function SubjectsList({ subjects, classes }: Props) {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Code</TableHead>
-              <TableHead>Class</TableHead>
+              <TableHead>Level</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Description</TableHead>
@@ -78,7 +80,7 @@ export function SubjectsList({ subjects, classes }: Props) {
                   {subject.code || '—'}
                 </TableCell>
                 <TableCell className="text-sm">
-                  <Badge variant="outline">{getClassName(subject.class_id)}</Badge>
+                  <Badge variant="outline">{getLevelLabel(subject.level_group)}</Badge>
                 </TableCell>
                 <TableCell>
                   {subject.is_core ? (

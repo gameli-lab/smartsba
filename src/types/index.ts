@@ -87,7 +87,7 @@ export interface Class {
 export interface Subject {
   id: string
   school_id: string
-  class_id: string
+  level_group: 'NURSERY' | 'KG' | 'PRIMARY' | 'JHS'
   name: string
   code?: string
   description?: string

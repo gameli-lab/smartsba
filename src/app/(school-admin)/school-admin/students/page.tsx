@@ -79,30 +79,6 @@ export default async function StudentsPage(props: {
   const [{ data: studentsData }, { data: classesData }] = await Promise.all([
     studentsQuery.order('created_at', { ascending: false }),
     supabase
-      .from('students')
-      .select(`
-        *,
-        user_profile:user_profiles!inner(
-          id,
-          full_name,
-          email,
-          admission_number,
-          phone,
-          address,
-          gender,
-          date_of_birth,
-          status
-        ),
-        classes!inner(
-          id,
-          name,
-          level,
-          stream
-        )
-      `)
-      .eq('school_id', schoolId)
-      .order('created_at', { ascending: false }),
-    supabase
       .from('classes')
       .select('id, name, level, stream')
       .eq('school_id', schoolId)

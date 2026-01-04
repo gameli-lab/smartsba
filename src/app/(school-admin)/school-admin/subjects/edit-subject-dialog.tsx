@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Loader2 } from 'lucide-react'
 import { updateSubject } from './actions'
+import { LEVEL_GROUPS } from '@/lib/constants/level-groups'
 import type { Subject, Class } from '@/types'
 
 interface Props {
@@ -30,12 +31,18 @@ export function EditSubjectDialog({ subject, classes, open, onOpenChange }: Prop
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [classId, setClassId] = useState(subject.class_id)
+  const [levelGroup, setLevelGroup] = useState<string>(subject.level_group)
   const [isCore, setIsCore] = useState(subject.is_core)
+
+  // Get unique levels from classes
+  const uniqueLevels = useMemo(() => {
+    const levels = new Set(classes.map(c => c.level))
+    return Array.from(levels).sort((a, b) => a - b)
+  }, [classes])
 
   useEffect(() => {
     if (open) {
-      setClassId(subject.class_id)
+      setLevelGroup(subject.level_group)
       setIsCore(subject.is_core)
       setError(null)
     }
@@ -43,6 +50,12 @@ export function EditSubjectDialog({ subject, classes, open, onOpenChange }: Prop
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+
+    if (!levelGroup) {
+      setError('Please select a level')
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
 
@@ -51,7 +64,7 @@ export function EditSubjectDialog({ subject, classes, open, onOpenChange }: Prop
     const result = await updateSubject({
       id: subject.id,
       name: (formData.get('name') as string) || subject.name,
-      class_id: classId,
+      level_group: levelGroup as 'NURSERY' | 'KG' | 'PRIMARY' | 'JHS',
       code: (formData.get('code') as string) || undefined,
       description: (formData.get('description') as string) || undefined,
       is_core: isCore,
@@ -73,21 +86,21 @@ export function EditSubjectDialog({ subject, classes, open, onOpenChange }: Prop
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit Subject</DialogTitle>
-          <DialogDescription>Update subject details.</DialogDescription>
+          <DialogDescription>Update subject details. The level determines which classes have access to this subject.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Class *</Label>
-              <Select value={classId} onValueChange={setClassId}>
+              <Label>Level *</Label>
+              <Select value={levelGroup} onValueChange={setLevelGroup}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name} (Level {c.level}{c.stream ? ` • ${c.stream}` : ''})
+                  {Object.entries(LEVEL_GROUPS).map(([key, group]) => (
+                    <SelectItem key={key} value={key}>
+                      {group.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

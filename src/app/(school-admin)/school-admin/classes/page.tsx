@@ -21,7 +21,6 @@ interface ClassWithExtras extends Class {
   class_teacher?: TeacherOption | null
   students_count: number
   subjects_count: number
-  status: 'active' | 'archived'
 }
 
 type SearchParams = Record<string, string | string[] | undefined>
@@ -33,7 +32,6 @@ interface ClassRow {
   stream: string | null
   description: string | null
   class_teacher_id: string | null
-  status: 'active' | 'archived'
   created_at: string
   updated_at: string
 }
@@ -56,7 +54,6 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Sea
   const search = typeof params.search === 'string' ? params.search : undefined
   const levelFilter = typeof params.level === 'string' ? params.level : undefined
   const streamFilter = typeof params.stream === 'string' ? params.stream : undefined
-  const statusFilter = typeof params.status === 'string' ? params.status : undefined
   const cursor = typeof params.cursor === 'string' ? params.cursor : undefined
 
   const limit = 10
@@ -71,7 +68,7 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Sea
   let classesQuery = supabase
     .from('classes')
     .select(
-      `id, name, level, stream, description, class_teacher_id, status, created_at, updated_at`
+      `id, name, level, stream, description, class_teacher_id, created_at, updated_at`
     )
     .eq('school_id', schoolId)
     .order('created_at', { ascending: false })
@@ -96,10 +93,6 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Sea
 
   if (cursor) {
     classesQuery = classesQuery.lt('created_at', cursor)
-  }
-
-  if (statusFilter) {
-    classesQuery = classesQuery.eq('status', statusFilter)
   }
 
   const [classesResult, teachersResult] = await Promise.all([
@@ -166,7 +159,6 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Sea
       : null,
     students_count: studentCountMap.get(c.id) ?? 0,
     subjects_count: subjectCountMap.get(c.id) ?? 0,
-    status: c.status || 'active',
   }))
 
   const total = classesWithExtras.length
@@ -178,7 +170,6 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Sea
     if (search) qs.set('search', search)
     if (levelFilter) qs.set('level', levelFilter)
     if (streamFilter) qs.set('stream', streamFilter)
-    if (statusFilter) qs.set('status', statusFilter)
     if (override.cursor) qs.set('cursor', override.cursor)
     return qs.toString()
   }

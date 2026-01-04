@@ -59,10 +59,10 @@ export function CreateClassDialog({ teachers }: Props) {
       return
     }
 
-    setOpen(false)
+    // Clear state and close dialog (form will remount fresh next time)
     setTeacherId('')
     setStream('')
-    e.currentTarget.reset()
+    setOpen(false)
   }
 
   const handleOpenChange = (next: boolean) => {

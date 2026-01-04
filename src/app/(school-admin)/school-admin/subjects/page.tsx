@@ -1,5 +1,5 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CreateSubjectDialog } from './create-subject-dialog'
 import { SubjectsList } from './subjects-list'
@@ -14,13 +14,15 @@ export default async function SubjectsPage(props: {
   const searchParams = await props.searchParams
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = await createServerComponentClient()
 
   // Build subjects query with filters
   let subjectsQuery = supabase
     .from('subjects')
     .select('*')
     .eq('school_id', schoolId)
-    .eq('is_active', true)
+    // Treat null as active to avoid hiding legacy rows created before the status column/default
+    .or('is_active.eq.true,is_active.is.null')
 
   // Apply search filter (name or code)
   const search = searchParams.search as string | undefined

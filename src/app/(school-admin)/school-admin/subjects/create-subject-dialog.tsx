@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,9 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Loader2, Plus } from 'lucide-react'
 import { createSubject } from './actions'
-// TODO: Use LEVEL_GROUPS to filter available subjects based on class level group
-// - Some subjects (e.g., Vocational) only available at JHS
-// - Some subjects (e.g., Mother Tongue) only available at Primary
+import { LEVEL_GROUPS } from '@/lib/constants/level-groups'
 import type { Class } from '@/types'
 
 interface Props {
@@ -30,11 +28,23 @@ export function CreateSubjectDialog({ classes }: Props) {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [classId, setClassId] = useState('')
+  const [levelGroup, setLevelGroup] = useState('')
   const [isCore, setIsCore] = useState(false)
+
+  // Get unique levels from classes
+  const uniqueLevels = useMemo(() => {
+    const levels = new Set(classes.map(c => c.level))
+    return Array.from(levels).sort((a, b) => a - b)
+  }, [classes])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+
+    if (!levelGroup) {
+      setError('Please select a level')
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
 
@@ -42,7 +52,7 @@ export function CreateSubjectDialog({ classes }: Props) {
 
     const result = await createSubject({
       name: (formData.get('name') as string) || '',
-      class_id: classId,
+      level_group: levelGroup as 'NURSERY' | 'KG' | 'PRIMARY' | 'JHS',
       code: (formData.get('code') as string) || undefined,
       description: (formData.get('description') as string) || undefined,
       is_core: isCore,
@@ -56,15 +66,14 @@ export function CreateSubjectDialog({ classes }: Props) {
     }
 
     setOpen(false)
-    setClassId('')
+    setLevelGroup('')
     setIsCore(false)
-    e.currentTarget.reset()
   }
 
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       setError(null)
-      setClassId('')
+      setLevelGroup('')
       setIsCore(false)
     }
     setOpen(next)
@@ -81,21 +90,27 @@ export function CreateSubjectDialog({ classes }: Props) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create Subject</DialogTitle>
-          <DialogDescription>Add a new subject to a class.</DialogDescription>
+          <DialogDescription>Add a new subject at the selected level. This subject will be available to all classes at this level.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {classes.length === 0 ? (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+              No classes available. Please create classes first before adding subjects.
+            </div>
+          ) : (
+            <>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Class *</Label>
-              <Select value={classId} onValueChange={setClassId}>
+              <Label>Level *</Label>
+              <Select value={levelGroup} onValueChange={setLevelGroup}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select class" />
+                  <SelectValue placeholder="Select level" />
                 </SelectTrigger>
                 <SelectContent>
-                  {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name} (Level {c.level}{c.stream ? ` • ${c.stream}` : ''})
+                  {Object.entries(LEVEL_GROUPS).map(([key, group]) => (
+                    <SelectItem key={key} value={key}>
+                      {group.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -144,11 +159,13 @@ export function CreateSubjectDialog({ classes }: Props) {
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || !classId}>
+            <Button type="submit" disabled={isSubmitting || !levelGroup}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Subject
             </Button>
           </div>
+            </>
+          )}
         </form>
       </DialogContent>
     </Dialog>
