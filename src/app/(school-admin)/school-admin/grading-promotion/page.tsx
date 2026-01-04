@@ -1,5 +1,5 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { GradingPromotionClient } from './grading-promotion-client'
 
 /**
@@ -9,6 +9,7 @@ import { GradingPromotionClient } from './grading-promotion-client'
 export default async function GradingPromotionPage() {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id!
+  const supabase = await createServerComponentClient()
 
   // Fetch classes
   const { data: classes, error: classesError } = await supabase
@@ -26,7 +27,7 @@ export default async function GradingPromotionPage() {
     .from('academic_sessions')
     .select('*')
     .eq('school_id', schoolId)
-    .eq('is_active', true)
+    .eq('is_current', true)
     .order('created_at', { ascending: false })
 
   if (sessionsError) {

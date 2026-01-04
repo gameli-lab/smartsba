@@ -75,13 +75,13 @@ function getDashboardLink(isAuthenticated: boolean, userRole?: string): string {
     case "super_admin":
       return "/dashboard/super-admin";
     case "school_admin":
-      return "/dashboard/school-admin";
+      return "/school-admin";
     case "teacher":
-      return "/dashboard/teacher";
+      return "/teacher";
     case "student":
-      return "/dashboard/student";
+      return "/student";
     case "parent":
-      return "/dashboard/parent";
+      return "/parent";
     default:
       return "/";
   }

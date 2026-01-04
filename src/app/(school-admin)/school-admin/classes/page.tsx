@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { unstable_noStore as noStore } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CreateClassDialog } from './create-class-dialog'
@@ -51,6 +51,7 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Sea
   const params = searchParams || {}
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = await createServerComponentClient()
 
   const search = typeof params.search === 'string' ? params.search : undefined
   const levelFilter = typeof params.level === 'string' ? params.level : undefined

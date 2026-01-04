@@ -1,5 +1,5 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { CreateStudentDialog } from '@/app/(school-admin)/school-admin/students/create-student-dialog'
@@ -19,6 +19,7 @@ export default async function StudentsPage(props: {
   const searchParams = await props.searchParams
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = await createServerComponentClient()
 
   // Get current academic session
   const { data: currentSession } = await supabase

@@ -115,7 +115,7 @@ export function EditClassDialog({ klass, teachers, open, onOpenChange }: Props) 
                   <SelectValue placeholder="Optional" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No class teacher</SelectItem>
+                  <SelectItem value="none">No class teacher</SelectItem>
                   {activeTeachers.map((teacher) => (
                     <SelectItem key={teacher.id} value={teacher.id}>
                       {teacher.full_name} ({teacher.staff_id})

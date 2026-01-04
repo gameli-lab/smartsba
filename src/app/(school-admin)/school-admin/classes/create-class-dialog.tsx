@@ -107,7 +107,7 @@ export function CreateClassDialog({ teachers }: Props) {
                   <SelectValue placeholder="Choose stream" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No stream</SelectItem>
+                  <SelectItem value="none">No stream</SelectItem>
                   <SelectItem value="A">A</SelectItem>
                   <SelectItem value="B">B</SelectItem>
                 </SelectContent>
@@ -120,16 +120,20 @@ export function CreateClassDialog({ teachers }: Props) {
                   <SelectValue placeholder="Optional" />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeTeachers.length === 0 && (
-                    <SelectItem value="" disabled>
-                      No active teachers
-                    </SelectItem>
+                  {activeTeachers.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-gray-500">
+                      No active teachers available
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="none">No teacher</SelectItem>
+                      {activeTeachers.map((teacher) => (
+                        <SelectItem key={teacher.id} value={teacher.id}>
+                          {teacher.full_name} ({teacher.staff_id})
+                        </SelectItem>
+                      ))}
+                    </>
                   )}
-                  {activeTeachers.map((teacher) => (
-                    <SelectItem key={teacher.id} value={teacher.id}>
-                      {teacher.full_name} ({teacher.staff_id})
-                    </SelectItem>
-                  ))}
                 </SelectContent>
               </Select>
             </div>

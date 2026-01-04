@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import ExcelJS from 'exceljs'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import type { Student } from '@/types'
 
 interface CreateStudentInput {
@@ -145,6 +145,7 @@ export async function createStudent(input: CreateStudentInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     if (!input.full_name || !input.email || !input.admission_number || !input.class_id || !input.gender || !input.date_of_birth || !input.admission_date) {
       return { success: false, error: 'All required fields must be provided' }
@@ -264,6 +265,7 @@ export async function updateStudent(input: UpdateStudentInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     if (!input.id) return { success: false, error: 'Student ID is required' }
 
@@ -355,6 +357,7 @@ export async function toggleStudentStatus(studentId: string, isActive: boolean) 
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     const { data: studentRow } = await supabase
       .from('students')
@@ -404,6 +407,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     const file = formData.get('file') as File | null
     if (!file) return { success: false, error: 'Please select an Excel file to import' }

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,7 @@ export default async function TeacherDetailPage({
 }) {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = await createServerComponentClient()
   const teacherId = params.id
 
   const [{ data: teacherRow }, { data: assignmentsData }] = await Promise.all([

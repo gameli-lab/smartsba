@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import ExcelJS from 'exceljs'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { UserProfile, Teacher } from '@/types'
 
 interface CreateTeacherInput {
@@ -53,6 +53,7 @@ export async function createTeacher(input: CreateTeacherInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     // Validate required fields
     if (!input.full_name || !input.email || !input.staff_id) {
@@ -169,6 +170,7 @@ export async function updateTeacher(input: UpdateTeacherInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     if (!input.id) {
       return { success: false, error: 'Teacher ID is required' }
@@ -242,6 +244,7 @@ export async function toggleTeacherStatus(teacherId: string, isActive: boolean) 
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     // Verify ownership
     const { data: teacher } = await supabase
@@ -413,6 +416,7 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     const file = formData.get('file') as File | null
     if (!file) {

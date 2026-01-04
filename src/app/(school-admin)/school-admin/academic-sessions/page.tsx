@@ -1,5 +1,5 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { AcademicSession } from '@/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { SessionsList } from '@/app/(school-admin)/school-admin/academic-sessions/sessions-list'
@@ -15,6 +15,7 @@ export default async function AcademicSessionsPage(props: {
   const searchParams = await props.searchParams
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = await createServerComponentClient()
 
   // Build sessions query with filters
   let sessionsQuery = supabase

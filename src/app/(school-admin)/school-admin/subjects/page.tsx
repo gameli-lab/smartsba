@@ -20,6 +20,7 @@ export default async function SubjectsPage(props: {
     .from('subjects')
     .select('*')
     .eq('school_id', schoolId)
+    .eq('is_active', true)
 
   // Apply search filter (name or code)
   const search = searchParams.search as string | undefined

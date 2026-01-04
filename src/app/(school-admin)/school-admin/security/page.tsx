@@ -1,5 +1,5 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { SecurityClient } from './security-client'
 import { UserProfile } from '@/types'
 import { fetchLoginActivity } from './actions'
@@ -7,6 +7,7 @@ import { fetchLoginActivity } from './actions'
 export default async function SecurityPage() {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = await createServerComponentClient()
 
   const { data: userRows } = await supabase
     .from('user_profiles')

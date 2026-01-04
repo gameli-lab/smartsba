@@ -16,6 +16,38 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Client-side Supabase client
 export const supabase = createBrowserClient<Database>(supabaseUrl as string, supabaseAnonKey as string)
 
+// Server-side Supabase client for Server Components (reads session from cookies)
+export async function createServerComponentClient() {
+  const { cookies } = await import('next/headers')
+  const cookieStore = await cookies()
+  
+  return createServerClient<Database>(
+    supabaseUrl as string,
+    supabaseAnonKey as string,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: any) {
+          try {
+            cookieStore.set(name, value, options)
+          } catch {
+            // Called from Server Component - cookies are read-only
+          }
+        },
+        remove(name: string, options: any) {
+          try {
+            cookieStore.set(name, '', options)
+          } catch {
+            // Called from Server Component - cookies are read-only
+          }
+        },
+      },
+    }
+  )
+}
+
 // Server-side Supabase client factory (for use in server components/API routes)
 export function createServerSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL

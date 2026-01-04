@@ -155,19 +155,19 @@ export default function LoginPage() {
       // Redirect based on role
       switch (loginResult.profile.role) {
         case "school_admin":
-          router.push("/dashboard/school-admin");
+          router.push("/school-admin");
           break;
         case "teacher":
-          router.push("/dashboard/teacher");
+          router.push("/teacher");
           break;
         case "student":
-          router.push("/dashboard/student");
+          router.push("/student");
           break;
         case "parent":
-          router.push("/dashboard/parent");
+          router.push("/parent");
           break;
         default:
-          router.push("/dashboard");
+          router.push("/");
       }
     } catch (err) {
       if (err instanceof MultipleSchoolsFoundError) {

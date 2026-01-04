@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 
 interface SubjectInput {
   name: string
@@ -17,6 +17,7 @@ interface UpdateSubjectInput extends Partial<SubjectInput> {
 }
 
 async function ensureClassInSchool(classId: string, schoolId: string) {
+  const supabase = await createServerComponentClient()
   const { data: classRow } = await supabase
     .from('classes')
     .select('id, school_id')
@@ -35,6 +36,7 @@ export async function createSubject(input: SubjectInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     if (!input.name || !input.class_id) {
       return { success: false, error: 'Name and class are required' }
@@ -43,12 +45,13 @@ export async function createSubject(input: SubjectInput) {
     const classCheck = await ensureClassInSchool(input.class_id, schoolId)
     if (classCheck) return { success: false, error: classCheck.error }
 
-    // Unique per class
+    // Unique per class (only check active subjects)
     const { data: duplicate } = await supabase
       .from('subjects')
       .select('id')
       .eq('class_id', input.class_id)
       .eq('name', input.name)
+      .eq('is_active', true)
       .maybeSingle()
 
     if (duplicate) {
@@ -85,6 +88,7 @@ export async function updateSubject(input: UpdateSubjectInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     if (!input.id) return { success: false, error: 'Subject ID is required' }
 
@@ -108,6 +112,7 @@ export async function updateSubject(input: UpdateSubjectInput) {
       .select('id')
       .eq('class_id', nextClassId)
       .eq('name', nextName)
+      .eq('is_active', true)
       .neq('id', input.id)
       .maybeSingle()
 
@@ -142,44 +147,86 @@ export async function updateSubject(input: UpdateSubjectInput) {
   }
 }
 
-export async function deleteSubject(id: string) {
+export async function deactivateSubject(id: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     if (!id) return { success: false, error: 'Subject ID is required' }
 
     const { data: subjectRow } = await supabase
       .from('subjects')
-      .select('id, school_id')
+      .select('id, school_id, is_active')
       .eq('id', id)
       .single()
 
-    const subject = subjectRow as { id: string; school_id: string } | null
+    const subject = subjectRow as { id: string; school_id: string; is_active: boolean } | null
     if (!subject || subject.school_id !== schoolId) return { success: false, error: 'Subject not found' }
 
-    // Avoid deleting when teacher assignments exist to prevent surprise cascades
-    const { count: assignmentCount } = await supabase
-      .from('teacher_assignments')
-      .select('id', { count: 'exact', head: true })
-      .eq('subject_id', id)
-
-    if ((assignmentCount || 0) > 0) {
-      return { success: false, error: 'Remove teacher assignments for this subject before deletion' }
+    if (!subject.is_active) {
+      return { success: false, error: 'Subject is already deactivated' }
     }
 
-    const { error } = await supabase.from('subjects').delete().eq('id', id)
+    const { error } = await supabase
+      .from('subjects')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('id', id)
 
     if (error) {
-      console.error('Error deleting subject:', error)
-      return { success: false, error: 'Failed to delete subject' }
+      console.error('Error deactivating subject:', error)
+      return { success: false, error: 'Failed to deactivate subject' }
     }
 
     revalidatePath('/school-admin/subjects')
     revalidatePath('/school-admin/teacher-assignments')
     return { success: true }
   } catch (error) {
-    console.error('Error in deleteSubject:', error)
+    console.error('Error in deactivateSubject:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }
+
+export async function reactivateSubject(id: string) {
+  try {
+    const { profile } = await requireSchoolAdmin()
+    const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
+
+    if (!id) return { success: false, error: 'Subject ID is required' }
+
+    const { data: subjectRow } = await supabase
+      .from('subjects')
+      .select('id, school_id, is_active')
+      .eq('id', id)
+      .single()
+
+    const subject = subjectRow as { id: string; school_id: string; is_active: boolean } | null
+    if (!subject || subject.school_id !== schoolId) return { success: false, error: 'Subject not found' }
+
+    if (subject.is_active) {
+      return { success: false, error: 'Subject is already active' }
+    }
+
+    const { error } = await supabase
+      .from('subjects')
+      .update({ is_active: true, updated_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error reactivating subject:', error)
+      return { success: false, error: 'Failed to reactivate subject' }
+    }
+
+    revalidatePath('/school-admin/subjects')
+    revalidatePath('/school-admin/teacher-assignments')
+    return { success: true }
+  } catch (error) {
+    console.error('Error in reactivateSubject:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// Deprecated: Use deactivateSubject instead
+export async function deleteSubject(id: string) {
+  return deactivateSubject(id)}

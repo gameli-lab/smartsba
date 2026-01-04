@@ -23,7 +23,7 @@ export function SessionsFilters() {
   const handleFilter = () => {
     const params = new URLSearchParams()
     if (search) params.set('search', search)
-    if (status) params.set('status', status)
+    if (status && status !== 'all') params.set('status', status)
     
     const query = params.toString()
     router.push(query ? `/school-admin/academic-sessions?${query}` : '/school-admin/academic-sessions')
@@ -52,7 +52,7 @@ export function SessionsFilters() {
           <SelectValue placeholder="Filter by status" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Status</SelectItem>
+          <SelectItem value="all">All Status</SelectItem>
           <SelectItem value="current">Current</SelectItem>
           <SelectItem value="past">Past</SelectItem>
         </SelectContent>

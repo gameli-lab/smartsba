@@ -1,11 +1,12 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { AnnouncementsClient } from './announcements-client'
 import { Announcement, Class } from '@/types'
 
 export default async function AnnouncementsPage() {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = await createServerComponentClient()
 
   const [{ data: announcementRows }, { data: classRows }] = await Promise.all([
     supabase

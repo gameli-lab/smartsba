@@ -31,9 +31,9 @@ export function TeachersFilters({ classes, subjects }: Props) {
   const handleFilter = () => {
     const params = new URLSearchParams()
     if (search) params.set('search', search)
-    if (status) params.set('status', status)
-    if (classId) params.set('classId', classId)
-    if (subjectId) params.set('subjectId', subjectId)
+    if (status && status !== 'all') params.set('status', status)
+    if (classId && classId !== 'all') params.set('classId', classId)
+    if (subjectId && subjectId !== 'all') params.set('subjectId', subjectId)
     
     const query = params.toString()
     router.push(query ? `/school-admin/teachers?${query}` : '/school-admin/teachers')
@@ -64,7 +64,7 @@ export function TeachersFilters({ classes, subjects }: Props) {
           <SelectValue placeholder="Filter by class" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Classes</SelectItem>
+          <SelectItem value="all">All Classes</SelectItem>
           {classes.map((cls) => (
             <SelectItem key={cls.id} value={cls.id}>
               {cls.name}{cls.stream ? ` (${cls.stream})` : ''}
@@ -78,7 +78,7 @@ export function TeachersFilters({ classes, subjects }: Props) {
           <SelectValue placeholder="Filter by subject" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Subjects</SelectItem>
+          <SelectItem value="all">All Subjects</SelectItem>
           {subjects.map((subj) => (
             <SelectItem key={subj.id} value={subj.id}>
               {subj.name}
@@ -92,7 +92,7 @@ export function TeachersFilters({ classes, subjects }: Props) {
           <SelectValue placeholder="Filter by status" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Status</SelectItem>
+          <SelectItem value="all">All Status</SelectItem>
           <SelectItem value="active">Active</SelectItem>
           <SelectItem value="inactive">Inactive</SelectItem>
         </SelectContent>

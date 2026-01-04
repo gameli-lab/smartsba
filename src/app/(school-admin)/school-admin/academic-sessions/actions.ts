@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { AcademicSession, AcademicTerm } from '@/types'
 
 interface CreateAcademicSessionInput {
@@ -25,6 +25,7 @@ export async function createAcademicSession(input: CreateAcademicSessionInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     // Validate inputs
     if (!input.academic_year || !input.term || !input.start_date || !input.end_date) {
@@ -65,8 +66,7 @@ export async function createAcademicSession(input: CreateAcademicSessionInput) {
     }
 
     // Create session
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('academic_sessions')
       .insert({
         school_id: schoolId,
@@ -99,6 +99,7 @@ export async function updateAcademicSession(input: UpdateAcademicSessionInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     // Validate inputs
     if (!input.id || !input.academic_year || !input.term || !input.start_date || !input.end_date) {
@@ -134,8 +135,7 @@ export async function updateAcademicSession(input: UpdateAcademicSessionInput) {
     }
 
     // Update session
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('academic_sessions')
       .update({
         academic_year: input.academic_year,
@@ -168,6 +168,7 @@ export async function setCurrentSession(sessionId: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     // Verify ownership
     const { data: session } = await supabase
@@ -183,15 +184,13 @@ export async function setCurrentSession(sessionId: string) {
     }
 
     // Unset all current sessions for this school
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    await supabase
       .from('academic_sessions')
       .update({ is_current: false })
       .eq('school_id', schoolId)
 
     // Set the selected session as current
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('academic_sessions')
       .update({ is_current: true })
       .eq('id', sessionId)
@@ -217,6 +216,7 @@ export async function deleteAcademicSession(sessionId: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     // Verify ownership
     const { data: session } = await supabase

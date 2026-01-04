@@ -92,6 +92,7 @@ export interface Subject {
   code?: string
   description?: string
   is_core: boolean
+  is_active?: boolean
   created_at: string
   updated_at: string
 }

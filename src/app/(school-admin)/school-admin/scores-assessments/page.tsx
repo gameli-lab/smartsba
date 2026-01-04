@@ -1,5 +1,5 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScoresTable } from './scores-table'
 import type { AcademicSession, Score } from '@/types'
@@ -7,6 +7,7 @@ import type { AcademicSession, Score } from '@/types'
 export default async function ScoresPage() {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = await createServerComponentClient()
 
   const [{ data: sessionsData }, { data: scoresData }] = await Promise.all([
     supabase

@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { AssignClassTeacher } from './assign-class-teacher'
-import { ClassStatusManager } from './class-status-manager'
+import { AssignClassTeacher } from '../assign-class-teacher'
+import { ClassStatusManager } from '../class-status-manager'
 
 interface ClassRow {
   id: string
@@ -54,6 +54,7 @@ interface TeacherOption {
 export default async function ClassDetailPage({ params }: { params: { id: string } }) {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = await createServerComponentClient()
   const classId = params.id
 
   const [{ data: classRow }, { data: sessionRow }] = await Promise.all([

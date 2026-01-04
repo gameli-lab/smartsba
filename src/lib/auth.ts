@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { supabase } from './supabase'
+import { supabase, createServerComponentClient } from './supabase'
 import { UserRole, UserProfile, Teacher, TeacherAssignment, Student } from '@/types'
 import type { User } from '@supabase/supabase-js'
 
@@ -344,21 +344,36 @@ export class AuthService {
  * @returns {Promise<{user: User, profile: UserProfile}>} Authenticated school admin user and profile
  */
 export async function requireSchoolAdmin(): Promise<AuthResult> {
-  const currentUser = await AuthService.getCurrentUser()
+  const supabase = await createServerComponentClient()
   
-  if (!currentUser) {
+  const { data: { session }, error } = await supabase.auth.getSession()
+  
+  if (error || !session) {
+    redirect('/login')
+  }
+
+  // Get user profile
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .single()
+
+  if (profileError || !profile) {
+    redirect('/login')
+  }
+
+  const typedProfile = profile as UserProfile
+  
+  if (typedProfile.role !== 'school_admin') {
     redirect('/login')
   }
   
-  if (currentUser.profile.role !== 'school_admin') {
+  if (!typedProfile.school_id) {
     redirect('/login')
   }
   
-  if (!currentUser.profile.school_id) {
-    redirect('/login')
-  }
-  
-  return currentUser
+  return { user: session.user, profile: typedProfile }
 }
 
 export interface TeacherGuardResult extends AuthResult {

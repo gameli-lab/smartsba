@@ -1,5 +1,5 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { ReportsClient } from './reports-client'
 // TODO: Use LEVEL_GROUPS and getNumericLevelLabel() to format report headers/titles
@@ -10,6 +10,7 @@ import type { AcademicSession, Class } from '@/types'
 export default async function ReportsPage() {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = await createServerComponentClient()
 
   const [{ data: sessionsData }, { data: classesData }] = await Promise.all([
     supabase

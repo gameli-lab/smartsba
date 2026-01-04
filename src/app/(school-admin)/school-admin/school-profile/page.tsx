@@ -1,5 +1,5 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { School } from '@/types'
 import { SchoolInfoForm } from './school-info-form'
 import { AssetUpload } from './asset-upload'
@@ -15,6 +15,8 @@ export default async function SchoolProfilePage() {
   // Get authenticated school admin
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+
+  const supabase = await createServerComponentClient()
 
   // Fetch school data
   const { data: school, error } = await supabase

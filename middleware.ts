@@ -73,7 +73,7 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getSession()
 
   // If user is not signed in and trying to access protected routes
-  if (!session && req.nextUrl.pathname.startsWith('/dashboard')) {
+  if (!session && (req.nextUrl.pathname.startsWith('/school-admin') || req.nextUrl.pathname.startsWith('/teacher') || req.nextUrl.pathname.startsWith('/student') || req.nextUrl.pathname.startsWith('/parent') || req.nextUrl.pathname.startsWith('/dashboard'))) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
@@ -87,23 +87,23 @@ export async function middleware(req: NextRequest) {
       .single()
 
     if (profile) {
-      let redirectPath = '/dashboard'
+      let redirectPath = '/'
       
       switch (profile.role) {
         case 'super_admin':
           redirectPath = '/dashboard/super-admin'
           break
         case 'school_admin':
-          redirectPath = '/dashboard/school-admin'
+          redirectPath = '/school-admin'
           break
         case 'teacher':
-          redirectPath = '/dashboard/teacher'
+          redirectPath = '/teacher'
           break
         case 'student':
-          redirectPath = '/dashboard/student'
+          redirectPath = '/student'
           break
         case 'parent':
-          redirectPath = '/dashboard/parent'
+          redirectPath = '/parent'
           break
       }
       
@@ -121,23 +121,23 @@ export async function middleware(req: NextRequest) {
       .single()
 
     if (profile) {
-      let redirectPath = '/dashboard'
+      let redirectPath = '/'
       
       switch (profile.role) {
         case 'super_admin':
           redirectPath = '/dashboard/super-admin'
           break
         case 'school_admin':
-          redirectPath = '/dashboard/school-admin'
+          redirectPath = '/school-admin'
           break
         case 'teacher':
-          redirectPath = '/dashboard/teacher'
+          redirectPath = '/teacher'
           break
         case 'student':
-          redirectPath = '/dashboard/student'
+          redirectPath = '/student'
           break
         case 'parent':
-          redirectPath = '/dashboard/parent'
+          redirectPath = '/parent'
           break
       }
       

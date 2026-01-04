@@ -1,5 +1,5 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users, GraduationCap, BookOpen, Shapes, TrendingUp, Clock } from 'lucide-react'
 
@@ -11,6 +11,7 @@ export default async function SchoolAdminPage() {
   // Get the authenticated school admin
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = await createServerComponentClient()
 
   // Fetch summary statistics
   const [

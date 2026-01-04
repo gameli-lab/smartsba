@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { SchoolAdminSidebar } from '@/components/layout/school-admin-sidebar'
 import { SchoolAdminNavbar } from '@/components/layout/school-admin-navbar'
 import { SchoolAdminLayoutWrapper } from '@/components/layout/school-admin-layout-wrapper'
@@ -28,6 +28,8 @@ export default async function SchoolAdminLayout({
   }
 
   const { profile } = schoolAdmin
+
+  const supabase = await createServerComponentClient()
 
   // Fetch minimal school data for the navbar
   const { data: school } = await supabase

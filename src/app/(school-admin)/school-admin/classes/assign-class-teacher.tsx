@@ -54,7 +54,7 @@ export function AssignClassTeacher({ classId, currentTeacherId, teachers }: Prop
                 <SelectValue placeholder="Select class teacher" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No class teacher</SelectItem>
+                <SelectItem value="none">No class teacher</SelectItem>
                 {activeTeachers.map((teacher) => (
                   <SelectItem key={teacher.id} value={teacher.id}>
                     {teacher.full_name} ({teacher.staff_id})

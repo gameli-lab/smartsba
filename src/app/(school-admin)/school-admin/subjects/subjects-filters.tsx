@@ -23,7 +23,7 @@ export function SubjectsFilters() {
   const handleFilter = () => {
     const params = new URLSearchParams()
     if (search) params.set('search', search)
-    if (type) params.set('type', type)
+    if (type && type !== 'all') params.set('type', type)
     
     const query = params.toString()
     router.push(query ? `/school-admin/subjects?${query}` : '/school-admin/subjects')
@@ -52,7 +52,7 @@ export function SubjectsFilters() {
           <SelectValue placeholder="Filter by type" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Types</SelectItem>
+          <SelectItem value="all">All Types</SelectItem>
           <SelectItem value="core">Core</SelectItem>
           <SelectItem value="elective">Elective</SelectItem>
         </SelectContent>

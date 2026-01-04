@@ -29,8 +29,8 @@ export function StudentsFilters({ classes }: Props) {
   const handleFilter = () => {
     const params = new URLSearchParams()
     if (search) params.set('search', search)
-    if (classId) params.set('classId', classId)
-    if (status) params.set('status', status)
+    if (classId && classId !== 'all') params.set('classId', classId)
+    if (status && status !== 'all') params.set('status', status)
     
     const query = params.toString()
     router.push(query ? `/school-admin/students?${query}` : '/school-admin/students')
@@ -60,7 +60,7 @@ export function StudentsFilters({ classes }: Props) {
           <SelectValue placeholder="Filter by class" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Classes</SelectItem>
+          <SelectItem value="all">All Classes</SelectItem>
           {classes.map((cls) => (
             <SelectItem key={cls.id} value={cls.id}>
               {cls.name} {cls.stream ? `(${cls.stream})` : ''}
@@ -74,7 +74,7 @@ export function StudentsFilters({ classes }: Props) {
           <SelectValue placeholder="Filter by status" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Status</SelectItem>
+          <SelectItem value="all">All Status</SelectItem>
           <SelectItem value="active">Active</SelectItem>
           <SelectItem value="inactive">Inactive</SelectItem>
         </SelectContent>

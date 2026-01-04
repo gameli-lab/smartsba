@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { isValidNumericLevel } from '@/lib/constants/level-groups'
 
 interface ClassInput {
@@ -18,6 +18,7 @@ interface UpdateClassInput extends Partial<ClassInput> {
 }
 
 async function ensureTeacherValid(teacherId: string, schoolId: string) {
+  const supabase = await createServerComponentClient()
   const { data: teacherRow } = await supabase
     .from('teachers')
     .select('id, school_id, is_active')
@@ -40,6 +41,7 @@ export async function createClass(input: ClassInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     if (!input.name || !input.level) {
       return { success: false, error: 'Name and level are required' }
@@ -117,6 +119,7 @@ export async function updateClass(input: UpdateClassInput) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     if (!input.id) return { success: false, error: 'Class ID is required' }
 
@@ -191,6 +194,7 @@ export async function deleteClass(id: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     if (!id) return { success: false, error: 'Class ID is required' }
 
@@ -237,6 +241,7 @@ export async function setClassTeacher(classId: string, teacherId: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
     const actorUserId = profile.user_id // TODO: use for audit logging
     void actorUserId
 
@@ -285,6 +290,7 @@ export async function archiveClass(classId: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     if (!classId) return { success: false, error: 'Class ID is required' }
 
@@ -323,6 +329,7 @@ export async function reactivateClass(classId: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     if (!classId) return { success: false, error: 'Class ID is required' }
 
