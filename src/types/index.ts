@@ -78,6 +78,7 @@ export interface Class {
   level: number
   description?: string
   class_teacher_id?: string
+  status?: 'active' | 'archived'
   created_at: string
   updated_at: string
 }

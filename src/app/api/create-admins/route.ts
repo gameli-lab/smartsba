@@ -121,25 +121,23 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Check if user already exists by first checking auth.users, then user_profiles
+        // Check if user already exists using Auth Admin API and user_profiles
         let userExists = false;
 
         try {
-          // First check if user exists in auth.users by querying the auth schema directly
-          const { data: authUsers, error: authUserError } = await supabaseAdmin
-            .from('auth.users')
-            .select('id')
-            .eq('email', admin.email)
-            .single();
+          // Use Auth Admin API to check if user exists by email
+          const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.listUsers();
 
-          if (authUsers && !authUserError) {
-            userExists = true;
-          } else if (authUserError && authUserError.code !== 'PGRST116') {
-            // PGRST116 is "not found" - expected for new users
-            // Log unexpected auth errors
-            console.error(`Unexpected auth error checking user ${admin.email}:`, authUserError);
-            errors.push(`Error checking auth user ${admin.email}: ${authUserError.message}`);
+          if (authUserError) {
+            console.error(`Error listing auth users:`, authUserError);
+            errors.push(`Error checking user existence for ${admin.email}: ${authUserError.message}`);
             continue;
+          }
+
+          // Check if email exists in auth users
+          const authUser = authUserData?.users?.find(u => u.email === admin.email);
+          if (authUser) {
+            userExists = true;
           }
         } catch (authCheckError) {
           // Log unexpected errors during auth check
@@ -148,7 +146,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // If not found in auth.users, also check user_profiles as fallback
+        // Also check user_profiles as fallback
         if (!userExists) {
           try {
             const { data: profileCheck, error: profileError } = await supabaseAdmin
@@ -315,16 +313,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Return response with results and any errors
+    const statusCode = createdAdmins.length > 0 ? 200 : 400;
+    const primaryError = errors.length > 0 ? errors[0] : undefined;
+
     const response = {
       success: createdAdmins.length > 0,
       createdAdmins,
       totalRequested: admins.length,
       totalCreated: createdAdmins.length,
       errors: errors.length > 0 ? errors : undefined,
+      // Provide a top-level error string so the client can surface it
+      error: statusCode !== 200 ? primaryError || "Failed to create admin accounts" : undefined,
       message: `Successfully created ${createdAdmins.length} out of ${admins.length} admin accounts`,
     };
 
-    const statusCode = createdAdmins.length > 0 ? 200 : 400;
     return NextResponse.json(response, { status: statusCode });
 
   } catch (error) {

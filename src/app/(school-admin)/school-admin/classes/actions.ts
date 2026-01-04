@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { isValidNumericLevel } from '@/lib/constants/level-groups'
 
 interface ClassInput {
   name: string
@@ -42,6 +43,27 @@ export async function createClass(input: ClassInput) {
 
     if (!input.name || !input.level) {
       return { success: false, error: 'Name and level are required' }
+    }
+
+    // Validate level is a known academic level
+    if (!isValidNumericLevel(input.level)) {
+      return { success: false, error: 'Invalid level. Must be between 1-9 (Primary 1-6 or JHS 1-3)' }
+    }
+
+    // Prevent duplicates by level + stream within a school
+    const levelQuery = supabase
+      .from('classes')
+      .select('id')
+      .eq('school_id', schoolId)
+      .eq('level', input.level)
+
+    const { data: existingLevelStream } = await (input.stream
+      ? levelQuery.eq('stream', input.stream)
+      : levelQuery.is('stream', null)
+    ).maybeSingle()
+
+    if (existingLevelStream) {
+      return { success: false, error: 'A class with this level and stream already exists' }
     }
 
     // Prevent duplicates by school/name/stream
@@ -100,15 +122,20 @@ export async function updateClass(input: UpdateClassInput) {
 
     const { data: classRow } = await supabase
       .from('classes')
-      .select('id, school_id, name, stream')
+      .select('id, school_id, name, stream, level')
       .eq('id', input.id)
       .single()
 
-    const klass = classRow as { id: string; school_id: string; name: string; stream: string | null } | null
+    const klass = classRow as { id: string; school_id: string; name: string; stream: string | null; level: number } | null
     if (!klass || klass.school_id !== schoolId) return { success: false, error: 'Class not found' }
 
     const nextName = input.name ?? klass.name
     const nextStream = input.stream ?? klass.stream
+
+    // Validate level if provided
+    if (input.level !== undefined && !isValidNumericLevel(input.level)) {
+      return { success: false, error: 'Invalid level. Must be between 1-9 (Primary 1-6 or JHS 1-3)' }
+    }
 
     if (nextName) {
       const dupQuery = supabase
@@ -210,8 +237,10 @@ export async function setClassTeacher(classId: string, teacherId: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const actorUserId = profile.user_id // TODO: use for audit logging
+    void actorUserId
 
-    if (!classId || !teacherId) return { success: false, error: 'Class and teacher are required' }
+    if (!classId) return { success: false, error: 'Class is required' }
 
     const { data: classRow } = await supabase
       .from('classes')
@@ -222,13 +251,17 @@ export async function setClassTeacher(classId: string, teacherId: string) {
     const klass = classRow as { id: string; school_id: string } | null
     if (!klass || klass.school_id !== schoolId) return { success: false, error: 'Class not found' }
 
-    const teacherCheck = await ensureTeacherValid(teacherId, schoolId)
-    if (teacherCheck) return { success: false, error: teacherCheck.error }
+    let updateValue: string | null = null
+    if (teacherId) {
+      const teacherCheck = await ensureTeacherValid(teacherId, schoolId)
+      if (teacherCheck) return { success: false, error: teacherCheck.error }
+      updateValue = teacherId
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase as any)
       .from('classes')
-      .update({ class_teacher_id: teacherId, updated_at: new Date().toISOString() })
+      .update({ class_teacher_id: updateValue, updated_at: new Date().toISOString() })
       .eq('id', classId)
 
     if (error) {
@@ -236,11 +269,90 @@ export async function setClassTeacher(classId: string, teacherId: string) {
       return { success: false, error: 'Failed to set class teacher' }
     }
 
+    // TODO: Emit audit log for class teacher changes (actor_user_id: actorUserId)
+
     revalidatePath('/school-admin/classes')
     revalidatePath('/school-admin/teacher-assignments')
+    revalidatePath(`/school-admin/classes/${classId}`)
     return { success: true }
   } catch (error) {
     console.error('Error in setClassTeacher:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+export async function archiveClass(classId: string) {
+  try {
+    const { profile } = await requireSchoolAdmin()
+    const schoolId = profile.school_id
+
+    if (!classId) return { success: false, error: 'Class ID is required' }
+
+    const { data: classRow } = await supabase
+      .from('classes')
+      .select('id, school_id, status')
+      .eq('id', classId)
+      .single()
+
+    const klass = classRow as { id: string; school_id: string; status?: string } | null
+    if (!klass || klass.school_id !== schoolId) return { success: false, error: 'Class not found' }
+
+    if (klass.status === 'archived') return { success: false, error: 'Class is already archived' }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('classes')
+      .update({ status: 'archived', updated_at: new Date().toISOString() })
+      .eq('id', classId)
+
+    if (error) {
+      console.error('Error archiving class:', error)
+      return { success: false, error: 'Failed to archive class' }
+    }
+
+    revalidatePath('/school-admin/classes')
+    revalidatePath(`/school-admin/classes/${classId}`)
+    return { success: true }
+  } catch (error) {
+    console.error('Error in archiveClass:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+export async function reactivateClass(classId: string) {
+  try {
+    const { profile } = await requireSchoolAdmin()
+    const schoolId = profile.school_id
+
+    if (!classId) return { success: false, error: 'Class ID is required' }
+
+    const { data: classRow } = await supabase
+      .from('classes')
+      .select('id, school_id, status')
+      .eq('id', classId)
+      .single()
+
+    const klass = classRow as { id: string; school_id: string; status?: string } | null
+    if (!klass || klass.school_id !== schoolId) return { success: false, error: 'Class not found' }
+
+    if (klass.status !== 'archived') return { success: false, error: 'Only archived classes can be reactivated' }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from('classes')
+      .update({ status: 'active', updated_at: new Date().toISOString() })
+      .eq('id', classId)
+
+    if (error) {
+      console.error('Error reactivating class:', error)
+      return { success: false, error: 'Failed to reactivate class' }
+    }
+
+    revalidatePath('/school-admin/classes')
+    revalidatePath(`/school-admin/classes/${classId}`)
+    return { success: true }
+  } catch (error) {
+    console.error('Error in reactivateClass:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }

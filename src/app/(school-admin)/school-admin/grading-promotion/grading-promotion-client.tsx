@@ -56,6 +56,11 @@ export function GradingPromotionClient({ classes, sessions }: Props) {
       return
     }
 
+    // TODO: Use LEVEL_GROUPS to validate promotion rules:
+    // - Students in JHS 3 cannot be promoted (graduation)
+    // - Students from Primary 6 can be promoted to JHS 1
+    // - Implement level-aware next class selection based on current class level
+
     const nextClassId = promotionData.nextClasses[0].id
     const studentIds = promotionData.students
       .filter((s: any) => !s.promotion_status)

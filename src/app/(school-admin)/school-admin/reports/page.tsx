@@ -1,7 +1,10 @@
 import { requireSchoolAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { ReportsClient } from './reports-client'
+// TODO: Use LEVEL_GROUPS and getNumericLevelLabel() to format report headers/titles
+// - Display "Primary 1" instead of "Level 1" in reports
+// - Group reports by level group (Nursery, Primary, JHS)
 import type { AcademicSession, Class } from '@/types'
 
 export default async function ReportsPage() {

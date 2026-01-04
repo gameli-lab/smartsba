@@ -17,6 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Loader2, Plus } from 'lucide-react'
 import { createSubject } from './actions'
+// TODO: Use LEVEL_GROUPS to filter available subjects based on class level group
+// - Some subjects (e.g., Vocational) only available at JHS
+// - Some subjects (e.g., Mother Tongue) only available at Primary
 import type { Class } from '@/types'
 
 interface Props {

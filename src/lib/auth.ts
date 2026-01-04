@@ -7,13 +7,32 @@ export interface LoginCredentials {
   identifier: string // Email, Staff ID, Admission Number, or Parent Name
   password: string
   role: UserRole
-  schoolId?: string // School ID for multi-school verification
+  schoolId?: string // School ID for multi-school verification (optional - can be discovered)
   wardAdmissionNumber?: string // For parent login
 }
 
 export interface AuthResult {
   user: User
   profile: UserProfile
+}
+
+export interface SchoolOption {
+  id: string
+  name: string
+}
+
+/**
+ * Custom error thrown when multiple schools are found for an identifier
+ * Frontend should catch this and show a school selection dialog
+ */
+export class MultipleSchoolsFoundError extends Error {
+  schools: SchoolOption[]
+
+  constructor(schools: SchoolOption[]) {
+    super('Multiple schools found for this identifier')
+    this.name = 'MultipleSchoolsFoundError'
+    this.schools = schools
+  }
 }
 
 export class AuthService {
@@ -50,37 +69,107 @@ export class AuthService {
     return { user: data.user, profile: typedProfile }
   }
 
-  // School Admin & Teacher login with Staff ID and School verification
+  // School Admin & Teacher login with Staff ID and optional School verification
   static async loginStaff(staffId: string, password: string, schoolId?: string): Promise<AuthResult> {
-    // Find user by staff_id and optionally school_id
-    const query = supabase
+    const normalizedStaffId = staffId.trim()
+
+    if (!normalizedStaffId) {
+      throw new Error('Staff ID is required')
+    }
+
+    // Use server-side lookup endpoint (service role) to bypass RLS on user_profiles
+    const lookupResponse = await fetch('/api/auth/staff-lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ staffId: normalizedStaffId, schoolId }),
+    })
+
+    if (!lookupResponse.ok) {
+      throw new Error('Failed to look up staff credentials')
+    }
+
+    const { profiles } = (await lookupResponse.json()) as { profiles: Partial<UserProfile & { schools?: { id: string; name: string } }>[]} 
+
+    if (!profiles || profiles.length === 0) {
+      throw new Error('Invalid staff credentials')
+    }
+
+    // If multiple schools found and no schoolId provided, ask user to select
+    if (profiles.length > 1 && !schoolId) {
+      const schools = (profiles as any[]).map((p) => ({
+        id: p.school_id,
+        name: p.schools?.name || 'Unknown School',
+      }))
+      throw new MultipleSchoolsFoundError(schools)
+    }
+
+    const profile = profiles[0] as UserProfile
+
+    // Additional security check - if school was provided, ensure it matches
+    if (schoolId && profile.school_id !== schoolId) {
+      throw new Error('User does not belong to the selected school')
+    }
+
+    // Get the user's email from the profile to sign in
+    const { data: authUser, error: authError } = await supabase.auth.signInWithPassword({
+      email: profile.email,
+      password,
+    })
+
+    if (authError) throw authError
+
+    // Set custom JWT claims for proper authorization
+    await AuthService.setUserClaims(authUser.user.id)
+
+    return { user: authUser.user, profile }
+  }
+
+  // Student login with Admission Number and optional School verification
+  static async loginStudent(admissionNumber: string, password: string, schoolId?: string): Promise<AuthResult> {
+    const normalizedAdmission = admissionNumber.trim()
+
+    if (!normalizedAdmission) {
+      throw new Error('Admission number is required')
+    }
+
+    // Build query to find student by admission_number
+    let query = supabase
       .from('user_profiles')
-      .select('*')
-      .eq('staff_id', staffId)
-      .in('role', ['school_admin', 'teacher'])
+      .select('*, schools(id, name)')
+      .ilike('admission_number', normalizedAdmission)
+      .eq('role', 'student')
 
-    // If school ID provided, verify user belongs to that school
+    // If school ID provided, filter by it
     if (schoolId) {
-      query.eq('school_id', schoolId)
+      query = query.eq('school_id', schoolId)
     }
 
-    const { data: profile, error: profileError } = await query.single()
+    const { data: profiles, error: profileError } = await query
 
-    if (profileError || !profile) {
-      throw new Error(schoolId 
-        ? 'Invalid staff credentials or user does not belong to selected school'
-        : 'Invalid staff credentials'
-      )
+    if (profileError) {
+      throw new Error('Failed to look up student credentials')
     }
 
-    const typedProfile = profile as UserProfile
+    if (!profiles || profiles.length === 0) {
+      throw new Error('Invalid student credentials')
+    }
+
+    // If multiple schools found and no schoolId provided, ask user to select
+    if (profiles.length > 1 && !schoolId) {
+      const schools = (profiles as any[]).map((p) => ({
+        id: p.school_id,
+        name: (p.schools as any)?.name || 'Unknown School',
+      }))
+      throw new MultipleSchoolsFoundError(schools)
+    }
+
+    const typedProfile = profiles[0] as UserProfile
 
     // Additional security check - if school was provided, ensure it matches
     if (schoolId && typedProfile.school_id !== schoolId) {
       throw new Error('User does not belong to the selected school')
     }
 
-    // Get the user's email from the profile to sign in
     const { data: authUser, error: authError } = await supabase.auth.signInWithPassword({
       email: typedProfile.email,
       password,
@@ -94,53 +183,14 @@ export class AuthService {
     return { user: authUser.user, profile: typedProfile }
   }
 
-  // Student login with Admission Number and School verification
-  static async loginStudent(admissionNumber: string, password: string, schoolId?: string): Promise<AuthResult> {
-    // Find user by admission_number and optionally school_id
-    const query = supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('admission_number', admissionNumber)
-      .eq('role', 'student')
-
-    // If school ID provided, verify user belongs to that school
-    if (schoolId) {
-      query.eq('school_id', schoolId)
-    }
-
-    const { data: profile, error: profileError } = await query.single()
-
-    if (profileError || !profile) {
-      throw new Error(schoolId 
-        ? 'Invalid student credentials or user does not belong to selected school'
-        : 'Invalid student credentials'
-      )
-    }
-
-    const typedProfile = profile as UserProfile
-
-    // Additional security check - if school was provided, ensure it matches
-    if (schoolId && typedProfile.school_id !== schoolId) {
-      throw new Error('User does not belong to the selected school')
-    }
-
-    const { data: authUser, error: authError } = await supabase.auth.signInWithPassword({
-      email: typedProfile.email,
-      password,
-    })
-
-    if (authError) throw authError
-
-    return { user: authUser.user, profile: typedProfile }
-  }
-
-  // Parent login with Parent Name + Ward Admission Number and School verification
+  // Parent login with Parent Name + Ward Admission Number and optional School verification
   static async loginParent(parentName: string, wardAdmissionNumber: string, password: string, schoolId?: string): Promise<AuthResult> {
     // Build query to find parent by name and verify ward connection
     let query = supabase
       .from('user_profiles')
       .select(`
         *,
+        schools(id, name),
         parent_student_relationships!inner(
           student:students!inner(
             admission_number,
@@ -153,21 +203,39 @@ export class AuthService {
       .eq('full_name', parentName)
       .eq('parent_student_relationships.student.admission_number', wardAdmissionNumber)
 
-    // If school ID provided, verify ward belongs to that school
+    // If school ID provided, filter by it
     if (schoolId) {
       query = query.eq('parent_student_relationships.student.school_id', schoolId)
     }
 
-    const { data: parentProfile, error: parentError } = await query.single()
+    const { data: parentProfiles, error: parentError } = await query
 
-    if (parentError || !parentProfile) {
-      throw new Error(schoolId 
-        ? 'Invalid parent credentials, ward not found, or ward does not belong to selected school'
-        : 'Invalid parent credentials or ward not found'
-      )
+    if (parentError) {
+      throw new Error('Failed to look up parent credentials')
     }
 
-    const typedProfile = parentProfile as UserProfile
+    if (!parentProfiles || parentProfiles.length === 0) {
+      throw new Error('Invalid parent credentials or ward not found')
+    }
+
+    // If multiple schools found and no schoolId provided, ask user to select
+    if (parentProfiles.length > 1 && !schoolId) {
+      const schools = (parentProfiles as any[]).map((p) => {
+        const rel = (p.parent_student_relationships as any[])?.[0]
+        const studentSchoolId = rel?.student?.school_id
+        return {
+          id: studentSchoolId,
+          name: (p.schools as any)?.name || 'Unknown School',
+        }
+      })
+      // Deduplicate schools
+      const uniqueSchools = Array.from(new Map(schools.map((s) => [s.id, s])).values())
+      if (uniqueSchools.length > 1) {
+        throw new MultipleSchoolsFoundError(uniqueSchools)
+      }
+    }
+
+    const typedProfile = parentProfiles[0] as UserProfile
 
     const { data: authUser, error: authError } = await supabase.auth.signInWithPassword({
       email: typedProfile.email,
@@ -175,6 +243,9 @@ export class AuthService {
     })
 
     if (authError) throw authError
+
+    // Set custom JWT claims for proper authorization
+    await AuthService.setUserClaims(authUser.user.id)
 
     return { user: authUser.user, profile: typedProfile }
   }

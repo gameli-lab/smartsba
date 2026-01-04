@@ -34,6 +34,7 @@ export function CreateClassDialog({ teachers }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [teacherId, setTeacherId] = useState('')
+  const [stream, setStream] = useState('')
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -46,7 +47,7 @@ export function CreateClassDialog({ teachers }: Props) {
     const result = await createClass({
       name: (formData.get('name') as string) || '',
       level: levelValue,
-      stream: (formData.get('stream') as string) || undefined,
+      stream: stream || undefined,
       description: (formData.get('description') as string) || undefined,
       class_teacher_id: teacherId || undefined,
     })
@@ -60,6 +61,7 @@ export function CreateClassDialog({ teachers }: Props) {
 
     setOpen(false)
     setTeacherId('')
+    setStream('')
     e.currentTarget.reset()
   }
 
@@ -67,6 +69,7 @@ export function CreateClassDialog({ teachers }: Props) {
     if (!next) {
       setError(null)
       setTeacherId('')
+      setStream('')
     }
     setOpen(next)
   }
@@ -90,8 +93,8 @@ export function CreateClassDialog({ teachers }: Props) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Name *</Label>
-              <Input name="name" required placeholder="JHS 1" />
+              <Label>Class Name / Number *</Label>
+              <Input name="name" required placeholder="e.g. JHS 1" />
             </div>
             <div className="space-y-2">
               <Label>Level *</Label>
@@ -99,7 +102,16 @@ export function CreateClassDialog({ teachers }: Props) {
             </div>
             <div className="space-y-2">
               <Label>Stream</Label>
-              <Input name="stream" placeholder="A / B / C" />
+              <Select value={stream} onValueChange={setStream}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose stream" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No stream</SelectItem>
+                  <SelectItem value="A">A</SelectItem>
+                  <SelectItem value="B">B</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Class Teacher</Label>

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import ExcelJS from 'exceljs'
 import {
   Dialog,
   DialogContent,
@@ -23,23 +24,36 @@ interface ImportFailure {
 }
 
 interface Props {
-  classes: Class[]
+  classes: Class[] // kept for API symmetry; currently unused
 }
 
-export function ImportStudentsDialog({ classes }: Props) {
+interface PreviewRow {
+  full_name: string
+  email: string
+  admission_number: string
+  class_name: string
+  gender: string
+  date_of_birth: string
+  admission_date: string
+}
+
+export function ImportStudentsDialog({}: Props) {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [isDownloading, setIsDownloading] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [isParsingPreview, setIsParsingPreview] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [imported, setImported] = useState<number | null>(null)
   const [failures, setFailures] = useState<ImportFailure[]>([])
+  const [previewRows, setPreviewRows] = useState<PreviewRow[]>([])
 
   const reset = () => {
     setFile(null)
     setError(null)
     setImported(null)
     setFailures([])
+     setPreviewRows([])
   }
 
   const handleDownloadTemplate = async () => {
@@ -65,6 +79,73 @@ export function ImportStudentsDialog({ classes }: Props) {
       setError('Failed to download template')
     } finally {
       setIsDownloading(false)
+    }
+  }
+
+  const handleFileChange = async (nextFile: File | null) => {
+    setError(null)
+    setImported(null)
+    setFailures([])
+    setPreviewRows([])
+    setFile(nextFile)
+
+    if (!nextFile) return
+
+    if (nextFile.size > 5 * 1024 * 1024) {
+      setError('File size exceeds 5MB limit')
+      return
+    }
+
+    const allowedTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ]
+    if (!allowedTypes.includes(nextFile.type)) {
+      setError('Only Excel .xlsx files are supported')
+      return
+    }
+
+    try {
+      setIsParsingPreview(true)
+      const arrayBuffer = await nextFile.arrayBuffer()
+      const workbook = new ExcelJS.Workbook()
+      await workbook.xlsx.load(arrayBuffer)
+      const sheet = workbook.worksheets[0]
+      if (!sheet) {
+        setError('Excel file is empty or invalid')
+        return
+      }
+
+      const rows: PreviewRow[] = []
+      for (let rowIndex = 2; rowIndex <= Math.min(sheet.rowCount, 6); rowIndex += 1) {
+        const row = sheet.getRow(rowIndex)
+        const full_name = String(row.getCell(1).value || '').trim()
+        const email = String(row.getCell(2).value || '').trim()
+        const admission_number = String(row.getCell(3).value || '').trim()
+        const class_name = String(row.getCell(4).value || '').trim()
+        const gender = String(row.getCell(5).value || '').trim()
+        const date_of_birth = String(row.getCell(6).value || '').trim()
+        const admission_date = String(row.getCell(7).value || '').trim()
+
+        const hasContent = full_name || email || admission_number
+        if (hasContent) {
+          rows.push({
+            full_name,
+            email,
+            admission_number,
+            class_name,
+            gender,
+            date_of_birth,
+            admission_date,
+          })
+        }
+      }
+      setPreviewRows(rows)
+    } catch (err) {
+      console.error(err)
+      setError('Failed to read Excel file for preview')
+    } finally {
+      setIsParsingPreview(false)
     }
   }
 
@@ -129,7 +210,12 @@ export function ImportStudentsDialog({ classes }: Props) {
           <form onSubmit={handleImport} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="file">Excel File (.xlsx)</Label>
-              <Input id="file" type="file" accept=".xlsx" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <Input
+                id="file"
+                type="file"
+                accept=".xlsx"
+                onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+              />
               <p className="text-xs text-gray-500">Max size: 5MB. Only .xlsx files.</p>
             </div>
 
@@ -139,6 +225,44 @@ export function ImportStudentsDialog({ classes }: Props) {
                 <AlertTitle>Error</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
+            )}
+
+            {previewRows.length > 0 && (
+              <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-medium text-gray-800">Preview (first {previewRows.length} rows)</p>
+                  {isParsingPreview && <Loader2 className="h-4 w-4 animate-spin text-gray-500" />}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-gray-600">
+                        <th className="pr-3 pb-2">Full Name</th>
+                        <th className="pr-3 pb-2">Email</th>
+                        <th className="pr-3 pb-2">Admission #</th>
+                        <th className="pr-3 pb-2">Class</th>
+                        <th className="pr-3 pb-2">Gender</th>
+                        <th className="pr-3 pb-2">DOB</th>
+                        <th className="pb-2">Admission Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {previewRows.map((row, idx) => (
+                        <tr key={`${row.admission_number}-${idx}`} className="text-gray-800">
+                          <td className="pr-3 py-1">{row.full_name || '—'}</td>
+                          <td className="pr-3 py-1">{row.email || '—'}</td>
+                          <td className="pr-3 py-1">{row.admission_number || '—'}</td>
+                          <td className="pr-3 py-1">{row.class_name || '—'}</td>
+                          <td className="pr-3 py-1 capitalize">{row.gender || '—'}</td>
+                          <td className="pr-3 py-1">{row.date_of_birth || '—'}</td>
+                          <td className="py-1">{row.admission_date || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-2">Preview only; final validation happens on import.</p>
+              </div>
             )}
 
             <div className="flex justify-end">

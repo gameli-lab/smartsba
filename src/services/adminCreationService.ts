@@ -24,12 +24,13 @@ export class AdminCreationService {
 
   async createAdmins(admins: AdminData[], schoolId: string): Promise<AdminCreationResult[]> {
     try {
-      // Get current session for authorization
-      const { data: { session }, error: sessionError } = await this.supabaseClient.auth.getSession();
+      // Refresh session to ensure we have a valid access token
+      const { data: refreshedSession, error: refreshError } = await this.supabaseClient.auth.refreshSession();
+      const session = refreshedSession?.session;
 
-      if (sessionError || !session?.access_token) {
-        console.error("No valid session for admin creation");
-        return this.mapToFailedResults(admins, "No valid session");
+      if (refreshError || !session?.access_token) {
+        console.error("No valid session for admin creation", refreshError);
+        return this.mapToFailedResults(admins, "Session expired. Please sign in again and retry.");
       }
 
       // Make API call to create admins

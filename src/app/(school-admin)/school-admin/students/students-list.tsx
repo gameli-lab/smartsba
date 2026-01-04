@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Edit, Power, Trash2 } from 'lucide-react'
+import { Edit, Eye, Power, Trash2 } from 'lucide-react'
 import { toggleStudentStatus, deleteStudent } from './actions'
 import { EditStudentDialog } from '@/app/(school-admin)/school-admin/students/edit-student-dialog'
 import type { Student, UserProfile, Class } from '@/types'
@@ -104,6 +105,17 @@ export function StudentsList({ students, classes }: Props) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
+                    <Link href={`/school-admin/students/${student.id}`} className="inline-flex">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="View profile"
+                      >
+                        <span className="sr-only">View</span>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </Link>
                     <Button
                       variant="ghost"
                       size="icon"

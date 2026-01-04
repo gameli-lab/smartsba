@@ -2,23 +2,48 @@ import { requireSchoolAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { AcademicSession } from '@/types'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
 import { SessionsList } from '@/app/(school-admin)/school-admin/academic-sessions/sessions-list'
 import { CreateSessionDialog } from '@/app/(school-admin)/school-admin/academic-sessions/create-session-dialog'
+import { SessionsFilters } from './sessions-filters'
 
 /**
  * Academic Sessions & Terms Management Page
  */
-export default async function AcademicSessionsPage() {
+export default async function AcademicSessionsPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const searchParams = await props.searchParams
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
 
-  // Fetch all academic sessions for the school
-  const { data: sessions } = await supabase
+  // Build sessions query with filters
+  let sessionsQuery = supabase
     .from('academic_sessions')
     .select('*')
     .eq('school_id', schoolId)
+
+  // Apply search filter (academic_year or term)
+  const search = searchParams.search as string | undefined
+  if (search) {
+    // Check if search is a number (term) or string (academic year)
+    const isNumeric = /^\d+$/.test(search)
+    if (isNumeric) {
+      sessionsQuery = sessionsQuery.eq('term', parseInt(search))
+    } else {
+      sessionsQuery = sessionsQuery.ilike('academic_year', `%${search}%`)
+    }
+  }
+
+  // Apply status filter (current/past)
+  const status = searchParams.status as string | undefined
+  if (status === 'current') {
+    sessionsQuery = sessionsQuery.eq('is_current', true)
+  } else if (status === 'past') {
+    sessionsQuery = sessionsQuery.eq('is_current', false)
+  }
+
+  // Fetch all academic sessions for the school
+  const { data: sessions } = await sessionsQuery
     .order('academic_year', { ascending: false })
     .order('term', { ascending: false })
 
@@ -60,11 +85,12 @@ export default async function AcademicSessionsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <SessionsFilters />
           {typedSessions.length > 0 ? (
             <SessionsList sessions={typedSessions} />
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">No academic sessions created yet</p>
+              <p className="text-gray-500 mb-4">No academic sessions found</p>
               <CreateSessionDialog />
             </div>
           )}
@@ -78,8 +104,8 @@ export default async function AcademicSessionsPage() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-gray-700">
           <p>• Each academic year can have up to 3 terms</p>
-          <p>• Only one session can be marked as "current" at any time</p>
-          <p>• The current session determines which term's data is displayed by default</p>
+          <p>• Only one session can be marked as &ldquo;current&rdquo; at any time</p>
+          <p>• The current session determines which term&apos;s data is displayed by default</p>
           <p>• Previous sessions become read-only once a new session is set as current</p>
           <p>• Vacation and reopening dates are optional but recommended for planning</p>
         </CardContent>

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import type { ClassTeacherRemark, PromotionStatus } from '@/types'
+import type { PromotionStatus } from '@/types'
 
 interface PromotionInput {
   student_id: string
@@ -45,11 +45,11 @@ export async function setStudentPromotion(input: PromotionInput) {
     // Verify student
     const { data: studentRow } = await supabase
       .from('students')
-      .select('id, school_id')
+      .select('id, school_id, user_id')
       .eq('id', input.student_id)
       .single()
 
-    const student = studentRow as { id: string; school_id: string } | null
+    const student = studentRow as { id: string; school_id: string; user_id?: string } | null
     const studentCheck = await ensureEntityBelongsToSchool(student, schoolId, 'Student not found')
     if (studentCheck) return { success: false, error: studentCheck.error }
 
@@ -60,9 +60,13 @@ export async function setStudentPromotion(input: PromotionInput) {
       .eq('id', input.session_id)
       .single()
 
-    const session = sessionRow as { id: string; school_id: string } | null
+    const session = sessionRow as { id: string; school_id: string; term?: number } | null
     const sessionCheck = await ensureEntityBelongsToSchool(session, schoolId, 'Session not found')
     if (sessionCheck) return { success: false, error: sessionCheck.error }
+
+    if (session?.term !== 3) {
+      return { success: false, error: 'Promotion decisions are only allowed in Term 3.' }
+    }
 
     // Verify next class if provided
     if (input.next_class_id) {
@@ -128,6 +132,25 @@ export async function setStudentPromotion(input: PromotionInput) {
       }
     }
 
+    if (input.promotion_status === 'withdrawn') {
+      // Also deactivate the student record when withdrawn to reflect archive status
+      const { error: studentError } = await supabase
+        .from('students')
+        .update({ is_active: false })
+        .eq('id', input.student_id)
+
+      if (student?.user_id) {
+        await supabase
+          .from('user_profiles')
+          .update({ status: 'disabled' })
+          .eq('user_id', student.user_id)
+      }
+
+      if (studentError) {
+        console.error('Error deactivating withdrawn student:', studentError)
+      }
+    }
+
     revalidatePath('/school-admin/grading-promotion')
     return { success: true }
   } catch (error) {
@@ -163,13 +186,17 @@ export async function bulkPromoteStudents(input: BulkPromotionInput) {
       .eq('id', input.current_session_id)
       .single()
 
-    const currSession = currSessionRow as { id: string; school_id: string } | null
+    const currSession = currSessionRow as { id: string; school_id: string; term?: number } | null
     const currSessionCheck = await ensureEntityBelongsToSchool(
       currSession,
       schoolId,
       'Current session not found'
     )
     if (currSessionCheck) return { success: false, error: currSessionCheck.error }
+
+    if (currSession?.term !== 3) {
+      return { success: false, error: 'Bulk promotion is only allowed in Term 3.' }
+    }
 
     // Verify next class
     const { data: nextClassRow } = await supabase
@@ -265,6 +292,26 @@ export async function getClassPromotionData(classId: string, sessionId: string) 
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
 
+    type ClassRow = { id: string; name: string; level: number; stream: string | null; school_id: string }
+    type SessionRow = { id: string; academic_year: string; term: number; school_id: string }
+    type StudentScoreRow = {
+      id: string
+      admission_number: string
+      roll_number: string | null
+      class_id: string
+      is_active: boolean
+      user_profile: { id: string; full_name: string; email: string }
+      session_scores: Array<{ id: string; total_score: number | null; grade?: string | null; subject_id: string }>
+    }
+    type RemarkRow = {
+      id: string
+      student_id: string
+      promotion_status: PromotionStatus | null
+      remark: string | null
+      next_class_id: string | null
+    }
+    type NextClassRow = { id: string; name: string; level: number; stream: string | null }
+
     // Verify class
     const { data: classRow } = await supabase
       .from('classes')
@@ -272,7 +319,8 @@ export async function getClassPromotionData(classId: string, sessionId: string) 
       .eq('id', classId)
       .single()
 
-    if (!classRow || (classRow as any).school_id !== schoolId) {
+    const typedClass = classRow as ClassRow | null
+    if (!typedClass || typedClass.school_id !== schoolId) {
       return { success: false, error: 'Class not found' }
     }
 
@@ -283,8 +331,13 @@ export async function getClassPromotionData(classId: string, sessionId: string) 
       .eq('id', sessionId)
       .single()
 
-    if (!sessionRow || (sessionRow as any).school_id !== schoolId) {
+    const typedSession = sessionRow as SessionRow | null
+    if (!typedSession || typedSession.school_id !== schoolId) {
       return { success: false, error: 'Session not found' }
+    }
+
+    if (typedSession.term !== 3) {
+      return { success: false, error: 'Promotion data is only available for Term 3.' }
     }
 
     // Fetch all students in class with their scores
@@ -306,23 +359,23 @@ export async function getClassPromotionData(classId: string, sessionId: string) 
       .from('class_teacher_remarks')
       .select('id, student_id, promotion_status, remark, next_class_id')
       .eq('session_id', sessionId)
-      .in('student_id', (studentsData || []).map((s: any) => s.id))
+      .in('student_id', (studentsData || []).map((s: StudentScoreRow) => s.id))
 
-    const remarksMap = new Map<string, any>()
-    ;(remarksData || []).forEach((r: any) => remarksMap.set(r.student_id, r))
+    const remarksMap = new Map<string, RemarkRow>()
+    ;((remarksData || []) as RemarkRow[]).forEach((r) => remarksMap.set(r.student_id, r))
 
     // Get next level classes
     const { data: nextClasses } = await supabase
       .from('classes')
       .select('id, name, level, stream')
       .eq('school_id', schoolId)
-      .gt('level', (classRow as any).level)
+      .gt('level', typedClass.level)
       .order('level', { ascending: true })
 
     // Sort by total score descending
-    const sortedStudents = (studentsData || [])
-      .map((s: any, idx: number) => {
-        const totalScore = s.session_scores.reduce((sum: number, sc: any) => sum + (sc.total_score || 0), 0)
+    const sortedStudents = ((studentsData || []) as StudentScoreRow[])
+      .map((s) => {
+        const totalScore = s.session_scores.reduce((sum, sc) => sum + (sc.total_score || 0), 0)
         const avgScore = s.session_scores.length > 0 ? totalScore / s.session_scores.length : 0
         const remark = remarksMap.get(s.id)
 
@@ -346,12 +399,12 @@ export async function getClassPromotionData(classId: string, sessionId: string) 
     return {
       success: true,
       data: {
-        class: classRow,
-        session: sessionRow,
+        class: typedClass,
+        session: typedSession,
         students: sortedStudents,
-        nextClasses: nextClasses || [],
+        nextClasses: (nextClasses || []) as NextClassRow[],
         totalStudents: sortedStudents.length,
-        promotedCount: sortedStudents.filter((s: any) => s.promotion_status === 'promoted').length,
+        promotedCount: sortedStudents.filter((s) => s.promotion_status === 'promoted').length,
       },
     }
   } catch (error) {

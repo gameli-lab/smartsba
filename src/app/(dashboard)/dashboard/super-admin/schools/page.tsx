@@ -7,6 +7,7 @@ import CreateSchoolForm from "@/components/schools/create-school-form";
 import { SchoolsTable } from "@/components/schools/SchoolsTable";
 import { SchoolsFilters } from "@/components/schools/SchoolsFilters";
 import { SchoolsStats } from "@/components/schools/SchoolsStats";
+import { SchoolDetailsDialog } from "@/components/schools/SchoolDetailsDialog";
 import { useSchools, SchoolWithStats } from "@/hooks/useSchools";
 import { useSchoolFilters } from "@/hooks/useSchoolFilters";
 import { createSchoolDeletionService } from "@/services/schoolDeletionService";
@@ -376,10 +377,12 @@ export default function SchoolsManagementPage() {
         onSchoolCreated={refreshSchools}
       />
 
-      {/* School Details Dialog - Will be implemented in next component */}
-      {showDetails && selectedSchool && (
-        <div>School Details Component Goes Here</div>
-      )}
+      {/* School Details Dialog */}
+      <SchoolDetailsDialog
+        school={selectedSchool}
+        open={showDetails}
+        onOpenChange={setShowDetails}
+      />
 
       {/* Bulk Operation Dialog */}
       {bulkOperation && (

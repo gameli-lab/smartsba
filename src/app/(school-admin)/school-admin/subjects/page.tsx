@@ -3,18 +3,42 @@ import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CreateSubjectDialog } from './create-subject-dialog'
 import { SubjectsList } from './subjects-list'
+import { SubjectsFilters } from './subjects-filters'
+// TODO: Import LEVEL_GROUPS for level-aware subject availability filtering
+// import { LEVEL_GROUPS } from '@/lib/constants/level-groups'
 import type { Subject, Class } from '@/types'
 
-export default async function SubjectsPage() {
+export default async function SubjectsPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const searchParams = await props.searchParams
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
 
+  // Build subjects query with filters
+  let subjectsQuery = supabase
+    .from('subjects')
+    .select('*')
+    .eq('school_id', schoolId)
+
+  // Apply search filter (name or code)
+  const search = searchParams.search as string | undefined
+  if (search) {
+    subjectsQuery = subjectsQuery.or(
+      `name.ilike.%${search}%,code.ilike.%${search}%`
+    )
+  }
+
+  // Apply type filter (core/elective)
+  const type = searchParams.type as string | undefined
+  if (type === 'core') {
+    subjectsQuery = subjectsQuery.eq('is_core', true)
+  } else if (type === 'elective') {
+    subjectsQuery = subjectsQuery.eq('is_core', false)
+  }
+
   const [{ data: subjectsData }, { data: classesData }] = await Promise.all([
-    supabase
-      .from('subjects')
-      .select('*')
-      .eq('school_id', schoolId)
-      .order('name'),
+    subjectsQuery.order('name'),
     supabase
       .from('classes')
       .select('id, name, level, stream')
@@ -87,11 +111,12 @@ export default async function SubjectsPage() {
           <CardDescription>View and manage all subjects</CardDescription>
         </CardHeader>
         <CardContent>
+          <SubjectsFilters />
           {subjects.length ? (
             <SubjectsList subjects={subjects} classes={classes} />
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">No subjects created yet</p>
+              <p className="text-gray-500 mb-4">No subjects found</p>
               <CreateSubjectDialog classes={classes} />
             </div>
           )}

@@ -4,7 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { TeachersList } from '@/app/(school-admin)/school-admin/teachers/teachers-list'
 import { CreateTeacherDialog } from '@/app/(school-admin)/school-admin/teachers/create-teacher-dialog'
 import { ImportTeachersDialog } from './import-teachers-dialog'
-import type { Teacher, UserProfile } from '@/types'
+import { TeachersFilters } from './teachers-filters'
+import { Badge } from '@/components/ui/badge'
+import type { Teacher, UserProfile, Class, Subject } from '@/types'
 
 interface TeacherWithProfile extends Teacher {
   user_profile: UserProfile
@@ -14,12 +16,36 @@ interface TeacherWithProfile extends Teacher {
 /**
  * Teacher Management Page
  */
-export default async function TeachersPage() {
+export default async function TeachersPage(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const searchParams = await props.searchParams
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
 
-  // Fetch all teachers with their profile information and assignments count
-  const { data: rawTeachers } = await supabase
+  // Current academic session badge
+  const { data: currentSession } = await supabase
+    .from('academic_sessions')
+    .select('id, academic_year, term, is_current')
+    .eq('school_id', schoolId)
+    .eq('is_current', true)
+    .single()
+
+  const [{ data: classesData }, { data: subjectsData }] = await Promise.all([
+    supabase
+      .from('classes')
+      .select('id, name, level, stream')
+      .eq('school_id', schoolId)
+      .order('level', { ascending: true }),
+    supabase
+      .from('subjects')
+      .select('id, name, code, class_id')
+      .eq('school_id', schoolId)
+      .order('name'),
+  ])
+
+  // Build base query with filters
+  let teachersQuery = supabase
     .from('teachers')
     .select(`
       *,
@@ -37,7 +63,47 @@ export default async function TeachersPage() {
       teacher_assignments(count)
     `)
     .eq('school_id', schoolId)
-    .order('created_at', { ascending: false })
+
+  // Apply search filter (name or staff_id)
+  const search = searchParams.search as string | undefined
+  if (search) {
+    teachersQuery = teachersQuery.or(
+      `user_profile.full_name.ilike.%${search}%,user_profile.staff_id.ilike.%${search}%`
+    )
+  }
+
+  // Apply status filter
+  const status = searchParams.status as string | undefined
+  if (status === 'active') {
+    teachersQuery = teachersQuery.eq('is_active', true)
+  } else if (status === 'inactive') {
+    teachersQuery = teachersQuery.eq('is_active', false)
+  }
+
+  // Apply class/subject filters using teacher_assignments lookups
+  const classId = searchParams.classId as string | undefined
+  const subjectId = searchParams.subjectId as string | undefined
+
+  if (classId || subjectId) {
+    const assignmentQuery = supabase
+      .from('teacher_assignments')
+      .select('teacher_id, teachers!inner(school_id)')
+      .eq('teachers.school_id', schoolId)
+    if (classId) assignmentQuery.eq('class_id', classId)
+    if (subjectId) assignmentQuery.eq('subject_id', subjectId)
+
+    type AssignmentRow = { teacher_id: string }
+    const { data: assignmentRows } = await assignmentQuery
+    const teacherIds = Array.from(new Set((assignmentRows ?? []).map((row: AssignmentRow) => row.teacher_id)))
+
+    if (teacherIds.length === 0) {
+      teachersQuery = teachersQuery.eq('id', '00000000-0000-0000-0000-000000000000')
+    } else {
+      teachersQuery = teachersQuery.in('id', teacherIds)
+    }
+  }
+
+  const { data: rawTeachers } = await teachersQuery.order('created_at', { ascending: false })
   
   const teachers = (rawTeachers || []) as TeacherWithProfile[]
 
@@ -50,6 +116,13 @@ export default async function TeachersPage() {
           <p className="text-gray-600 mt-1">
             Manage teachers, their information, and status
           </p>
+          {currentSession && (
+            <div className="mt-2">
+              <Badge variant="secondary">
+                Term {currentSession.term} • {currentSession.academic_year}
+              </Badge>
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <ImportTeachersDialog />
@@ -117,11 +190,12 @@ export default async function TeachersPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <TeachersFilters classes={(classesData || []) as Class[]} subjects={(subjectsData || []) as Subject[]} />
           {teachers.length > 0 ? (
             <TeachersList teachers={teachers} />
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">No teachers added yet</p>
+              <p className="text-gray-500 mb-4">No teachers found</p>
               <CreateTeacherDialog />
             </div>
           )}

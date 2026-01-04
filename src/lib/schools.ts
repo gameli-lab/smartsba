@@ -46,6 +46,36 @@ export class SchoolService {
     return data || []
   }
 
+  /**
+   * Resolve a school input (ID or exact name) to a school ID without exposing the directory.
+   * - If the input matches an existing school ID, return that ID.
+   * - Otherwise, try an exact case-insensitive match on the school name.
+   */
+  static async resolveSchoolId(schoolInput: string): Promise<string | null> {
+    const input = schoolInput.trim()
+    if (!input) return null
+
+    // First try direct ID match
+    const { data: byId, error: idError } = await supabase
+      .from('schools')
+      .select('id')
+      .eq('id', input)
+      .single()
+
+    if (byId && !idError) return byId.id
+
+    // Then try exact case-insensitive name match
+    const { data: byName, error: nameError } = await supabase
+      .from('schools')
+      .select('id')
+      .ilike('name', input)
+      .single()
+
+    if (byName && !nameError) return byName.id
+
+    return null
+  }
+
   // Verify user belongs to school
   static async verifyUserSchoolAccess(userId: string, schoolId: string): Promise<boolean> {
     const { data, error } = await supabase

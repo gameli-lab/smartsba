@@ -11,10 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Edit, Power, Trash2 } from 'lucide-react'
+import { Edit, Power, Trash2, Eye, ClipboardList } from 'lucide-react'
 import { toggleTeacherStatus, deleteTeacher } from './actions'
 import { useRouter } from 'next/navigation'
 import { EditTeacherDialog } from '@/app/(school-admin)/school-admin/teachers/edit-teacher-dialog'
+import Link from 'next/link'
 import type { Teacher, UserProfile } from '@/types'
 
 interface TeacherWithProfile extends Teacher {
@@ -116,6 +117,11 @@ export function TeachersList({ teachers }: TeachersListProps) {
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
+                  <Link href={`/school-admin/teachers/${teacher.id}`} className="inline-flex">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="View teacher">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </Link>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -125,6 +131,11 @@ export function TeachersList({ teachers }: TeachersListProps) {
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
+                  <Link href={`/school-admin/teacher-assignments?teacherId=${teacher.id}`} className="inline-flex">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Assign teacher">
+                      <ClipboardList className="h-4 w-4" />
+                    </Button>
+                  </Link>
                   <Button
                     variant="ghost"
                     size="icon"

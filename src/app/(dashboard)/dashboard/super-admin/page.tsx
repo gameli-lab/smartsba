@@ -38,6 +38,7 @@ interface ActivityLog {
   action_type: string;
   entity_type: string;
   entity_id: string | null;
+  entity_name?: string | null;
   created_at: string;
 }
 
@@ -270,39 +271,112 @@ export default function SuperAdminDashboard() {
 
   const fetchAttentionItems = async () => {
     try {
-      // TODO: Implement backend endpoints for:
-      // 1. Pending school activations
-      // 2. Recently deactivated schools (last 24h)
-      // 3. Failed bulk operations
-      // 4. Admin overrides
-      
-      // For now, return empty array with placeholder logic
       const items: AttentionItem[] = [];
       
-      // Check for recently deactivated schools
+      // 1. Check for recently deactivated schools (last 24h)
       const oneDayAgo = new Date();
       oneDayAgo.setDate(oneDayAgo.getDate() - 1);
       
       const { data: recentlyDeactivated } = await supabase
         .from('schools')
-        .select('id, name, status')
+        .select('id, name, status, updated_at')
         .eq('status', 'inactive')
         .gte('updated_at', oneDayAgo.toISOString())
+        .order('updated_at', { ascending: false })
         .limit(5);
 
       if (recentlyDeactivated) {
         recentlyDeactivated.forEach((school: any) => {
           items.push({
-            id: school.id,
+            id: `deactivated-${school.id}`,
             type: 'recently_deactivated',
             title: 'School Deactivated',
             entity: school.name,
+            timestamp: school.updated_at,
             severity: 'warning',
           });
         });
       }
 
-      setAttentionItems(items);
+      // 2. Check for pending school activations (schools created but still inactive)
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      
+      const { data: pendingActivations } = await supabase
+        .from('schools')
+        .select('id, name, created_at')
+        .eq('status', 'inactive')
+        .lt('created_at', threeDaysAgo.toISOString())
+        .order('created_at', { ascending: true })
+        .limit(5);
+
+      if (pendingActivations) {
+        pendingActivations.forEach((school: any) => {
+          items.push({
+            id: `pending-${school.id}`,
+            type: 'pending_activation',
+            title: 'Pending Activation',
+            entity: school.name,
+            timestamp: school.created_at,
+            severity: 'info',
+          });
+        });
+      }
+
+      // 3. Check for failed operations (from audit logs)
+      const { data: failedOps } = await supabase
+        .from('audit_logs')
+        .select('id, entity_type, entity_id, created_at, metadata')
+        .contains('metadata', { status: 'failed' })
+        .gte('created_at', oneDayAgo.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (failedOps) {
+        failedOps.forEach((log: any) => {
+          items.push({
+            id: `failed-${log.id}`,
+            type: 'failed_operation',
+            title: 'Failed Operation',
+            entity: `${log.entity_type} operation`,
+            timestamp: log.created_at,
+            severity: 'critical',
+          });
+        });
+      }
+
+      // 4. Check for admin overrides (from audit logs)
+      const { data: overrides } = await supabase
+        .from('audit_logs')
+        .select('id, entity_type, entity_id, created_at')
+        .eq('action_type', 'admin_override')
+        .gte('created_at', oneDayAgo.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (overrides) {
+        overrides.forEach((log: any) => {
+          items.push({
+            id: `override-${log.id}`,
+            type: 'admin_override',
+            title: 'Admin Override',
+            entity: `${log.entity_type}`,
+            timestamp: log.created_at,
+            severity: 'warning',
+          });
+        });
+      }
+
+      // Sort by severity (critical > warning > info) and timestamp
+      const severityOrder = { critical: 0, warning: 1, info: 2 };
+      items.sort((a, b) => {
+        if (a.severity !== b.severity) {
+          return severityOrder[a.severity] - severityOrder[b.severity];
+        }
+        return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
+      });
+
+      setAttentionItems(items.slice(0, 10)); // Limit to top 10 items
     } catch (error) {
       console.error('Error fetching attention items:', error);
     }
@@ -333,31 +407,47 @@ export default function SuperAdminDashboard() {
       } else if (logs) {
         // Fetch user profiles to get names and emails for each log entry
         const userIds = [...new Set(logs.map((log: any) => log.actor_user_id))];
+        const schoolIds = [...new Set(logs.filter((log: any) => log.entity_type === 'school' && log.entity_id).map((log: any) => log.entity_id))];
         
+        let profileMap: any = {};
+        let schoolMap: any = {};
+
         if (userIds.length > 0) {
           const { data: profiles } = await supabase
             .from('user_profiles')
             .select('user_id, first_name, last_name, email')
             .in('user_id', userIds);
 
-          const profileMap = (profiles || []).reduce((acc: any, profile: any) => {
+          profileMap = (profiles || []).reduce((acc: any, profile: any) => {
             acc[profile.user_id] = profile;
             return acc;
           }, {});
-
-          const enrichedLogs = logs.map((log: any) => {
-            const profile = profileMap[log.actor_user_id];
-            return {
-              ...log,
-              actor_name: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown User',
-              actor_email: profile?.email || 'N/A',
-            };
-          });
-
-          setActivityLogs(enrichedLogs);
-        } else {
-          setActivityLogs([]);
         }
+
+        if (schoolIds.length > 0) {
+          const { data: schools } = await supabase
+            .from('schools')
+            .select('id, name')
+            .in('id', schoolIds);
+
+          schoolMap = (schools || []).reduce((acc: any, school: any) => {
+            acc[school.id] = school;
+            return acc;
+          }, {});
+        }
+
+        const enrichedLogs = logs.map((log: any) => {
+          const profile = profileMap[log.actor_user_id];
+          const school = schoolMap[log.entity_id];
+          return {
+            ...log,
+            actor_name: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown User',
+            actor_email: profile?.email || 'N/A',
+            entity_name: school?.name || null,
+          };
+        });
+
+        setActivityLogs(enrichedLogs);
       } else {
         setActivityLogs([]);
       }
@@ -613,7 +703,13 @@ export default function SuperAdminDashboard() {
           </div>
         </div>
         <Button
-          onClick={fetchKPIData}
+          onClick={() => {
+            fetchKPIData();
+            fetchAttentionItems();
+            fetchActivityLogs();
+            fetchTrendsData();
+            fetchUserDistribution();
+          }}
           disabled={isRefreshing}
           variant="outline"
           size="lg"
@@ -819,7 +915,9 @@ export default function SuperAdminDashboard() {
           <CardDescription>Items requiring immediate action</CardDescription>
         </CardHeader>
         <CardContent>
-          {attentionItems.length === 0 ? (
+          {loading ? (
+            <ActivitySkeleton />
+          ) : attentionItems.length === 0 ? (
             <div className="text-center py-8">
               <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-3" />
               <p className="text-gray-600">No issues detected</p>
@@ -828,16 +926,26 @@ export default function SuperAdminDashboard() {
           ) : (
             <div className="space-y-3">
               {attentionItems.map((item) => (
-                <div
+                <Link
                   key={item.id}
-                  className="flex items-start justify-between p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50"
+                  href="/dashboard/super-admin/schools"
+                  className="block"
                 >
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{item.title}</p>
-                    <p className="text-sm text-gray-600 mt-1">{item.entity}</p>
+                  <div className="flex items-start justify-between p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 hover:shadow-md transition-all cursor-pointer">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900">{item.title}</p>
+                      <p className="text-sm text-gray-600 mt-1 truncate">{item.entity}</p>
+                      {item.timestamp && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formatActivityTime(item.timestamp)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex-shrink-0 ml-4">
+                      <AttentionBadge type={item.type} severity={item.severity} />
+                    </div>
                   </div>
-                  <AttentionBadge type={item.type} severity={item.severity} />
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -868,15 +976,20 @@ export default function SuperAdminDashboard() {
                   className="flex items-start justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <p className="font-medium text-gray-900 truncate">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <p className="font-medium text-gray-900">
                         {formatActionLabel(log.action_type)}
                       </p>
                       <Badge variant="secondary" className="text-xs flex-shrink-0">
                         {log.entity_type}
                       </Badge>
+                      {log.entity_name && (
+                        <span className="text-sm text-gray-700 truncate">
+                          • {log.entity_name}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2 text-sm text-gray-600 flex-wrap">
                       <span className="truncate">{log.actor_name || 'System'}</span>
                       {log.actor_email && (
                         <>
@@ -984,7 +1097,7 @@ export default function SuperAdminDashboard() {
                         <td className="px-4 py-3 text-center text-gray-600">{formatSchoolDate(school.created_at)}</td>
                         <td className="px-4 py-3 text-center">
                           <Link
-                            href={`/dashboard/super-admin/schools/${school.id}`}
+                            href="/dashboard/super-admin/schools"
                             className="text-blue-600 hover:underline text-xs font-medium"
                           >
                             View
@@ -1032,77 +1145,45 @@ export default function SuperAdminDashboard() {
           <CardDescription>Fast navigation to key platform management areas</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Create New School */}
+            <Link href="/dashboard/super-admin/schools">
+              <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-blue-50 hover:border-blue-500 transition-all group">
+                <School className="w-6 h-6 text-blue-600 group-hover:scale-110 transition-transform" />
+                <span className="font-medium text-sm">Create New School</span>
+              </Button>
+            </Link>
+
             {/* Manage Schools */}
             <Link href="/dashboard/super-admin/schools">
-              <div className="p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer group">
-                <School className="w-6 h-6 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
-                <h3 className="font-medium text-gray-900 text-sm">Manage Schools</h3>
-                <p className="text-xs text-gray-500 mt-1">View and manage all schools</p>
-              </div>
+              <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-purple-50 hover:border-purple-500 transition-all group">
+                <School className="w-6 h-6 text-purple-600 group-hover:scale-110 transition-transform" />
+                <span className="font-medium text-sm">Manage Schools</span>
+              </Button>
             </Link>
 
             {/* Manage Users */}
             <Link href="/dashboard/super-admin/users">
-              <div className="p-4 border border-gray-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all cursor-pointer group">
-                <Users className="w-6 h-6 text-purple-600 mb-2 group-hover:scale-110 transition-transform" />
-                <h3 className="font-medium text-gray-900 text-sm">Manage Users</h3>
-                <p className="text-xs text-gray-500 mt-1">View and manage platform users</p>
-              </div>
+              <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-green-50 hover:border-green-500 transition-all group">
+                <Users className="w-6 h-6 text-green-600 group-hover:scale-110 transition-transform" />
+                <span className="font-medium text-sm">Manage Users</span>
+              </Button>
             </Link>
 
             {/* Analytics */}
             <Link href="/dashboard/super-admin/analytics">
-              <div className="p-4 border border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all cursor-pointer group">
-                <TrendingUp className="w-6 h-6 text-green-600 mb-2 group-hover:scale-110 transition-transform" />
-                <h3 className="font-medium text-gray-900 text-sm">Analytics</h3>
-                <p className="text-xs text-gray-500 mt-1">View platform analytics & insights</p>
-              </div>
+              <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-yellow-50 hover:border-yellow-500 transition-all group">
+                <TrendingUp className="w-6 h-6 text-yellow-600 group-hover:scale-110 transition-transform" />
+                <span className="font-medium text-sm">Analytics</span>
+              </Button>
             </Link>
 
-            {/* Audit Logs */}
-            <Link href="/dashboard/super-admin/audit-logs">
-              <div className="p-4 border border-gray-200 rounded-lg hover:border-yellow-500 hover:bg-yellow-50 transition-all cursor-pointer group">
-                <Clock className="w-6 h-6 text-yellow-600 mb-2 group-hover:scale-110 transition-transform" />
-                <h3 className="font-medium text-gray-900 text-sm">Audit Logs</h3>
-                <p className="text-xs text-gray-500 mt-1">View system activity logs</p>
-              </div>
-            </Link>
-
-            {/* Bulk Operations */}
-            <Link href="/dashboard/super-admin/bulk-operations">
-              <div className="p-4 border border-gray-200 rounded-lg hover:border-red-500 hover:bg-red-50 transition-all cursor-pointer group">
-                <AlertCircle className="w-6 h-6 text-red-600 mb-2 group-hover:scale-110 transition-transform" />
-                <h3 className="font-medium text-gray-900 text-sm">Bulk Operations</h3>
-                <p className="text-xs text-gray-500 mt-1">Perform bulk actions</p>
-              </div>
-            </Link>
-
-            {/* Reports */}
-            <Link href="/dashboard/super-admin/reports">
-              <div className="p-4 border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all cursor-pointer group">
-                <BarChart3 className="w-6 h-6 text-indigo-600 mb-2 group-hover:scale-110 transition-transform" />
-                <h3 className="font-medium text-gray-900 text-sm">Reports</h3>
-                <p className="text-xs text-gray-500 mt-1">Generate system reports</p>
-              </div>
-            </Link>
-
-            {/* Email Logs */}
-            <Link href="/dashboard/super-admin/email-logs">
-              <div className="p-4 border border-gray-200 rounded-lg hover:border-pink-500 hover:bg-pink-50 transition-all cursor-pointer group">
-                <Clock className="w-6 h-6 text-pink-600 mb-2 group-hover:scale-110 transition-transform" />
-                <h3 className="font-medium text-gray-900 text-sm">Email Logs</h3>
-                <p className="text-xs text-gray-500 mt-1">View email delivery history</p>
-              </div>
-            </Link>
-
-            {/* Settings */}
+            {/* System Settings */}
             <Link href="/dashboard/super-admin/settings">
-              <div className="p-4 border border-gray-200 rounded-lg hover:border-gray-500 hover:bg-gray-50 transition-all cursor-pointer group">
-                <AlertTriangle className="w-6 h-6 text-gray-600 mb-2 group-hover:scale-110 transition-transform" />
-                <h3 className="font-medium text-gray-900 text-sm">Settings</h3>
-                <p className="text-xs text-gray-500 mt-1">Configure platform settings</p>
-              </div>
+              <Button variant="outline" className="w-full h-auto flex flex-col items-center gap-2 p-4 hover:bg-gray-50 hover:border-gray-500 transition-all group">
+                <AlertTriangle className="w-6 h-6 text-gray-600 group-hover:scale-110 transition-transform" />
+                <span className="font-medium text-sm">System Settings</span>
+              </Button>
             </Link>
           </div>
         </CardContent>
