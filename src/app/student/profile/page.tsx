@@ -1,20 +1,15 @@
-import { requireStudent } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { ProfileClient } from '@/components/student/profile-client'
+import { requireStudentWithAutoInit, renderStudentProfileError } from '../utils'
 
 export default async function StudentProfilePage() {
-  const guard = await requireStudent()
+  const guardResult = await requireStudentWithAutoInit()
 
-  if (!guard.student) {
-    return (
-      <div className="rounded-lg border bg-amber-50 p-6 text-amber-800">
-        <h1 className="text-lg font-semibold">Student profile not found</h1>
-        <p className="mt-2 text-sm">Please contact your school administrator to complete your enrollment.</p>
-      </div>
-    )
+  if (!guardResult.success) {
+    return renderStudentProfileError(guardResult.error!)
   }
 
-  const { student, profile } = guard
+  const { student, profile } = guardResult.guard!
 
   // Fetch class info
   let className: string | null = null

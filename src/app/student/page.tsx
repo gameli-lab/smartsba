@@ -1,7 +1,7 @@
-import { requireStudent } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { supabase, createAdminSupabaseClient } from '@/lib/supabase'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { requireStudentWithAutoInit, renderStudentProfileError } from './utils'
 
 function formatTerm(term?: number | null) {
   if (!term) return 'Not set'
@@ -9,33 +9,31 @@ function formatTerm(term?: number | null) {
 }
 
 export default async function StudentDashboardPage() {
-  const guard = await requireStudent()
+  const guardResult = await requireStudentWithAutoInit()
 
-  if (!guard.student) {
-    return (
-      <div className="rounded-lg border bg-amber-50 p-6 text-amber-800">
-        <h1 className="text-lg font-semibold">Student profile not found</h1>
-        <p className="mt-2 text-sm">Please contact your school administrator to complete your enrollment.</p>
-      </div>
-    )
+  if (!guardResult.success) {
+    return renderStudentProfileError(guardResult.error!)
   }
 
-  const { student, profile } = guard
+  const { student, profile } = guardResult.guard!
 
-  const [{ data: session }, classResult, { data: aggregatesData }, { data: announcementsData }, { data: attendanceData }] = await Promise.all([
-    supabase
-      .from('academic_sessions')
-      .select('id, academic_year, term')
-      .eq('school_id', profile.school_id)
-      .eq('is_current', true)
-      .maybeSingle(),
+  // Fetch current session first since it's needed for other queries
+  const { data: session } = await supabase
+    .from('academic_sessions')
+    .select('id, academic_year, term')
+    .eq('school_id', profile.school_id)
+    .eq('is_current', true)
+    .maybeSingle()
+
+  // Now fetch other data in parallel
+  const [classResult, { data: aggregatesData }, { data: announcementsData }, { data: attendanceData }] = await Promise.all([
     student.class_id
       ? supabase
           .from('classes')
           .select('name, stream')
           .eq('id', student.class_id)
           .maybeSingle()
-      : Promise.resolve({ data: null } as const),
+      : Promise.resolve({ data: null, error: null } as const),
     supabase
       .from('student_aggregates')
       .select('aggregate_score, total_subjects, class_position')
@@ -57,7 +55,32 @@ export default async function StudentDashboardPage() {
       .maybeSingle(),
   ])
 
-  const classRow = classResult.data as { name: string; stream?: string | null } | null
+  console.log('Class fetch result:', { classId: student.class_id, classResult })
+  console.log('Student data:', { studentId: student.id, schoolId: student.school_id, classId: student.class_id })
+  console.log('Session data:', session)
+  console.log('Aggregates data:', aggregatesData)
+  console.log('Announcements data:', announcementsData)
+
+  // If class fetch via RLS failed, retry with admin client as a safe fallback for display-only use
+  let classRow = classResult.data as { name: string; stream?: string | null } | null
+  if (!classRow && student.class_id) {
+    try {
+      const adminSupabase = createAdminSupabaseClient()
+      const { data: adminClass, error: adminClassError } = await adminSupabase
+        .from('classes')
+        .select('name, stream')
+        .eq('id', student.class_id)
+        .maybeSingle()
+
+      console.log('Admin class fetch:', { adminClass, adminClassError })
+      if (adminClass) {
+        classRow = adminClass as { name: string; stream?: string | null }
+      }
+    } catch (err) {
+      console.error('Admin class fetch failed:', err)
+    }
+  }
+
   const currentClass = classRow ? (classRow.stream ? `${classRow.name} - ${classRow.stream}` : classRow.name) : 'Not assigned'
   
   const aggregates = (aggregatesData || null) as

@@ -69,21 +69,21 @@ export async function middleware(req: NextRequest) {
   )
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
   // If user is not signed in and trying to access protected routes
-  if (!session && (req.nextUrl.pathname.startsWith('/school-admin') || req.nextUrl.pathname.startsWith('/teacher') || req.nextUrl.pathname.startsWith('/student') || req.nextUrl.pathname.startsWith('/parent') || req.nextUrl.pathname.startsWith('/dashboard'))) {
+  if (!user && (req.nextUrl.pathname.startsWith('/school-admin') || req.nextUrl.pathname.startsWith('/teacher') || req.nextUrl.pathname.startsWith('/student') || req.nextUrl.pathname.startsWith('/parent') || req.nextUrl.pathname.startsWith('/dashboard'))) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
   // If user is signed in and trying to access auth pages or homepage
-  if (session && req.nextUrl.pathname.startsWith('/login')) {
+  if (user && req.nextUrl.pathname.startsWith('/login')) {
     // Get user profile to determine redirect
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('role')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single()
 
     if (profile) {
@@ -112,12 +112,12 @@ export async function middleware(req: NextRequest) {
   }
 
   // If authenticated user visits homepage, redirect to their dashboard
-  if (session && req.nextUrl.pathname === '/') {
+  if (user && req.nextUrl.pathname === '/') {
     // Get user profile to determine redirect
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('role')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single()
 
     if (profile) {

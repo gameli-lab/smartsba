@@ -276,20 +276,20 @@ export class AuthService {
 
   // Get current user session
   static async getCurrentUser() {
-    const { data: { session }, error } = await supabase.auth.getSession()
+    const { data: { user }, error } = await supabase.auth.getUser()
     
-    if (error || !session) return null
+    if (error || !user) return null
 
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single()
 
     if (profileError || !profile) return null
 
-    return { user: session.user, profile: profile as UserProfile }
+    return { user, profile: profile as UserProfile }
   }
 
   // Sign out
@@ -318,21 +318,12 @@ export class AuthService {
   }
 
   // Set custom JWT claims for proper authorization with RLS policies
-  // Note: This requires the database function to be available
+  // NOTE: Supabase doesn't support auth.jwt_custom_claims_set() on hosted instances
+  // Storage RLS policies now query user_profiles table directly instead
   static async setUserClaims(userId: string): Promise<void> {
-    try {
-      // For now, we'll comment this out until we can verify the function works
-      // The RLS policies will fall back to basic auth.uid() checks
-      console.log('Setting claims for user:', userId)
-      
-      // TODO: Uncomment once the custom claims function is verified to work
-      // const { error } = await supabase.rpc('set_custom_claims', { user_id: userId })
-      // if (error) {
-      //   console.error('Failed to set custom claims:', error)
-      // }
-    } catch (err) {
-      console.error('Error setting custom claims:', err)
-    }
+    // This function is kept for backwards compatibility but does nothing
+    // The storage policies have been updated to query user_profiles directly
+    console.log('setUserClaims called for user:', userId, '(no-op - policies use direct queries)')
   }
 }
 
@@ -346,9 +337,9 @@ export class AuthService {
 export async function requireSchoolAdmin(): Promise<AuthResult> {
   const supabase = await createServerComponentClient()
   
-  const { data: { session }, error } = await supabase.auth.getSession()
+  const { data: { user }, error } = await supabase.auth.getUser()
   
-  if (error || !session) {
+  if (error || !user) {
     redirect('/login')
   }
 
@@ -356,7 +347,7 @@ export async function requireSchoolAdmin(): Promise<AuthResult> {
   const { data: profile, error: profileError } = await supabase
     .from('user_profiles')
     .select('*')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .single()
 
   if (profileError || !profile) {
@@ -373,7 +364,7 @@ export async function requireSchoolAdmin(): Promise<AuthResult> {
     redirect('/login')
   }
   
-  return { user: session.user, profile: typedProfile }
+  return { user, profile: typedProfile }
 }
 
 export interface TeacherGuardResult extends AuthResult {
@@ -402,9 +393,9 @@ export interface ParentGuardResult extends AuthResult {
 export async function requireTeacher(): Promise<TeacherGuardResult> {
   const serverSupabase = await createServerComponentClient()
   
-  const { data: { session }, error } = await serverSupabase.auth.getSession()
+  const { data: { user }, error } = await serverSupabase.auth.getUser()
   
-  if (error || !session) {
+  if (error || !user) {
     redirect('/login')
   }
 
@@ -412,7 +403,7 @@ export async function requireTeacher(): Promise<TeacherGuardResult> {
   const { data: profile, error: profileError } = await serverSupabase
     .from('user_profiles')
     .select('*')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .single()
 
   if (profileError || !profile) {
@@ -442,7 +433,7 @@ export async function requireTeacher(): Promise<TeacherGuardResult> {
   const effectiveRole = assignments.some((a) => a.is_class_teacher) ? 'class_teacher' : 'subject_teacher'
 
   return {
-    user: session.user,
+    user,
     profile: profile as UserProfile,
     teacher: teacherRow as Teacher,
     assignments,
@@ -458,9 +449,9 @@ export async function requireTeacher(): Promise<TeacherGuardResult> {
 export async function requireStudent(): Promise<StudentGuardResult> {
   const serverSupabase = await createServerComponentClient()
   
-  const { data: { session }, error } = await serverSupabase.auth.getSession()
+  const { data: { user }, error } = await serverSupabase.auth.getUser()
   
-  if (error || !session) {
+  if (error || !user) {
     redirect('/login')
   }
 
@@ -468,7 +459,7 @@ export async function requireStudent(): Promise<StudentGuardResult> {
   const { data: profile, error: profileError } = await serverSupabase
     .from('user_profiles')
     .select('*')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .single()
 
   if (profileError || !profile) {
@@ -482,11 +473,11 @@ export async function requireStudent(): Promise<StudentGuardResult> {
   const { data: studentRow } = await serverSupabase
     .from('students')
     .select('*')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .maybeSingle()
 
   return {
-    user: session.user,
+    user,
     profile: profile as UserProfile,
     student: (studentRow as Student) || null,
   }
@@ -500,9 +491,9 @@ export async function requireStudent(): Promise<StudentGuardResult> {
 export async function requireParent(): Promise<ParentGuardResult> {
   const serverSupabase = await createServerComponentClient()
   
-  const { data: { session }, error } = await serverSupabase.auth.getSession()
+  const { data: { user }, error } = await serverSupabase.auth.getUser()
   
-  if (error || !session) {
+  if (error || !user) {
     redirect('/login')
   }
 
@@ -510,7 +501,7 @@ export async function requireParent(): Promise<ParentGuardResult> {
   const { data: profile, error: profileError } = await serverSupabase
     .from('user_profiles')
     .select('*')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .single()
 
   if (profileError || !profile) {
@@ -544,7 +535,7 @@ export async function requireParent(): Promise<ParentGuardResult> {
   }))
 
   return {
-    user: session.user,
+    user,
     profile: profile as UserProfile,
     wards,
   }

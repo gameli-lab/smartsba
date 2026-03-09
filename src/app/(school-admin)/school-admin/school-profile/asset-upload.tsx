@@ -15,19 +15,17 @@ interface AssetUploadProps {
   type: 'logo' | 'stamp' | 'signature'
   title: string
   description: string
+  currentAssetUrl?: string | null
 }
 
-export function AssetUpload({ school, type, title, description }: AssetUploadProps) {
+export function AssetUpload({ school, type, title, description, currentAssetUrl }: AssetUploadProps) {
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const currentUrl = type === 'logo' 
-    ? school.logo_url 
-    : type === 'stamp' 
-    ? school.stamp_url 
-    : school.head_signature_url
+  // Use the signed URL passed from server, not the raw storage path
+  const currentUrl = currentAssetUrl
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

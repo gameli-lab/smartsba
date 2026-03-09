@@ -1,19 +1,22 @@
 import { supabase } from './supabase'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Generate a signed URL for accessing private school assets
  * @param filePath - The path to the file in the school-assets bucket
  * @param expiresIn - Expiration time in seconds (default: 3600 = 1 hour)
+ * @param client - Optional Supabase client (defaults to browser client)
  * @returns Promise<string | null> - Signed URL or null if error/unauthorized
  */
 export const getSchoolAssetSignedUrl = async (
   filePath: string, 
-  expiresIn: number = 3600
+  expiresIn: number = 3600,
+  client: SupabaseClient = supabase
 ): Promise<string | null> => {
   try {
     if (!filePath) return null
 
-    const { data, error } = await supabase.storage
+    const { data, error } = await client.storage
       .from('school-assets')
       .createSignedUrl(filePath, expiresIn)
 
@@ -91,12 +94,14 @@ export const canAccessSchoolAsset = async (filePath: string): Promise<boolean> =
  * @param file - The file to upload
  * @param schoolId - The school ID for folder organization
  * @param type - The type of asset (logo, stamp, signature)
+ * @param client - Optional Supabase client (defaults to browser client)
  * @returns Promise<string | null> - File path if successful, null if failed
  */
 export const uploadSchoolAsset = async (
   file: File,
   schoolId: string,
-  type: 'logo' | 'stamp' | 'signature'
+  type: 'logo' | 'stamp' | 'signature',
+  client: SupabaseClient = supabase
 ): Promise<string | null> => {
   try {
     // Enhanced file validation
@@ -110,7 +115,7 @@ export const uploadSchoolAsset = async (
     const fileName = `${Date.now()}-${safeName}`;
     const filePath = `${schoolId}/${type}s/${fileName}`;
 
-    const { error } = await supabase.storage
+    const { error } = await client.storage
       .from('school-assets')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -191,11 +196,15 @@ function sanitizeFileName(fileName: string): string {
 /**
  * Delete a school asset file
  * @param filePath - The path to the file to delete
+ * @param client - Optional Supabase client (defaults to browser client)
  * @returns Promise<boolean> - true if successful, false if failed
  */
-export const deleteSchoolAsset = async (filePath: string): Promise<boolean> => {
+export const deleteSchoolAsset = async (
+  filePath: string,
+  client: SupabaseClient = supabase
+): Promise<boolean> => {
   try {
-    const { error } = await supabase.storage
+    const { error } = await client.storage
       .from('school-assets')
       .remove([filePath])
 

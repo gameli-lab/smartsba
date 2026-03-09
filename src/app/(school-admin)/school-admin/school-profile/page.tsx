@@ -1,5 +1,6 @@
 import { requireSchoolAdmin } from '@/lib/auth'
 import { createServerComponentClient } from '@/lib/supabase'
+import { getSchoolAssetSignedUrl } from '@/lib/storage'
 import { School } from '@/types'
 import { SchoolInfoForm } from './school-info-form'
 import { AssetUpload } from './asset-upload'
@@ -37,6 +38,17 @@ export default async function SchoolProfilePage() {
 
   const typedSchool = school as School
 
+  // Convert storage paths to signed URLs
+  const logoUrl = typedSchool.logo_url 
+    ? await getSchoolAssetSignedUrl(typedSchool.logo_url, 3600, supabase)
+    : null
+  const stampUrl = typedSchool.stamp_url
+    ? await getSchoolAssetSignedUrl(typedSchool.stamp_url, 3600, supabase)
+    : null
+  const signatureUrl = typedSchool.head_signature_url
+    ? await getSchoolAssetSignedUrl(typedSchool.head_signature_url, 3600, supabase)
+    : null
+
   return (
     <div className="p-8 space-y-8">
       {/* Page Header */}
@@ -60,6 +72,7 @@ export default async function SchoolProfilePage() {
             type="logo"
             title="School Logo"
             description="Upload your school's logo for use in reports and documents"
+            currentAssetUrl={logoUrl}
           />
 
           <AssetUpload
@@ -67,6 +80,7 @@ export default async function SchoolProfilePage() {
             type="stamp"
             title="School Stamp"
             description="Upload your school's official stamp for reports"
+            currentAssetUrl={stampUrl}
           />
 
           <AssetUpload
@@ -74,6 +88,7 @@ export default async function SchoolProfilePage() {
             type="signature"
             title="Headmaster Signature"
             description="Upload the headmaster's signature for reports"
+            currentAssetUrl={signatureUrl}
           />
         </div>
 
@@ -94,10 +109,10 @@ export default async function SchoolProfilePage() {
                 {/* Report Header Section */}
                 <div className="text-center space-y-4 border-b pb-6">
                   {/* School Logo */}
-                  {typedSchool.logo_url ? (
+                  {logoUrl ? (
                     <div className="relative w-24 h-24 mx-auto">
                       <Image
-                        src={typedSchool.logo_url}
+                        src={logoUrl}
                         alt="School Logo"
                         fill
                         className="object-contain"
@@ -156,10 +171,10 @@ export default async function SchoolProfilePage() {
                 <div className="border-t pt-4 grid grid-cols-2 gap-4">
                   <div className="text-center">
                     <div className="h-16 flex items-end justify-center mb-2">
-                      {typedSchool.head_signature_url ? (
+                      {signatureUrl ? (
                         <div className="relative w-32 h-12">
                           <Image
-                            src={typedSchool.head_signature_url}
+                            src={signatureUrl}
                             alt="Signature"
                             fill
                             className="object-contain"
@@ -178,10 +193,10 @@ export default async function SchoolProfilePage() {
 
                   <div className="text-center">
                     <div className="h-16 flex items-center justify-center mb-2">
-                      {typedSchool.stamp_url ? (
+                      {stampUrl ? (
                         <div className="relative w-16 h-16">
                           <Image
-                            src={typedSchool.stamp_url}
+                            src={stampUrl}
                             alt="Stamp"
                             fill
                             className="object-contain"

@@ -4,6 +4,7 @@ import { createServerComponentClient } from '@/lib/supabase'
 import { SchoolAdminSidebar } from '@/components/layout/school-admin-sidebar'
 import { SchoolAdminNavbar } from '@/components/layout/school-admin-navbar'
 import { SchoolAdminLayoutWrapper } from '@/components/layout/school-admin-layout-wrapper'
+import { getSchoolAssetSignedUrl } from '@/lib/storage'
 import { School, AcademicSession } from '@/types'
 
 /**
@@ -50,6 +51,12 @@ export default async function SchoolAdminLayout({
 
   const typedSession = currentSession as Pick<AcademicSession, 'academic_year' | 'term'> | null
 
+  // Convert storage path to signed URL if logo exists
+  let logoSignedUrl: string | null = null
+  if (typedSchool?.logo_url) {
+    logoSignedUrl = await getSchoolAssetSignedUrl(typedSchool.logo_url, 3600, supabase)
+  }
+
   return (
     <div className="relative min-h-screen bg-gray-50">
       {/* Sidebar */}
@@ -60,7 +67,7 @@ export default async function SchoolAdminLayout({
         {/* Top Navbar */}
         <SchoolAdminNavbar
           schoolName={typedSchool?.name || 'School'}
-          schoolLogoUrl={typedSchool?.logo_url}
+          schoolLogoUrl={logoSignedUrl}
           currentSession={typedSession}
           userName={profile.full_name}
           userEmail={profile.email}

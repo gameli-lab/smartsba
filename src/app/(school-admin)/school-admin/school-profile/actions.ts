@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { supabase, createServerComponentClient } from '@/lib/supabase'
 import { uploadSchoolAsset, deleteSchoolAsset } from '@/lib/storage'
 import { School } from '@/types'
 
@@ -99,8 +99,11 @@ export async function uploadSchoolAssetAction(formData: FormData) {
       return { success: false, error: 'Invalid asset type' }
     }
 
+    // Create server-side Supabase client with authenticated session
+    const serverSupabase = await createServerComponentClient()
+
     // Get current school data to delete old file if exists
-    const { data: school } = await supabase
+    const { data: school } = await serverSupabase
       .from('schools')
       .select('logo_url, stamp_url, head_signature_url')
       .eq('id', schoolId)
@@ -108,8 +111,8 @@ export async function uploadSchoolAssetAction(formData: FormData) {
 
     const typedSchool = school as Pick<School, 'logo_url' | 'stamp_url' | 'head_signature_url'> | null
 
-    // Upload new file
-    const filePath = await uploadSchoolAsset(file, schoolId, type)
+    // Upload new file with server-side client
+    const filePath = await uploadSchoolAsset(file, schoolId, type, serverSupabase)
 
     if (!filePath) {
       return { success: false, error: 'Failed to upload file' }
@@ -118,7 +121,7 @@ export async function uploadSchoolAssetAction(formData: FormData) {
     // Update school record with new file path
     const updateField = type === 'logo' ? 'logo_url' : type === 'stamp' ? 'stamp_url' : 'head_signature_url'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { error } = await (serverSupabase as any)
       .from('schools')
       .update({
         [updateField]: filePath,
@@ -128,7 +131,7 @@ export async function uploadSchoolAssetAction(formData: FormData) {
 
     if (error) {
       // If update fails, try to delete the uploaded file
-      await deleteSchoolAsset(filePath)
+      await deleteSchoolAsset(filePath, serverSupabase)
       console.error('Error updating school record:', error)
       return { success: false, error: 'Failed to update school record' }
     }
@@ -137,7 +140,7 @@ export async function uploadSchoolAssetAction(formData: FormData) {
     if (typedSchool) {
       const oldPath = typedSchool[updateField as keyof typeof typedSchool]
       if (oldPath) {
-        await deleteSchoolAsset(oldPath)
+        await deleteSchoolAsset(oldPath, serverSupabase)
       }
     }
 
@@ -165,8 +168,11 @@ export async function deleteSchoolAssetAction(type: 'logo' | 'stamp' | 'signatur
       return { success: false, error: 'Invalid asset type' }
     }
 
+    // Create server-side Supabase client with authenticated session
+    const serverSupabase = await createServerComponentClient()
+
     // Get current file path
-    const { data: school } = await supabase
+    const { data: school } = await serverSupabase
       .from('schools')
       .select('logo_url, stamp_url, head_signature_url')
       .eq('id', schoolId)
@@ -187,7 +193,7 @@ export async function deleteSchoolAssetAction(type: 'logo' | 'stamp' | 'signatur
 
     // Update school record to remove file reference
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { error } = await (serverSupabase as any)
       .from('schools')
       .update({
         [updateField]: null,
@@ -201,7 +207,7 @@ export async function deleteSchoolAssetAction(type: 'logo' | 'stamp' | 'signatur
     }
 
     // Delete the file from storage
-    await deleteSchoolAsset(filePath)
+    await deleteSchoolAsset(filePath, serverSupabase)
 
     // Revalidate pages
     revalidatePath('/school-admin')
