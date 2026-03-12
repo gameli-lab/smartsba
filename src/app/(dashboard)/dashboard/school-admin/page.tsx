@@ -1,22 +1,10 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Users,
-  BookOpen,
-  FileText,
-  Calendar,
-  Bell,
-  TrendingUp,
-} from "lucide-react";
+import { redirect } from 'next/navigation'
+import { requireSchoolAdmin } from '@/lib/auth'
 
-export default function SchoolAdminDashboard() {
+export default async function SchoolAdminDashboardRedirect() {
+  await requireSchoolAdmin()
+  redirect('/school-admin')
+}
   return (
     <div className="space-y-6">
       <div>

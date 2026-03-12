@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
 import { createServerComponentClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CreateClassDialog } from './create-class-dialog'
 import { ClassesList } from './classes-list'
@@ -43,10 +44,10 @@ interface TeacherRow {
   user_profile: { id: string; full_name: string }
 }
 
-export default async function ClassesPage({ searchParams }: { searchParams?: SearchParams }) {
+export default async function ClassesPage({ searchParams }: { searchParams?: Promise<SearchParams> }) {
   noStore()
 
-  const params = searchParams || {}
+  const params = (await searchParams) || {}
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
   const supabase = await createServerComponentClient()
@@ -55,6 +56,7 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Sea
   const levelFilter = typeof params.level === 'string' ? params.level : undefined
   const streamFilter = typeof params.stream === 'string' ? params.stream : undefined
   const cursor = typeof params.cursor === 'string' ? params.cursor : undefined
+  const hasFilters = Boolean(search || levelFilter || streamFilter)
 
   const limit = 10
 
@@ -239,15 +241,36 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Sea
       <Card>
         <CardHeader className="pb-4">
           <CardTitle>All Classes</CardTitle>
-          <CardDescription>View and manage all classes</CardDescription>
+          <CardDescription>
+            View and manage all classes{hasFilters ? ' (filtered)' : ''}
+          </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 flex flex-wrap gap-2">
+            <Link href="/school-admin/teacher-assignments" className="inline-flex">
+              <Button variant="outline" size="sm">Assign Teachers</Button>
+            </Link>
+            <Link href="/school-admin/subjects" className="inline-flex">
+              <Button variant="outline" size="sm">Manage Subjects</Button>
+            </Link>
+          </div>
+
           <ClassesFilters />
           {classesWithExtras.length ? (
             <ClassesList classes={classesWithExtras} teachers={teachers} />
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">No classes found</p>
+              <p className="text-gray-700 mb-2 font-medium">No classes found</p>
+              <p className="text-sm text-gray-500 mb-4">
+                {hasFilters
+                  ? 'Try changing your filters or clear them to see more classes.'
+                  : 'Create your first class to start assigning teachers and enrolling students.'}
+              </p>
+              {hasFilters && (
+                <Link href="/school-admin/classes" className="inline-flex mb-3">
+                  <Button variant="ghost" size="sm">Clear Filters</Button>
+                </Link>
+              )}
               <CreateClassDialog teachers={teachers} />
             </div>
           )}
@@ -257,7 +280,7 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Sea
               Showing {classesWithExtras.length} classes
             </div>
             <div className="flex gap-2">
-              {params.cursor && (
+              {cursor && (
                 <Link
                   href={`/school-admin/classes` + (buildQueryString() ? `?${buildQueryString()}` : '')}
                   className="text-sm text-blue-600 hover:underline"

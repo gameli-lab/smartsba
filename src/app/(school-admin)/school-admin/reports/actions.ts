@@ -1,7 +1,8 @@
 'use server'
 
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { supabase, createServerComponentClient } from '@/lib/supabase'
+import { getSchoolAssetSignedUrl } from '@/lib/storage'
 import type { ReportCardData, ClassReportData, Score, Subject, Student, UserProfile, AcademicSession } from '@/types'
 
 export type ReportMetadata = {
@@ -102,7 +103,7 @@ export async function generateStudentReportCard(
     // Fetch session
     const { data: sessionRow } = await supabase
       .from('academic_sessions')
-      .select('id, school_id, academic_year, term, start_date, end_date')
+      .select('id, school_id, academic_year, term, start_date, end_date, vacation_date, reopening_date, is_current')
       .eq('id', sessionId)
       .single()
 
@@ -121,9 +122,21 @@ export async function generateStudentReportCard(
     // Fetch school
     const { data: schoolRow } = await supabase
       .from('schools')
-      .select('id, name, logo_url, stamp_url, head_signature_url')
+      .select('id, name, address, phone, logo_url, stamp_url, head_signature_url')
       .eq('id', schoolId)
       .single()
+
+    // Generate signed URLs for school assets
+    const serverClient = await createServerComponentClient()
+    const logoSignedUrl = schoolRow?.logo_url
+      ? await getSchoolAssetSignedUrl(schoolRow.logo_url, 3600, serverClient)
+      : null
+    const stampSignedUrl = schoolRow?.stamp_url
+      ? await getSchoolAssetSignedUrl(schoolRow.stamp_url, 3600, serverClient)
+      : null
+    const signatureSignedUrl = schoolRow?.head_signature_url
+      ? await getSchoolAssetSignedUrl(schoolRow.head_signature_url, 3600, serverClient)
+      : null
 
     // Fetch scores
     const { data: scoresData } = await supabase
@@ -160,15 +173,57 @@ export async function generateStudentReportCard(
     const average = scores.length > 0 ? grandTotal / scores.length : 0
     const aggregate = scores.reduce((sum, s) => sum + (s.total_score || 0), 0)
 
+    // Calculate class position
+    const { data: classStudentsData } = await supabase
+      .from('students')
+      .select('id')
+      .eq('class_id', student.class_id)
+      .eq('school_id', schoolId)
+
+    const classStudentIds = (classStudentsData || []).map((s: any) => s.id)
+    const outOf = classStudentIds.length
+    let position = 0
+
+    if (classStudentIds.length > 1) {
+      const { data: allClassScores } = await supabase
+        .from('scores')
+        .select('student_id, total_score')
+        .eq('session_id', sessionId)
+        .in('student_id', classStudentIds)
+
+      const studentTotals = new Map<string, number>()
+      for (const row of (allClassScores || [])) {
+        const prev = studentTotals.get(row.student_id) || 0
+        studentTotals.set(row.student_id, prev + (row.total_score || 0))
+      }
+
+      const thisTotal = studentTotals.get(studentId) ?? grandTotal
+      const ahead = [...studentTotals.values()].filter((t) => t > thisTotal).length
+      position = ahead + 1
+    }
+
+    // Fetch attendance
+    const { data: attendanceRow } = await supabase
+      .from('attendance')
+      .select('id, student_id, session_id, present_days, total_days, percentage')
+      .eq('student_id', studentId)
+      .eq('session_id', sessionId)
+      .maybeSingle()
+
     return {
       success: true,
       data: {
-        school: schoolRow as any,
+        school: {
+          ...schoolRow,
+          logo_url: logoSignedUrl ?? schoolRow?.logo_url,
+          stamp_url: stampSignedUrl ?? schoolRow?.stamp_url,
+          head_signature_url: signatureSignedUrl ?? schoolRow?.head_signature_url,
+        } as any,
         session,
         student: { ...student, user_profile: profileRow as any },
         class: classRow as any,
         scores,
-        attendance: {} as any, // TODO: Fetch attendance if available
+        attendance: (attendanceRow ?? {}) as any,
         class_teacher_remark: remarkRow as any,
         totals: {
           total_ca: totalCa,
@@ -176,8 +231,8 @@ export async function generateStudentReportCard(
           grand_total: grandTotal,
           average,
           aggregate,
-          position: 0, // TODO: Calculate position
-          out_of: 0, // TODO: Get total students in class
+          position,
+          out_of: outOf,
         },
       } as ReportCardData,
     }

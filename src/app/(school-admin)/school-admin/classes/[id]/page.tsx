@@ -5,6 +5,7 @@ import { createServerComponentClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { BookOpen, Users, UserCheck } from 'lucide-react'
 import { AssignClassTeacher } from '../assign-class-teacher'
 import { ClassStatusManager } from '../class-status-manager'
 
@@ -51,19 +52,19 @@ interface TeacherOption {
   is_active: boolean
 }
 
-export default async function ClassDetailPage({ params }: { params: { id: string } }) {
+export default async function ClassDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
   const supabase = await createServerComponentClient()
-  const classId = params.id
+  const { id } = await params
+  const classId = decodeURIComponent(id).trim()
 
   const [{ data: classRow }, { data: sessionRow }] = await Promise.all([
     supabase
       .from('classes')
-      .select('id, school_id, name, level, stream, description, class_teacher_id, status, created_at, updated_at')
+      .select('*')
       .eq('id', classId)
-      .eq('school_id', schoolId)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('academic_sessions')
       .select('id, academic_year, term')
@@ -73,7 +74,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
   ])
 
   const klass = classRow as ClassRow | null
-  if (!klass) {
+  if (!klass || klass.school_id !== schoolId) {
     return notFound()
   }
 
@@ -125,6 +126,8 @@ export default async function ClassDetailPage({ params }: { params: { id: string
   const activeStudents = students.filter((s) => s.is_active).length
   const subjectsCount = subjects.length
   const coreSubjects = subjects.filter((s) => s.is_core).length
+  const hasTeacherAssigned = Boolean(classTeacher)
+  const isSetupEmpty = !hasTeacherAssigned && totalStudents === 0 && subjectsCount === 0
 
   return (
     <div className="p-8 space-y-8">
@@ -162,6 +165,44 @@ export default async function ClassDetailPage({ params }: { params: { id: string
       </div>
 
       <section id="overview" className="space-y-6">
+        {isSetupEmpty && (
+          <Card className="border-dashed border-2 border-blue-200 bg-blue-50/50">
+            <CardHeader>
+              <CardTitle>Finish setting up this class</CardTitle>
+              <CardDescription>
+                This class is created but has no teacher, students, or subjects yet.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-lg border bg-white p-3 text-sm text-gray-700 flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-blue-600" />
+                  Assign class teacher
+                </div>
+                <div className="rounded-lg border bg-white p-3 text-sm text-gray-700 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-blue-600" />
+                  Add students
+                </div>
+                <div className="rounded-lg border bg-white p-3 text-sm text-gray-700 flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-blue-600" />
+                  Link subjects
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/school-admin/teacher-assignments" className="inline-flex">
+                  <Button size="sm">Assign Teacher</Button>
+                </Link>
+                <Link href="/school-admin/students" className="inline-flex">
+                  <Button variant="outline" size="sm">Manage Students</Button>
+                </Link>
+                <Link href="/school-admin/subjects" className="inline-flex">
+                  <Button variant="outline" size="sm">Manage Subjects</Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader>
@@ -196,7 +237,10 @@ export default async function ClassDetailPage({ params }: { params: { id: string
                   )}
                 </div>
               ) : (
-                <p className="text-gray-500">No class teacher assigned.</p>
+                <div className="rounded-md border border-dashed p-3 bg-gray-50">
+                  <p className="text-gray-600">No class teacher assigned yet.</p>
+                  <p className="text-xs text-gray-500 mt-1">Assign a teacher to enable clearer accountability and reporting.</p>
+                </div>
               )}
               <AssignClassTeacher
                 classId={klass.id}
@@ -249,6 +293,18 @@ export default async function ClassDetailPage({ params }: { params: { id: string
           </div>
           <Badge variant="outline">{totalStudents} total</Badge>
         </div>
+        {students.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center space-y-3">
+              <Users className="h-8 w-8 text-gray-400 mx-auto" />
+              <p className="text-gray-700 font-medium">No students in this class yet</p>
+              <p className="text-sm text-gray-500">Assign students to this class from the students module.</p>
+              <Link href="/school-admin/students" className="inline-flex">
+                <Button size="sm" variant="outline">Go to Students</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
         <div className="overflow-x-auto border rounded-lg">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-gray-600">
@@ -261,11 +317,6 @@ export default async function ClassDetailPage({ params }: { params: { id: string
               </tr>
             </thead>
             <tbody className="divide-y">
-              {students.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-gray-500">No students in this class.</td>
-                </tr>
-              )}
               {students.map((student) => (
                 <tr key={student.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{student.user_profile.full_name}</td>
@@ -282,6 +333,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
             </tbody>
           </table>
         </div>
+        )}
       </section>
 
       <section id="subjects" className="space-y-4">
@@ -292,6 +344,18 @@ export default async function ClassDetailPage({ params }: { params: { id: string
           </div>
           <Badge variant="outline">{subjectsCount} total</Badge>
         </div>
+        {subjects.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center space-y-3">
+              <BookOpen className="h-8 w-8 text-gray-400 mx-auto" />
+              <p className="text-gray-700 font-medium">No subjects linked yet</p>
+              <p className="text-sm text-gray-500">Add or assign subjects for this class in the subjects module.</p>
+              <Link href="/school-admin/subjects" className="inline-flex">
+                <Button size="sm" variant="outline">Go to Subjects</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
         <div className="overflow-x-auto border rounded-lg">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-gray-600">
@@ -302,11 +366,6 @@ export default async function ClassDetailPage({ params }: { params: { id: string
               </tr>
             </thead>
             <tbody className="divide-y">
-              {subjects.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="px-4 py-6 text-center text-gray-500">No subjects linked yet.</td>
-                </tr>
-              )}
               {subjects.map((subject) => (
                 <tr key={subject.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">{subject.name}</td>
@@ -321,6 +380,7 @@ export default async function ClassDetailPage({ params }: { params: { id: string
             </tbody>
           </table>
         </div>
+        )}
       </section>
     </div>
   )

@@ -17,12 +17,7 @@ export default async function SubjectsPage(props: {
   const supabase = await createServerComponentClient()
 
   // Build subjects query with filters
-  let subjectsQuery = supabase
-    .from('subjects')
-    .select('*')
-    .eq('school_id', schoolId)
-    // Treat null as active to avoid hiding legacy rows created before the status column/default
-    .or('is_active.eq.true,is_active.is.null')
+  let subjectsQuery = supabase.from('subjects').select('*').eq('school_id', schoolId)
 
   // Apply search filter (name or code)
   const search = searchParams.search as string | undefined
@@ -40,21 +35,47 @@ export default async function SubjectsPage(props: {
     subjectsQuery = subjectsQuery.eq('is_core', false)
   }
 
-  const [{ data: subjectsData }, { data: classesData }] = await Promise.all([
+  // Apply status filter
+  // Treat null as active for legacy rows created before is_active default existed
+  const status = searchParams.status as string | undefined
+  if (status === 'active') {
+    subjectsQuery = subjectsQuery.or('is_active.eq.true,is_active.is.null')
+  } else if (status === 'inactive') {
+    subjectsQuery = subjectsQuery.eq('is_active', false)
+  }
+
+  const [{ data: subjectsData }, { data: classesData }, { data: allSubjectsData }] = await Promise.all([
     subjectsQuery.order('name'),
     supabase
       .from('classes')
       .select('id, name, level, stream')
       .eq('school_id', schoolId)
       .order('level', { ascending: true }),
+    supabase.from('subjects').select('id, is_core, is_active').eq('school_id', schoolId),
   ])
 
   const subjects = (subjectsData || []) as Subject[]
   const classes = (classesData || []) as Class[]
+  const allSubjects = (allSubjectsData || []) as Array<Pick<Subject, 'id' | 'is_core' | 'is_active'>>
 
-  const total = subjects.length
-  const core = subjects.filter((s) => s.is_core).length
+  const classIds = classes.map((c) => c.id)
+  const { data: assignmentRows } = classIds.length
+    ? await supabase
+        .from('teacher_assignments')
+        .select('subject_id, class_id')
+        .in('class_id', classIds)
+    : { data: [] }
+
+  const assignedSubjectIds = new Set((assignmentRows || []).map((a) => a.subject_id))
+
+  const total = allSubjects.length
+  const core = allSubjects.filter((s) => s.is_core).length
   const elective = total - core
+  const active = allSubjects.filter((s) => s.is_active !== false).length
+  const inactive = total - active
+  const assigned = assignedSubjectIds.size
+
+  const hasFilters = Boolean(search || type || status)
 
   return (
     <div className="p-8 space-y-8">
@@ -108,10 +129,54 @@ export default async function SubjectsPage(props: {
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active Subjects</p>
+                <p className="text-3xl font-bold text-green-700 mt-2">{active}</p>
+              </div>
+              <div className="bg-green-50 p-3 rounded-lg">
+                <div className="h-8 w-8 text-green-600">✅</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Inactive Subjects</p>
+                <p className="text-3xl font-bold text-amber-700 mt-2">{inactive}</p>
+              </div>
+              <div className="bg-amber-50 p-3 rounded-lg">
+                <div className="h-8 w-8 text-amber-600">🗃️</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Assigned to Classes</p>
+                <p className="text-3xl font-bold text-indigo-700 mt-2">{assigned}</p>
+              </div>
+              <div className="bg-indigo-50 p-3 rounded-lg">
+                <div className="h-8 w-8 text-indigo-600">🧩</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>All Subjects</CardTitle>
-          <CardDescription>View and manage all subjects</CardDescription>
+          <CardDescription>
+            View and manage subjects across classes{hasFilters ? ' (filtered)' : ''}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <SubjectsFilters />
@@ -119,7 +184,12 @@ export default async function SubjectsPage(props: {
             <SubjectsList subjects={subjects} classes={classes} />
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">No subjects found</p>
+              <p className="text-gray-700 mb-2 font-medium">No subjects found</p>
+              <p className="text-sm text-gray-500 mb-4">
+                {hasFilters
+                  ? 'Try changing your filters or clear them to see more subjects.'
+                  : 'Create your first subject to start assigning teachers and generating reports.'}
+              </p>
               <CreateSubjectDialog classes={classes} />
             </div>
           )}

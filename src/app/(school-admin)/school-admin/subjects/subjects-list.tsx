@@ -12,8 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Edit, Archive, RotateCcw } from 'lucide-react'
-import { deactivateSubject, reactivateSubject } from './actions'
+import { Edit, Archive, RotateCcw, Trash2 } from 'lucide-react'
+import { deactivateSubject, reactivateSubject, deleteSubject } from './actions'
 import { EditSubjectDialog } from './edit-subject-dialog'
 import { LEVEL_GROUPS } from '@/lib/constants/level-groups'
 import type { Subject, Class } from '@/types'
@@ -52,6 +52,18 @@ export function SubjectsList({ subjects, classes }: Props) {
     setLoadingId(null)
     if (!result.success) {
       alert(result.error || 'Failed to reactivate subject')
+    } else {
+      router.refresh()
+    }
+  }
+
+  const handleDeletePermanent = async (id: string, name: string) => {
+    if (!confirm(`Delete subject "${name}" permanently? This cannot be undone.`)) return
+    setLoadingId(id)
+    const result = await deleteSubject(id)
+    setLoadingId(null)
+    if (!result.success) {
+      alert(result.error || 'Failed to delete subject')
     } else {
       router.refresh()
     }
@@ -134,6 +146,16 @@ export function SubjectsList({ subjects, classes }: Props) {
                         <RotateCcw className="h-4 w-4" />
                       </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-600 hover:bg-red-50"
+                      onClick={() => handleDeletePermanent(subject.id, subject.name)}
+                      disabled={loadingId === subject.id}
+                      title="Delete subject permanently"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>

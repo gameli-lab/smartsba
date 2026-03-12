@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -68,7 +67,6 @@ export default function LoginPage() {
   
   // Forgot Password Modal
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-  const router = useRouter();
 
   // --- Helper Functions ---
 
@@ -152,22 +150,25 @@ export default function LoginPage() {
         throw new Error("Login failed - no profile returned");
       }
 
-      // Redirect based on role
+      // Hard navigation so the root layout (GlobalHeader) re-renders
+      // server-side with the newly-set auth cookie. router.push() is a
+      // soft navigation that reuses the cached layout and would leave the
+      // header in the unauthenticated state until a manual refresh.
       switch (loginResult.profile.role) {
         case "school_admin":
-          router.push("/school-admin");
+          window.location.href = "/school-admin";
           break;
         case "teacher":
-          router.push("/teacher");
+          window.location.href = "/teacher";
           break;
         case "student":
-          router.push("/student");
+          window.location.href = "/student";
           break;
         case "parent":
-          router.push("/parent");
+          window.location.href = "/parent";
           break;
         default:
-          router.push("/");
+          window.location.href = "/";
       }
     } catch (err) {
       if (err instanceof MultipleSchoolsFoundError) {
@@ -211,7 +212,8 @@ export default function LoginPage() {
         throw new Error("Login failed - no profile returned");
       }
 
-      router.push("/dashboard/super-admin");
+      // Hard navigation — same reason as auth user handler above
+      window.location.href = "/dashboard/super-admin";
     } catch (err) {
       setAdminError(err instanceof Error ? err.message : "Login failed");
     } finally {

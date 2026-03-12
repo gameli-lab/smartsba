@@ -1,80 +1,36 @@
 import { redirect } from 'next/navigation'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { createServerComponentClient } from '@/lib/supabase'
 import { SchoolAdminSidebar } from '@/components/layout/school-admin-sidebar'
-import { SchoolAdminNavbar } from '@/components/layout/school-admin-navbar'
 import { SchoolAdminLayoutWrapper } from '@/components/layout/school-admin-layout-wrapper'
-import { getSchoolAssetSignedUrl } from '@/lib/storage'
-import { School, AcademicSession } from '@/types'
 
 /**
  * School Admin Dashboard Layout
- * This layout wraps all school admin pages and enforces role-based access
+ * Enforces school_admin role access.
+ * Navigation (logout, profile, user menu) is handled by the persistent
+ * GlobalHeader rendered in the root layout.
  */
 export default async function SchoolAdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Enforce school admin access - this guard will throw an error if:
-  // 1. User is not authenticated
-  // 2. User role is not school_admin
-  // 3. User is not associated with a school
   let schoolAdmin
   try {
     schoolAdmin = await requireSchoolAdmin()
-  } catch (error) {
-    // Redirect to login if not authenticated or not authorized
+  } catch {
     redirect('/login')
   }
 
   const { profile } = schoolAdmin
 
-  const supabase = await createServerComponentClient()
-
-  // Fetch minimal school data for the navbar
-  const { data: school } = await supabase
-    .from('schools')
-    .select('id, name, logo_url')
-    .eq('id', profile.school_id)
-    .single()
-
-  const typedSchool = school as School | null
-
-  // Fetch current academic session for the navbar
-  const { data: currentSession } = await supabase
-    .from('academic_sessions')
-    .select('academic_year, term')
-    .eq('school_id', profile.school_id)
-    .eq('is_current', true)
-    .single()
-
-  const typedSession = currentSession as Pick<AcademicSession, 'academic_year' | 'term'> | null
-
-  // Convert storage path to signed URL if logo exists
-  let logoSignedUrl: string | null = null
-  if (typedSchool?.logo_url) {
-    logoSignedUrl = await getSchoolAssetSignedUrl(typedSchool.logo_url, 3600, supabase)
-  }
-
   return (
     <div className="relative min-h-screen bg-gray-50">
-      {/* Sidebar */}
+      {/* Left sidebar – navigation only */}
       <SchoolAdminSidebar schoolId={profile.school_id} />
 
-      {/* Main Content Area with dynamic padding */}
+      {/* Main content area shifts right to clear the sidebar */}
       <SchoolAdminLayoutWrapper>
-        {/* Top Navbar */}
-        <SchoolAdminNavbar
-          schoolName={typedSchool?.name || 'School'}
-          schoolLogoUrl={logoSignedUrl}
-          currentSession={typedSession}
-          userName={profile.full_name}
-          userEmail={profile.email}
-        />
-
-        {/* Page Content */}
-        <main className="pt-16">
+        <main className="p-6">
           {children}
         </main>
       </SchoolAdminLayoutWrapper>

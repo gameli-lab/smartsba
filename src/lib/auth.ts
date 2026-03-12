@@ -367,6 +367,41 @@ export async function requireSchoolAdmin(): Promise<AuthResult> {
   return { user, profile: typedProfile }
 }
 
+/**
+ * Server-side auth guard for Super Admin role.
+ * Use this in Server Components and layouts to enforce Super Admin-only access.
+ *
+ * @throws Redirects to /login if not authenticated or not super_admin
+ * @returns Authenticated super admin user and profile
+ */
+export async function requireSuperAdmin(): Promise<AuthResult> {
+  const serverSupabase = await createServerComponentClient()
+
+  const { data: { user }, error } = await serverSupabase.auth.getUser()
+
+  if (error || !user) {
+    redirect('/login')
+  }
+
+  const { data: profile, error: profileError } = await serverSupabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', user.id)
+    .single()
+
+  if (profileError || !profile) {
+    redirect('/login')
+  }
+
+  const typedProfile = profile as UserProfile
+
+  if (typedProfile.role !== 'super_admin') {
+    redirect('/login')
+  }
+
+  return { user, profile: typedProfile }
+}
+
 export interface TeacherGuardResult extends AuthResult {
   teacher: Teacher
   assignments: TeacherAssignment[]

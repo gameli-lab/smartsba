@@ -1,18 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import Image from 'next/image'
+import { useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Download, X } from 'lucide-react'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Download, X, Printer } from 'lucide-react'
 import type { ReportCardData } from '@/types'
 
 interface Props {
@@ -22,154 +14,306 @@ interface Props {
 }
 
 export function StudentReportPreview({ report, open, onOpenChange }: Props) {
+  const printRef = useRef<HTMLDivElement>(null)
+
   if (!report) return null
 
-  const { student, class: klass, session, scores, totals, class_teacher_remark } = report
+  const { school, student, class: klass, session, scores, totals, class_teacher_remark, attendance } = report
 
-  const getGradeColor = (grade?: string) => {
-    switch (grade) {
-      case 'A':
-        return 'text-green-700 bg-green-50'
-      case 'B':
-        return 'text-blue-700 bg-blue-50'
-      case 'C':
-        return 'text-yellow-700 bg-yellow-50'
-      case 'D':
-        return 'text-orange-700 bg-orange-50'
-      case 'E':
-        return 'text-red-700 bg-red-50'
-      case 'F':
-        return 'text-red-900 bg-red-100'
-      default:
-        return 'text-gray-700 bg-gray-50'
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return ''
+    try {
+      return new Date(dateStr).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric',
+      })
+    } catch {
+      return dateStr
     }
   }
 
+  const handlePrint = () => {
+    if (!printRef.current) return
+    const printContents = printRef.current.innerHTML
+    const win = window.open('', '_blank', 'width=800,height=1000')
+    if (!win) return
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Report Card – ${student.user_profile.full_name}</title>
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: serif; font-size: 12px; color: #000; background: #fff; }
+            table { border-collapse: collapse; width: 100%; }
+            td, th { border: 1px solid #000; padding: 3px 6px; }
+            .report-paper { padding: 24px; }
+          </style>
+        </head>
+        <body><div class="report-paper">${printContents}</div></body>
+      </html>
+    `)
+    win.document.close()
+    win.focus()
+    win.print()
+    win.close()
+  }
+
+  const isSignedUrl = (url?: string | null) =>
+    url ? url.startsWith('http://') || url.startsWith('https://') : false
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="flex flex-row items-center justify-between">
-          <div>
-            <DialogTitle>Report Card</DialogTitle>
-            <DialogDescription>
-              {student.user_profile.full_name} • {klass.name}
-            </DialogDescription>
-          </div>
-          <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)}>
-            <X className="h-4 w-4" />
-          </Button>
-        </DialogHeader>
-
-        <div className="space-y-6">
-          {/* Student Info */}
-          <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-            <div>
-              <p className="text-xs text-gray-600">Full Name</p>
-              <p className="font-semibold text-gray-900">{student.user_profile.full_name}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-600">Admission Number</p>
-              <p className="font-semibold text-gray-900">{student.admission_number}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-600">Class</p>
-              <p className="font-semibold text-gray-900">
-                {klass.name} (Level {klass.level})
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-600">Session</p>
-              <p className="font-semibold text-gray-900">
-                {session.academic_year} • Term {session.term}
-              </p>
-            </div>
-          </div>
-
-          {/* Scores Table */}
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-3">Scores by Subject</h3>
-            <div className="overflow-x-auto border rounded-lg">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-100 border-b">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Subject</th>
-                    <th className="px-4 py-2 text-right">CA (40)</th>
-                    <th className="px-4 py-2 text-right">Exam (60)</th>
-                    <th className="px-4 py-2 text-right">Total</th>
-                    <th className="px-4 py-2 text-center">Grade</th>
-                    <th className="px-4 py-2 text-left">Remark</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scores.map((score) => (
-                    <tr key={score.id} className="border-b hover:bg-gray-50">
-                      <td className="px-4 py-2 font-medium">{score.subject.name}</td>
-                      <td className="px-4 py-2 text-right">{score.ca_score ?? '—'}</td>
-                      <td className="px-4 py-2 text-right">{score.exam_score ?? '—'}</td>
-                      <td className="px-4 py-2 text-right font-semibold">
-                        {score.total_score ?? '—'}
-                      </td>
-                      <td className="px-4 py-2 text-center">
-                        {score.grade ? (
-                          <Badge className={`${getGradeColor(score.grade)}`}>
-                            {score.grade}
-                          </Badge>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-xs text-gray-600">{score.subject_remark || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Summary Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <p className="text-xs text-blue-600">Total CA</p>
-              <p className="text-xl font-bold text-blue-900">{totals.total_ca}</p>
-            </div>
-            <div className="p-3 bg-purple-50 rounded-lg">
-              <p className="text-xs text-purple-600">Total Exam</p>
-              <p className="text-xl font-bold text-purple-900">{totals.total_exam}</p>
-            </div>
-            <div className="p-3 bg-green-50 rounded-lg">
-              <p className="text-xs text-green-600">Grand Total</p>
-              <p className="text-xl font-bold text-green-900">{totals.grand_total}</p>
-            </div>
-            <div className="p-3 bg-orange-50 rounded-lg">
-              <p className="text-xs text-orange-600">Average</p>
-              <p className="text-xl font-bold text-orange-900">{totals.average.toFixed(2)}</p>
-            </div>
-          </div>
-
-          {/* Class Teacher Remark */}
-          {class_teacher_remark && (
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <h3 className="font-semibold text-amber-900 mb-2">Class Teacher's Remark</h3>
-              <p className="text-amber-800">{class_teacher_remark.remark}</p>
-              {class_teacher_remark.promotion_status && (
-                <p className="text-xs text-amber-700 mt-2">
-                  <strong>Promotion Status:</strong> {class_teacher_remark.promotion_status}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Download Button */}
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Close
+      <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto p-0 gap-0">
+        {/* Action bar */}
+        <div className="flex items-center justify-between px-4 py-2 border-b bg-gray-50 sticky top-0 z-10">
+          <span className="text-sm font-medium text-gray-700">
+            Report Card — {student.user_profile.full_name}
+          </span>
+          <div className="flex gap-2 items-center">
+            <Button variant="outline" size="sm" onClick={handlePrint}>
+              <Printer className="mr-1.5 h-3.5 w-3.5" />
+              Print
             </Button>
-            <Button>
-              <Download className="mr-2 h-4 w-4" />
+            <Button size="sm" variant="default">
+              <Download className="mr-1.5 h-3.5 w-3.5" />
               Download PDF
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onOpenChange(false)}>
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
+
+        {/* ─── Paper ─── */}
+        <div ref={printRef} className="bg-white p-6 text-black font-serif text-xs leading-snug">
+
+          {/* ── School Header ── */}
+          <div className="flex items-center justify-between pb-2 border-b-2 border-black mb-1">
+            {/* Logo left */}
+            <div className="w-[60px] h-[60px] flex items-center justify-center shrink-0">
+              {isSignedUrl(school.logo_url) ? (
+                <Image
+                  src={school.logo_url!}
+                  alt="School Logo"
+                  width={60}
+                  height={60}
+                  className="object-contain w-full h-full"
+                  unoptimized
+                />
+              ) : (
+                <div className="w-[60px] h-[60px] rounded-full border border-gray-300 flex items-center justify-center text-[9px] text-gray-400 text-center leading-tight">
+                  SCHOOL<br/>LOGO
+                </div>
+              )}
+            </div>
+
+            {/* School name & address */}
+            <div className="flex-1 text-center px-3">
+              <p className="text-2xl font-extrabold uppercase tracking-wide leading-tight">
+                {school.name}
+              </p>
+              {school.address && (
+                <p className="text-sm font-semibold mt-0.5">{school.address}</p>
+              )}
+              {school.phone && (
+                <p className="text-sm font-semibold">TEL: {school.phone}</p>
+              )}
+            </div>
+
+            {/* Stamp right */}
+            <div className="w-[60px] h-[60px] flex items-center justify-center shrink-0">
+              {isSignedUrl(school.stamp_url) ? (
+                <Image
+                  src={school.stamp_url!}
+                  alt="School Stamp"
+                  width={60}
+                  height={60}
+                  className="object-contain w-full h-full"
+                  unoptimized
+                />
+              ) : (
+                <div className="w-[60px] h-[60px] rounded-full border border-gray-300 flex items-center justify-center text-[9px] text-gray-400 text-center leading-tight">
+                  SCHOOL<br/>STAMP
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── "STUDENT REPORT SHEET" banner ── */}
+          <div className="bg-[#1a3a6b] text-white text-center py-1 mb-2">
+            <span className="font-bold text-sm tracking-[0.2em] uppercase">Student Report Sheet</span>
+          </div>
+
+          {/* ── Student Info Table ── */}
+          <table className="w-full border-collapse mb-2 text-[11px]">
+            <tbody>
+              {/* Row 1: Name + Total Score */}
+              <tr>
+                <td className="border border-black px-2 py-[3px] font-bold whitespace-nowrap w-[60px]">Name:</td>
+                <td className="border border-black px-2 py-[3px] font-semibold" colSpan={4}>
+                  {student.user_profile.full_name}
+                </td>
+                <td className="border border-black px-2 py-[3px] font-bold whitespace-nowrap w-[90px]">Total Score:</td>
+                <td className="border border-black px-2 py-[3px] font-bold text-center w-[50px]">
+                  {totals.grand_total || ''}
+                </td>
+              </tr>
+              {/* Row 2: Class + Term + Total Exam Score */}
+              <tr>
+                <td className="border border-black px-2 py-[3px] font-bold">Class:</td>
+                <td className="border border-black px-2 py-[3px] font-semibold">{klass.name}</td>
+                <td className="border border-black px-2 py-[3px] font-bold text-center whitespace-nowrap">Term</td>
+                <td className="border border-black px-2 py-[3px] font-semibold text-center w-[30px]">
+                  {session.term}
+                </td>
+                <td className="border border-black px-2 py-[3px] font-bold whitespace-nowrap w-[110px]" colSpan={2}>
+                  Total Exam Score:
+                </td>
+                <td className="border border-black px-2 py-[3px] font-bold text-center">
+                  {totals.total_exam || ''}
+                </td>
+              </tr>
+              {/* Row 3: Positions + Aggregate */}
+              <tr>
+                <td className="border border-black px-2 py-[3px] font-bold text-center whitespace-nowrap" colSpan={1}>Class Pos</td>
+                <td className="border border-black px-2 py-[3px] font-bold text-center">
+                  {totals.position > 0 ? totals.position : ''}
+                </td>
+                <td className="border border-black px-2 py-[3px] font-bold text-center whitespace-nowrap">Overall Pos</td>
+                <td className="border border-black px-2 py-[3px] font-bold text-center">
+                  {totals.out_of > 0 ? totals.out_of : ''}
+                </td>
+                <td className="border border-black px-2 py-[3px] font-bold text-center" colSpan={2}>Agg</td>
+                <td className="border border-black px-2 py-[3px] font-extrabold text-center text-red-700">
+                  {totals.aggregate > 0 ? totals.aggregate : ''}
+                </td>
+              </tr>
+              {/* Row 4: Vacation + Reopening */}
+              <tr>
+                <td className="border border-black px-2 py-[3px] font-bold text-center" colSpan={1}>Vacation</td>
+                <td className="border border-black px-2 py-[3px] text-center font-semibold" colSpan={2}>
+                  {formatDate(session.vacation_date)}
+                </td>
+                <td className="border border-black px-2 py-[3px] font-bold text-center whitespace-nowrap" colSpan={1}>Reopening</td>
+                <td className="border border-black px-2 py-[3px] text-center font-semibold" colSpan={3}>
+                  {formatDate(session.reopening_date)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* ── Subject Scores Table ── */}
+          <table className="w-full border-collapse mb-2 text-[11px]">
+            <thead>
+              <tr className="bg-[#ddeeff]">
+                <th className="border border-black px-2 py-[4px] text-left font-bold">Subject</th>
+                <th className="border border-black px-2 py-[4px] text-center font-bold w-[40px]">CAT</th>
+                <th className="border border-black px-2 py-[4px] text-center font-bold w-[70px]">Exam Score</th>
+                <th className="border border-black px-2 py-[4px] text-center font-bold w-[70px]">Total Score</th>
+                <th className="border border-black px-2 py-[4px] text-center font-bold w-[45px]">Grade</th>
+                <th className="border border-black px-2 py-[4px] text-left font-bold">Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scores.length > 0 ? (
+                scores.map((score) => (
+                  <tr key={score.id} style={{ backgroundColor: '#fffff0' }}>
+                    <td className="border border-black px-2 py-[3px]">{score.subject.name}</td>
+                    <td className="border border-black px-2 py-[3px] text-center">
+                      {score.ca_score ?? ''}
+                    </td>
+                    <td className="border border-black px-2 py-[3px] text-center">
+                      {score.exam_score ?? ''}
+                    </td>
+                    <td className="border border-black px-2 py-[3px] text-center font-semibold">
+                      {score.total_score ?? ''}
+                    </td>
+                    <td className="border border-black px-2 py-[3px] text-center font-bold">
+                      {score.grade ?? ''}
+                    </td>
+                    <td className="border border-black px-2 py-[3px]">
+                      {score.subject_remark ?? ''}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="border border-black px-2 py-3 text-center text-gray-400 italic">
+                    No scores recorded for this session
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          {/* ── Attendance & Interest/Attitude ── */}
+          <table className="w-full border-collapse mb-2 text-[11px]">
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-[3px] font-bold w-[80px]">Attendance</td>
+                <td className="border border-black px-2 py-[3px] text-center w-[40px]">
+                  {(attendance as any)?.present_days ?? ''}
+                </td>
+                <td className="border border-black px-2 py-[3px] font-bold text-center w-[50px]">out of</td>
+                <td className="border border-black px-2 py-[3px] text-center w-[40px]">
+                  {(attendance as any)?.total_days ?? ''}
+                </td>
+                <td className="border border-black px-2 py-[3px] font-bold w-[60px]">Remarks</td>
+                <td className="border border-black px-2 py-[3px] font-bold text-center uppercase">
+                  {class_teacher_remark?.promotion_status ?? ''}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-2 py-[3px] font-bold">Interest</td>
+                <td className="border border-black px-2 py-[3px]" colSpan={2}></td>
+                <td className="border border-black px-2 py-[3px] font-bold">Attitude</td>
+                <td className="border border-black px-2 py-[3px]" colSpan={2}></td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* ── Classteacher's Remarks ── */}
+          <table className="w-full border-collapse mb-2 text-[11px]">
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-[3px] font-bold align-top whitespace-nowrap w-[130px]">
+                  Classteacher&apos;s Remarks:
+                </td>
+                <td className="border border-black px-2 py-[3px] h-[36px] align-top">
+                  {class_teacher_remark?.remark ?? ''}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* ── Headteacher's Signature ── */}
+          <table className="w-full border-collapse text-[11px]">
+            <tbody>
+              <tr>
+                <td className="border border-black px-2 py-[3px] font-bold align-middle whitespace-nowrap w-[130px]">
+                  Headteacher&apos;s Signature:
+                </td>
+                <td className="border border-black px-2 py-2 h-[52px] text-center align-middle">
+                  {isSignedUrl(school.head_signature_url) ? (
+                    <Image
+                      src={school.head_signature_url!}
+                      alt="Headteacher Signature"
+                      width={160}
+                      height={48}
+                      className="mx-auto object-contain max-h-[44px]"
+                      unoptimized
+                    />
+                  ) : (
+                    <span className="text-gray-400 italic text-[10px]">
+                      {school.head_signature_url ? 'Signature unavailable' : 'No signature uploaded'}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+        </div>{/* end paper */}
       </DialogContent>
     </Dialog>
   )

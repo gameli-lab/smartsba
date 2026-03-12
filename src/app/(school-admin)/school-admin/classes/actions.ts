@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { createAdminSupabaseClient } from '@/lib/supabase'
+import { createAdminSupabaseClient, createServerComponentClient } from '@/lib/supabase'
 import { isValidNumericLevel } from '@/lib/constants/level-groups'
 
 interface ClassInput {

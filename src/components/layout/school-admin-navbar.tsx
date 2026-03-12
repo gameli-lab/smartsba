@@ -10,10 +10,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Bell, User, KeyRound, LogOut } from 'lucide-react'
+import { Bell, User, KeyRound, LogOut, Home } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { AuthService } from '@/lib/auth'
 import Image from 'next/image'
+import Link from 'next/link'
 
 interface NavbarProps {
   schoolName: string
@@ -46,8 +47,7 @@ export function SchoolAdminNavbar({
   }
 
   const handleProfile = () => {
-    // TODO: Navigate to profile page in later stages
-    console.log('Navigate to profile')
+    router.push('/school-admin/school-profile')
   }
 
   const handleChangePassword = () => {
@@ -66,8 +66,8 @@ export function SchoolAdminNavbar({
   return (
     <header className="fixed top-0 z-30 w-full border-b bg-white">
       <div className="flex h-16 items-center justify-between px-6">
-        {/* Left: School Info */}
-        <div className="flex items-center gap-3">
+        {/* Left: School Info - Clickable to go to dashboard */}
+        <Link href="/school-admin" className="flex items-center gap-3 hover:opacity-75 transition-opacity">
           {schoolLogoUrl && (
             <div className="relative h-10 w-10">
               <Image
@@ -86,10 +86,22 @@ export function SchoolAdminNavbar({
               </p>
             )}
           </div>
-        </div>
+        </Link>
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
+          {/* Dashboard Home Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            asChild
+            title="Go to Dashboard"
+          >
+            <Link href="/school-admin">
+              <Home className="h-5 w-5" />
+            </Link>
+          </Button>
+
           {/* Notifications - Placeholder */}
           <Button
             variant="ghost"
@@ -99,6 +111,17 @@ export function SchoolAdminNavbar({
           >
             <Bell className="h-5 w-5" />
             {/* TODO: Add notification badge in later stages */}
+          </Button>
+
+          {/* Logout Button (Direct) */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLogout}
+            title="Logout"
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          >
+            <LogOut className="h-5 w-5" />
           </Button>
 
           {/* Profile Dropdown */}
@@ -128,11 +151,6 @@ export function SchoolAdminNavbar({
               <DropdownMenuItem onClick={handleChangePassword}>
                 <KeyRound className="mr-2 h-4 w-4" />
                 <span>Change Password</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Logout</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

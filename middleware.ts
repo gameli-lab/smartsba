@@ -73,7 +73,14 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getUser()
 
   // If user is not signed in and trying to access protected routes
-  if (!user && (req.nextUrl.pathname.startsWith('/school-admin') || req.nextUrl.pathname.startsWith('/teacher') || req.nextUrl.pathname.startsWith('/student') || req.nextUrl.pathname.startsWith('/parent') || req.nextUrl.pathname.startsWith('/dashboard'))) {
+  if (!user && (
+    req.nextUrl.pathname.startsWith('/school-admin') ||
+    req.nextUrl.pathname.startsWith('/analytics') ||
+    req.nextUrl.pathname.startsWith('/teacher') ||
+    req.nextUrl.pathname.startsWith('/student') ||
+    req.nextUrl.pathname.startsWith('/parent') ||
+    req.nextUrl.pathname.startsWith('/dashboard')
+  )) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 

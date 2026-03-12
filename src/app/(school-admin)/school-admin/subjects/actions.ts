@@ -205,6 +205,56 @@ export async function reactivateSubject(id: string) {
   }
 }
 
-// Deprecated: Use deactivateSubject instead
+// Permanently delete subject (for correcting mistakes)
+// Safety checks prevent deleting subjects already used in assignments/scores.
 export async function deleteSubject(id: string) {
-  return deactivateSubject(id)}
+  try {
+    const { profile } = await requireSchoolAdmin()
+    const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
+
+    if (!id) return { success: false, error: 'Subject ID is required' }
+
+    const { data: subjectRow } = await supabase
+      .from('subjects')
+      .select('id, school_id, name')
+      .eq('id', id)
+      .single()
+
+    const subject = subjectRow as { id: string; school_id: string; name: string } | null
+    if (!subject || subject.school_id !== schoolId) return { success: false, error: 'Subject not found' }
+
+    const [{ count: assignmentCount }, { count: scoreCount }] = await Promise.all([
+      supabase
+        .from('teacher_assignments')
+        .select('id', { count: 'exact', head: true })
+        .eq('subject_id', id),
+      supabase
+        .from('scores')
+        .select('id', { count: 'exact', head: true })
+        .eq('subject_id', id),
+    ])
+
+    if ((scoreCount || 0) > 0) {
+      return { success: false, error: 'Cannot delete a subject with recorded scores' }
+    }
+
+    if ((assignmentCount || 0) > 0) {
+      return { success: false, error: 'Remove teacher assignments before deleting this subject' }
+    }
+
+    const { error } = await supabase.from('subjects').delete().eq('id', id)
+
+    if (error) {
+      console.error('Error deleting subject:', error)
+      return { success: false, error: 'Failed to delete subject' }
+    }
+
+    revalidatePath('/school-admin/subjects')
+    revalidatePath('/school-admin/teacher-assignments')
+    return { success: true }
+  } catch (error) {
+    console.error('Error in deleteSubject:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}

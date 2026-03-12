@@ -19,11 +19,13 @@ export function SubjectsFilters() {
   
   const [search, setSearch] = useState(searchParams.get('search') || '')
   const [type, setType] = useState(searchParams.get('type') || '')
+  const [status, setStatus] = useState(searchParams.get('status') || '')
 
   const handleFilter = () => {
     const params = new URLSearchParams()
     if (search) params.set('search', search)
     if (type && type !== 'all') params.set('type', type)
+    if (status && status !== 'all') params.set('status', status)
     
     const query = params.toString()
     router.push(query ? `/school-admin/subjects?${query}` : '/school-admin/subjects')
@@ -32,10 +34,11 @@ export function SubjectsFilters() {
   const handleClear = () => {
     setSearch('')
     setType('')
+    setStatus('')
     router.push('/school-admin/subjects')
   }
 
-  const hasFilters = search || type
+  const hasFilters = search || type || status
 
   return (
     <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -55,6 +58,17 @@ export function SubjectsFilters() {
           <SelectItem value="all">All Types</SelectItem>
           <SelectItem value="core">Core</SelectItem>
           <SelectItem value="elective">Elective</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select value={status} onValueChange={setStatus}>
+        <SelectTrigger className="w-full sm:w-40">
+          <SelectValue placeholder="Filter by status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Statuses</SelectItem>
+          <SelectItem value="active">Active</SelectItem>
+          <SelectItem value="inactive">Inactive</SelectItem>
         </SelectContent>
       </Select>
 

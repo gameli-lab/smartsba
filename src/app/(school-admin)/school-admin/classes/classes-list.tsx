@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -12,7 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Edit, Eye } from 'lucide-react'
+import { Edit, Eye, Trash2 } from 'lucide-react'
+import { deleteClass } from './actions'
 import { EditClassDialog } from './edit-class-dialog'
 import type { Class } from '@/types'
 
@@ -36,7 +38,24 @@ interface Props {
 }
 
 export function ClassesList({ classes, teachers }: Props) {
+  const router = useRouter()
   const [editingClass, setEditingClass] = useState<ClassWithTeacher | null>(null)
+  const [loadingId, setLoadingId] = useState<string | null>(null)
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete class "${name}" permanently? This cannot be undone.`)) return
+
+    setLoadingId(id)
+    const result = await deleteClass(id)
+    setLoadingId(null)
+
+    if (!result.success) {
+      alert(result.error || 'Failed to delete class')
+      return
+    }
+
+    router.refresh()
+  }
 
   return (
     <>
@@ -96,6 +115,16 @@ export function ClassesList({ classes, teachers }: Props) {
                     <Button variant="outline" size="sm" onClick={() => setEditingClass(klass)}>
                       <Edit className="h-4 w-4 mr-2" />
                       Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-red-600 hover:bg-red-50"
+                      onClick={() => handleDelete(klass.id, klass.name)}
+                      disabled={loadingId === klass.id}
+                      title="Delete class"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>
