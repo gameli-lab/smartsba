@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -25,27 +26,89 @@ interface Announcement {
 interface AnnouncementsClientProps {
   announcements: Announcement[]
   wardClassName: string | null
+  parentUserId: string
+  wardId: string
 }
 
-export function AnnouncementsClient({ announcements, wardClassName }: AnnouncementsClientProps) {
+export function AnnouncementsClient({ announcements, wardClassName, parentUserId, wardId }: AnnouncementsClientProps) {
   const [urgencyFilter, setUrgencyFilter] = useState<string>('all')
   const [scopeFilter, setScopeFilter] = useState<string>('all')
+  const [readFilter, setReadFilter] = useState<string>('all')
+  const [readIds, setReadIds] = useState<string[]>([])
+
+  const storageKey = useMemo(() => `parent-ann-read:${parentUserId}:${wardId}`, [parentUserId, wardId])
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(storageKey)
+      if (!raw) {
+        setReadIds([])
+        return
+      }
+      const parsed = JSON.parse(raw)
+      setReadIds(Array.isArray(parsed) ? parsed : [])
+    } catch {
+      setReadIds([])
+    }
+  }, [storageKey])
+
+  const persistReadIds = (ids: string[]) => {
+    setReadIds(ids)
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(ids))
+    } catch {
+      // Ignore localStorage write errors
+    }
+  }
+
+  const isRead = (announcementId: string) => readIds.includes(announcementId)
+
+  const toggleRead = (announcementId: string) => {
+    if (isRead(announcementId)) {
+      persistReadIds(readIds.filter((id) => id !== announcementId))
+      return
+    }
+    persistReadIds([...readIds, announcementId])
+  }
+
+  const markAllAsRead = () => {
+    persistReadIds(announcements.map((a) => a.id))
+  }
 
   const filteredAnnouncements = announcements.filter((ann) => {
     const matchesUrgency = urgencyFilter === 'all' || (urgencyFilter === 'urgent' && ann.is_urgent)
     const matchesScope = scopeFilter === 'all' || ann.scope === scopeFilter
-    return matchesUrgency && matchesScope
+    const read = isRead(ann.id)
+    const matchesRead =
+      readFilter === 'all' ||
+      (readFilter === 'read' && read) ||
+      (readFilter === 'unread' && !read)
+    return matchesUrgency && matchesScope && matchesRead
   })
+
+  const unreadCount = announcements.filter((a) => !isRead(a.id)).length
 
   return (
     <div className="space-y-6">
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Filter Announcements</CardTitle>
-          <CardDescription>Filter by urgency and scope.</CardDescription>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle>Filter Announcements</CardTitle>
+              <CardDescription>Filter by urgency, scope and read status.</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700">
+                Unread: {unreadCount}
+              </Badge>
+              <Button type="button" variant="outline" size="sm" onClick={markAllAsRead} disabled={unreadCount === 0}>
+                Mark all as read
+              </Button>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="flex gap-4">
+        <CardContent className="grid gap-4 md:grid-cols-3">
           <div className="flex-1">
             <label className="mb-2 block text-sm font-medium text-gray-700">Urgency</label>
             <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
@@ -71,6 +134,19 @@ export function AnnouncementsClient({ announcements, wardClassName }: Announceme
               </SelectContent>
             </Select>
           </div>
+          <div className="flex-1">
+            <label className="mb-2 block text-sm font-medium text-gray-700">Read status</label>
+            <Select value={readFilter} onValueChange={setReadFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select read status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="unread">Unread only</SelectItem>
+                <SelectItem value="read">Read only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
@@ -88,7 +164,10 @@ export function AnnouncementsClient({ announcements, wardClassName }: Announceme
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <CardTitle className="text-lg">{ann.title}</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {ann.title}
+                      {!isRead(ann.id) && <span className="inline-block h-2 w-2 rounded-full bg-purple-600" aria-label="Unread announcement" />}
+                    </CardTitle>
                     <CardDescription className="mt-1">
                       {new Date(ann.created_at).toLocaleString('en-US', {
                         year: 'numeric',
@@ -103,6 +182,9 @@ export function AnnouncementsClient({ announcements, wardClassName }: Announceme
                     {ann.is_urgent && (
                       <Badge variant="destructive">Urgent</Badge>
                     )}
+                    <Badge variant={isRead(ann.id) ? 'secondary' : 'default'}>
+                      {isRead(ann.id) ? 'Read' : 'Unread'}
+                    </Badge>
                     <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700">
                       {ann.scope === 'school' ? 'School-wide' : wardClassName || 'Class'}
                     </Badge>
@@ -112,6 +194,11 @@ export function AnnouncementsClient({ announcements, wardClassName }: Announceme
               {ann.content && (
                 <CardContent>
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">{ann.content}</p>
+                  <div className="mt-4">
+                    <Button type="button" size="sm" variant="outline" onClick={() => toggleRead(ann.id)}>
+                      {isRead(ann.id) ? 'Mark as unread' : 'Mark as read'}
+                    </Button>
+                  </div>
                 </CardContent>
               )}
             </Card>

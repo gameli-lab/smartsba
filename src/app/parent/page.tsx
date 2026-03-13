@@ -2,6 +2,9 @@ import { requireParent } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { buildParentAnnouncementFilter, selectWard } from './_lib/ward-selection'
+import { renderNoLinkedWardsState, renderWardNotFoundState } from './_lib/parent-states'
+import { MeetingRequestCard } from '@/components/parent/meeting-request-card'
 
 interface PageProps {
   searchParams: Promise<{ ward?: string }>
@@ -12,25 +15,14 @@ export default async function ParentDashboardPage({ searchParams }: PageProps) {
   const { wards } = await requireParent()
 
   if (wards.length === 0) {
-    return (
-      <div className="rounded-lg border bg-amber-50 p-6 text-amber-800">
-        <h1 className="text-lg font-semibold">No Linked Students</h1>
-        <p className="mt-2 text-sm">You do not have any wards linked to your account. Please contact your school administrator.</p>
-      </div>
-    )
+    return renderNoLinkedWardsState()
   }
 
   // Get selected ward or default to primary/first
-  const wardId = params.ward || wards.find(w => w.is_primary)?.student.id || wards[0].student.id
-  const selectedWard = wards.find(w => w.student.id === wardId)
+  const { selectedWard } = selectWard(wards, params.ward)
 
   if (!selectedWard) {
-    return (
-      <div className="rounded-lg border bg-red-50 p-6 text-red-800">
-        <h1 className="text-lg font-semibold">Ward not found</h1>
-        <p className="mt-2 text-sm">The selected ward was not found.</p>
-      </div>
-    )
+    return renderWardNotFoundState()
   }
 
   const student = selectedWard.student
@@ -59,7 +51,7 @@ export default async function ParentDashboardPage({ searchParams }: PageProps) {
   }
 
   // Fetch ward's aggregate data
-  const [{ data: aggregateData }, { data: announcementsData }, { data: remarkData }] = await Promise.all([
+  const [{ data: aggregateData }, { data: announcementsData }, { data: remarkData }, { data: attendanceData }] = await Promise.all([
     supabase
       .from('student_aggregates')
       .select('aggregate_score, total_subjects, class_position')
@@ -70,7 +62,7 @@ export default async function ParentDashboardPage({ searchParams }: PageProps) {
       .from('announcements')
       .select('id, title, content, created_at, is_urgent, target_audience, class_ids')
       .eq('school_id', student.school_id)
-      .or(`target_audience.cs.{parent},class_ids.cs.{${student.class_id}}`)
+      .or(buildParentAnnouncementFilter(student.class_id))
       .order('created_at', { ascending: false })
       .limit(5),
     session.term === 3
@@ -81,6 +73,12 @@ export default async function ParentDashboardPage({ searchParams }: PageProps) {
           .eq('session_id', session.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    supabase
+      .from('attendance')
+      .select('present_days, total_days, percentage')
+      .eq('student_id', student.id)
+      .eq('session_id', session.id)
+      .maybeSingle(),
   ])
 
   const aggregate = (aggregateData || null) as { aggregate_score: number | null; total_subjects: number | null; class_position: number | null } | null
@@ -94,11 +92,15 @@ export default async function ParentDashboardPage({ searchParams }: PageProps) {
     class_ids: string[] | null
   }>
   const remark = (remarkData || null) as { promotion_status: string | null } | null
+  const attendance = (attendanceData || null) as { present_days: number; total_days: number; percentage: number } | null
 
   const termAverage = aggregate?.aggregate_score ?? null
   const classPosition = aggregate?.class_position ?? null
   const totalSubjects = aggregate?.total_subjects ?? null
   const promotionStatus = remark?.promotion_status ?? null
+  const attendanceRate = attendance?.percentage ?? null
+  const unreadAnnouncements = announcements.length
+  const urgentAnnouncements = announcements.filter((ann) => Boolean(ann.is_urgent)).length
 
   // Get student name
   const { data: profileData } = await supabase
@@ -113,6 +115,19 @@ export default async function ParentDashboardPage({ searchParams }: PageProps) {
     { label: 'Current Term Average', value: termAverage !== null ? `${termAverage}%` : 'N/A' },
     { label: 'Class Position', value: classPosition !== null ? `${classPosition}` : 'N/A' },
     { label: 'Total Subjects', value: totalSubjects !== null ? `${totalSubjects}` : 'N/A' },
+    {
+      label: 'Attendance',
+      value: attendanceRate !== null ? `${attendanceRate}%` : 'N/A',
+      hint:
+        attendance && attendance.total_days > 0
+          ? `${attendance.present_days}/${attendance.total_days} days`
+          : 'No attendance records yet',
+    },
+    {
+      label: 'Unread Announcements',
+      value: `${unreadAnnouncements}`,
+      hint: urgentAnnouncements > 0 ? `${urgentAnnouncements} urgent` : 'No urgent items',
+    },
     ...(session.term === 3
       ? [{ label: 'Promotion Status', value: promotionStatus || 'Pending' }]
       : []),
@@ -138,6 +153,9 @@ export default async function ParentDashboardPage({ searchParams }: PageProps) {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-semibold text-gray-900">{card.value}</div>
+              {'hint' in card && card.hint ? (
+                <p className="mt-1 text-xs text-gray-500">{card.hint}</p>
+              ) : null}
             </CardContent>
           </Card>
         ))}
@@ -202,6 +220,8 @@ export default async function ParentDashboardPage({ searchParams }: PageProps) {
           </CardContent>
         </Card>
       </div>
+
+      <MeetingRequestCard wardId={student.id} wardName={studentName} />
     </div>
   )
 }

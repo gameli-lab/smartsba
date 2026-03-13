@@ -6,12 +6,17 @@ import { ParentLayoutWrapper } from './parent-layout-wrapper'
 
 interface ParentShellProps {
   children: ReactNode
+  wards: Array<{
+    id: string
+    name: string
+    admissionNumber: string
+  }>
 }
 
-export function ParentShell({ children }: ParentShellProps) {
+export function ParentShell({ children, wards }: ParentShellProps) {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
-      <ParentSidebar />
+      <ParentSidebar wards={wards} />
       <ParentLayoutWrapper>
         <main className="p-6">
           {children}

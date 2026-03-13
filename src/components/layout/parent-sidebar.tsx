@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { LayoutDashboard, FileText, Activity, Megaphone, UserCircle, Menu, X } from 'lucide-react'
 
 interface SidebarItem {
@@ -21,8 +22,18 @@ const items: SidebarItem[] = [
   { href: '/parent/profile', label: 'Profile', icon: <UserCircle className="h-5 w-5" /> },
 ]
 
-export function ParentSidebar() {
+interface ParentSidebarProps {
+  wards: Array<{
+    id: string
+    name: string
+    admissionNumber: string
+  }>
+}
+
+export function ParentSidebar({ wards }: ParentSidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [isOpen, setIsOpen] = useState(false)
   const sidebarRef = useRef<HTMLDivElement>(null)
 
@@ -38,6 +49,21 @@ export function ParentSidebar() {
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isOpen])
+
+  const selectedWardId = searchParams.get('ward')
+  const effectiveWardId = selectedWardId || wards[0]?.id
+
+  const withWard = (href: string) => {
+    if (!effectiveWardId || href.includes('/parent/profile')) return href
+    return `${href}?ward=${encodeURIComponent(effectiveWardId)}`
+  }
+
+  const onWardChange = (wardId: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('ward', wardId)
+    const query = params.toString()
+    router.push(query ? `${pathname}?${query}` : pathname)
+  }
 
   return (
     <>
@@ -78,11 +104,29 @@ export function ParentSidebar() {
           </Button>
         </div>
 
+        {wards.length > 0 && (
+          <div className="border-b p-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Selected Ward</p>
+            <Select value={effectiveWardId} onValueChange={onWardChange}>
+              <SelectTrigger className="h-9 w-full text-sm">
+                <SelectValue placeholder="Select ward" />
+              </SelectTrigger>
+              <SelectContent>
+                {wards.map((ward) => (
+                  <SelectItem key={ward.id} value={ward.id}>
+                    {ward.name} ({ward.admissionNumber})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <nav className="flex-1 overflow-y-auto p-2 space-y-1">
           {items.map((item) => {
             const active = pathname === item.href
             return (
-              <Link key={item.href} href={item.href}>
+              <Link key={item.href} href={withWard(item.href)}>
                 <div
                   className={cn(
                     'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',

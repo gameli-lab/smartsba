@@ -372,8 +372,8 @@ export default function HomePage() {
             <div>
               <h4 className="font-semibold mb-4">Contact</h4>
               <div className="text-gray-400">
-                <p>Email: support@smartsba.com</p>
-                <p>Phone: +1 (555) 123-4567</p>
+                <p>Email: btorfu@gmail.com</p>
+                <p>Phone: +233 (054) 181 3988</p>
               </div>
             </div>
           </div>

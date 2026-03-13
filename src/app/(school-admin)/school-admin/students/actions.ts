@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import ExcelJS from 'exceljs'
 import { requireSchoolAdmin } from '@/lib/auth'
 import { createServerComponentClient, createAdminSupabaseClient } from '@/lib/supabase'
+import logAudit from '@/lib/audit'
 import type { Student } from '@/types'
 
 interface CreateStudentInput {
@@ -92,6 +93,173 @@ function randomTempPassword(prefix: string) {
   return `${prefix}@${Math.random().toString(36).slice(-8)}`
 }
 
+function normalizePhone(value?: string | null) {
+  if (!value) return null
+  return value.replace(/[^0-9+]/g, '')
+}
+
+type ParentResolutionResult =
+  | {
+      status: 'created_and_linked'
+      parentProfileId: string
+      parentTempPassword: string
+    }
+  | {
+      status: 'linked_existing_parent'
+      parentProfileId: string
+    }
+  | {
+      status: 'skipped_no_guardian_email' | 'skipped_invalid_guardian_email'
+    }
+  | {
+      status: 'conflict_existing_non_parent_email'
+      existingRole: string
+    }
+
+async function resolveGuardianParentForStudent(params: {
+  schoolId: string
+  studentId: string
+  guardianName?: string
+  guardianEmail?: string
+  guardianPhone?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  adminSupabase: any
+}): Promise<ParentResolutionResult> {
+  const guardianEmail = params.guardianEmail?.trim().toLowerCase()
+  if (!guardianEmail) return { status: 'skipped_no_guardian_email' }
+  if (!validateEmail(guardianEmail)) return { status: 'skipped_invalid_guardian_email' }
+
+  const guardianPhone = normalizePhone(params.guardianPhone)
+  const guardianName = params.guardianName?.trim() || 'Parent Guardian'
+
+  const { data: existingProfile } = await params.supabase
+    .from('user_profiles')
+    .select('id, user_id, role, full_name, phone')
+    .eq('email', guardianEmail)
+    .maybeSingle()
+
+  if (existingProfile) {
+    if (existingProfile.role !== 'parent') {
+      return {
+        status: 'conflict_existing_non_parent_email',
+        existingRole: existingProfile.role,
+      }
+    }
+
+    const parentProfileId = existingProfile.id as string
+
+    const { data: existingLink } = await params.supabase
+      .from('parent_student_links')
+      .select('id')
+      .eq('parent_id', parentProfileId)
+      .eq('student_id', params.studentId)
+      .maybeSingle()
+
+    if (!existingLink) {
+      await params.adminSupabase
+        .from('parent_student_links')
+        .insert({
+          parent_id: parentProfileId,
+          student_id: params.studentId,
+          relationship: 'Guardian',
+          is_primary: true,
+        })
+    }
+
+    const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    let shouldUpdate = false
+
+    if ((!existingProfile.full_name || existingProfile.full_name === 'Parent Guardian') && guardianName) {
+      updatePayload.full_name = guardianName
+      shouldUpdate = true
+    }
+
+    if (!existingProfile.phone && guardianPhone) {
+      updatePayload.phone = guardianPhone
+      shouldUpdate = true
+    }
+
+    if (shouldUpdate) {
+      await params.adminSupabase
+        .from('user_profiles')
+        .update(updatePayload)
+        .eq('id', parentProfileId)
+        .eq('role', 'parent')
+    }
+
+    await params.adminSupabase
+      .from('parents')
+      .upsert(
+        {
+          user_id: existingProfile.user_id,
+          contact_phone: guardianPhone,
+        },
+        { onConflict: 'user_id' }
+      )
+
+    return { status: 'linked_existing_parent', parentProfileId }
+  }
+
+  const parentTempPassword = randomTempPassword('Parent')
+  const { data: parentAuthUser, error: parentAuthError } = await params.adminSupabase.auth.admin.createUser({
+    email: guardianEmail,
+    password: parentTempPassword,
+    email_confirm: true,
+  })
+
+  if (parentAuthError || !parentAuthUser.user) {
+    return { status: 'skipped_invalid_guardian_email' }
+  }
+
+  const parentUserId = parentAuthUser.user.id
+
+  const { data: parentProfileData, error: parentProfileError } = await params.adminSupabase
+    .from('user_profiles')
+    .insert({
+      user_id: parentUserId,
+      school_id: params.schoolId,
+      role: 'parent',
+      email: guardianEmail,
+      full_name: guardianName,
+      status: 'active',
+      phone: guardianPhone,
+    })
+    .select('id')
+    .single()
+
+  if (parentProfileError || !parentProfileData?.id) {
+    await params.adminSupabase.auth.admin.deleteUser(parentUserId)
+    return { status: 'skipped_invalid_guardian_email' }
+  }
+
+  await params.adminSupabase
+    .from('parents')
+    .upsert(
+      {
+        user_id: parentUserId,
+        contact_phone: guardianPhone,
+      },
+      { onConflict: 'user_id' }
+    )
+
+  await params.adminSupabase
+    .from('parent_student_links')
+    .insert({
+      parent_id: parentProfileData.id,
+      student_id: params.studentId,
+      relationship: 'Guardian',
+      is_primary: true,
+    })
+
+  return {
+    status: 'created_and_linked',
+    parentProfileId: parentProfileData.id as string,
+    parentTempPassword,
+  }
+}
+
 async function buildTemplateWorkbook() {
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet('Students')
@@ -143,7 +311,7 @@ export async function getStudentsTemplate() {
 
 export async function createStudent(input: CreateStudentInput) {
   try {
-    const { profile } = await requireSchoolAdmin()
+    const { user, profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const supabase = await createServerComponentClient()
     const adminSupabase = createAdminSupabaseClient()
@@ -274,7 +442,38 @@ export async function createStudent(input: CreateStudentInput) {
       console.warn('Warning: revalidatePath failed (this may be expected):', revalidateError)
     }
 
-    return { success: true, tempPassword, studentId: insertedStudent.id }
+    const parentResolution = await resolveGuardianParentForStudent({
+      schoolId,
+      studentId: insertedStudent.id,
+      guardianName: input.guardian_name,
+      guardianEmail: input.guardian_email,
+      guardianPhone: input.guardian_phone,
+      supabase,
+      adminSupabase,
+    })
+
+    const parentAuditActionByStatus: Record<ParentResolutionResult['status'], string> = {
+      created_and_linked: 'student_create_auto_parent_created',
+      linked_existing_parent: 'student_create_auto_parent_linked',
+      skipped_no_guardian_email: 'student_create_parent_resolution_skipped_no_email',
+      skipped_invalid_guardian_email: 'student_create_parent_resolution_skipped_invalid_email',
+      conflict_existing_non_parent_email: 'student_create_parent_resolution_conflict_non_parent_email',
+    }
+
+    await logAudit(adminSupabase, user.id, parentAuditActionByStatus[parentResolution.status], 'student', insertedStudent.id, {
+      schoolId,
+      admissionNumber: insertedStudent.admission_number,
+      guardianEmail: input.guardian_email || null,
+      parentResolution,
+    })
+
+    return {
+      success: true,
+      tempPassword,
+      studentId: insertedStudent.id,
+      parentResolution,
+      parentTempPassword: parentResolution.status === 'created_and_linked' ? parentResolution.parentTempPassword : null,
+    }
   } catch (error) {
     console.error('Error in createStudent:', error)
     return { success: false, error: 'An unexpected error occurred' }

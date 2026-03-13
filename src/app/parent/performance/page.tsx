@@ -1,6 +1,8 @@
 import { requireParent } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { PerformanceClient } from '@/components/parent/performance-client'
+import { selectWard } from '../_lib/ward-selection'
+import { renderNoLinkedWardsState, renderWardNotFoundState } from '../_lib/parent-states'
 
 interface PageProps {
   searchParams: Promise<{ ward?: string }>
@@ -11,25 +13,14 @@ export default async function ParentPerformancePage({ searchParams }: PageProps)
   const { wards } = await requireParent()
 
   if (wards.length === 0) {
-    return (
-      <div className="rounded-lg border bg-amber-50 p-6 text-amber-800">
-        <h1 className="text-lg font-semibold">No Linked Students</h1>
-        <p className="mt-2 text-sm">You do not have any wards linked to your account. Please contact your school administrator.</p>
-      </div>
-    )
+    return renderNoLinkedWardsState()
   }
 
   // Get selected ward or default to primary/first
-  const wardId = params.ward || wards.find(w => w.is_primary)?.student.id || wards[0].student.id
-  const selectedWard = wards.find(w => w.student.id === wardId)
+  const { selectedWard } = selectWard(wards, params.ward)
 
   if (!selectedWard) {
-    return (
-      <div className="rounded-lg border bg-red-50 p-6 text-red-800">
-        <h1 className="text-lg font-semibold">Ward not found</h1>
-        <p className="mt-2 text-sm">The selected ward was not found.</p>
-      </div>
-    )
+    return renderWardNotFoundState()
   }
 
   const student = selectedWard.student
@@ -69,6 +60,31 @@ export default async function ParentPerformancePage({ searchParams }: PageProps)
     class_position: record.class_position,
   }))
 
+  const { data: subjectScoresData } = await supabase
+    .from('student_scores')
+    .select(`
+      subject_id,
+      total_score,
+      subjects (
+        name
+      ),
+      academic_sessions (
+        academic_year,
+        term
+      )
+    `)
+    .eq('student_id', student.id)
+    .order('academic_sessions(academic_year)', { ascending: true })
+    .order('academic_sessions(term)', { ascending: true })
+
+  const subjectTrendData = (subjectScoresData || []).map((row: any) => ({
+    subject_id: row.subject_id,
+    subject_name: row.subjects?.name || 'Unknown Subject',
+    total_score: row.total_score as number | null,
+    academic_year: row.academic_sessions?.academic_year || '',
+    term: row.academic_sessions?.term || 0,
+  }))
+
   // Extract unique years for filter
   const availableYears = Array.from(
     new Set(records.map((r) => r.academic_year).filter(Boolean))
@@ -86,7 +102,11 @@ export default async function ParentPerformancePage({ searchParams }: PageProps)
           <p className="text-sm text-gray-500">No performance history available yet.</p>
         </div>
       ) : (
-        <PerformanceClient data={records} availableYears={availableYears} />
+        <PerformanceClient
+          data={records}
+          availableYears={availableYears}
+          subjectTrendData={subjectTrendData}
+        />
       )}
     </div>
   )

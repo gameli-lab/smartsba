@@ -1,6 +1,8 @@
 import { requireParent } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { AnnouncementsClient } from '@/components/parent/announcements-client'
+import { buildParentAnnouncementFilter, selectWard } from '../_lib/ward-selection'
+import { renderNoLinkedWardsState, renderWardNotFoundState } from '../_lib/parent-states'
 
 interface PageProps {
   searchParams: Promise<{ ward?: string }>
@@ -8,28 +10,17 @@ interface PageProps {
 
 export default async function ParentAnnouncementsPage({ searchParams }: PageProps) {
   const params = await searchParams
-  const { wards } = await requireParent()
+  const { user, wards } = await requireParent()
 
   if (wards.length === 0) {
-    return (
-      <div className="rounded-lg border bg-amber-50 p-6 text-amber-800">
-        <h1 className="text-lg font-semibold">No Linked Students</h1>
-        <p className="mt-2 text-sm">You do not have any wards linked to your account. Please contact your school administrator.</p>
-      </div>
-    )
+    return renderNoLinkedWardsState()
   }
 
   // Get selected ward or default to primary/first
-  const wardId = params.ward || wards.find(w => w.is_primary)?.student.id || wards[0].student.id
-  const selectedWard = wards.find(w => w.student.id === wardId)
+  const { selectedWard } = selectWard(wards, params.ward)
 
   if (!selectedWard) {
-    return (
-      <div className="rounded-lg border bg-red-50 p-6 text-red-800">
-        <h1 className="text-lg font-semibold">Ward not found</h1>
-        <p className="mt-2 text-sm">The selected ward was not found.</p>
-      </div>
-    )
+    return renderWardNotFoundState()
   }
 
   const student = selectedWard.student
@@ -49,7 +40,7 @@ export default async function ParentAnnouncementsPage({ searchParams }: PageProp
     .from('announcements')
     .select('id, title, content, created_at, is_urgent, target_audience, class_ids')
     .eq('school_id', student.school_id)
-    .or(`target_audience.cs.{parent},class_ids.cs.{${student.class_id}}`)
+    .or(buildParentAnnouncementFilter(student.class_id))
     .order('created_at', { ascending: false })
 
   const announcements = (announcementsData || []).map((ann: any) => ({
@@ -79,7 +70,12 @@ export default async function ParentAnnouncementsPage({ searchParams }: PageProp
         <p className="text-sm text-gray-600">School announcements and updates for {studentName}.</p>
       </div>
 
-      <AnnouncementsClient announcements={announcements} wardClassName={className} />
+      <AnnouncementsClient
+        announcements={announcements}
+        wardClassName={className}
+        parentUserId={user.id}
+        wardId={student.id}
+      />
     </div>
   )
 }

@@ -8,6 +8,18 @@ import { StudentsList } from '@/app/(school-admin)/school-admin/students/student
 import { StudentsFilters } from '@/app/(school-admin)/school-admin/students/students-filters'
 import type { Student, UserProfile, Class } from '@/types'
 
+interface GuardianSuggestion {
+  name: string
+  phone?: string
+  email?: string
+}
+
+interface ParentAccountHint {
+  fullName: string
+  email?: string
+  phone?: string
+}
+
 interface StudentWithRelations extends Student {
   user_profile: UserProfile | null
   classes: Class | null
@@ -51,17 +63,50 @@ export default async function StudentsPage(props: {
     studentsQuery = studentsQuery.eq('is_active', false)
   }
 
-  const [{ data: studentsData }, { data: classesData }] = await Promise.all([
+  const [{ data: studentsData }, { data: classesData }, { data: guardianRows }, { data: parentProfileRows }] = await Promise.all([
     studentsQuery.order('created_at', { ascending: false }),
     supabase
       .from('classes')
       .select('id, name, level, stream')
       .eq('school_id', schoolId)
       .order('level', { ascending: true }),
+    supabase
+      .from('students')
+      .select('guardian_name, guardian_phone, guardian_email')
+      .eq('school_id', schoolId)
+      .not('guardian_name', 'is', null),
+    supabase
+      .from('user_profiles')
+      .select('full_name, email, phone')
+      .eq('school_id', schoolId)
+      .eq('role', 'parent'),
   ])
 
   const students = (studentsData || []) as Student[]
   const classes = (classesData || []) as Class[]
+  const guardianSuggestions: GuardianSuggestion[] = Array.from(
+    new Map(
+      ((guardianRows || []) as Array<{ guardian_name: string | null; guardian_phone: string | null; guardian_email: string | null }>)
+        .filter((row) => Boolean(row.guardian_name))
+        .map((row) => {
+          const name = row.guardian_name!.trim()
+          const phone = row.guardian_phone || undefined
+          const email = row.guardian_email || undefined
+          return [`${name.toLowerCase()}|${phone || ''}|${email || ''}`, { name, phone, email }]
+        })
+    ).values()
+  )
+  const parentAccountHints: ParentAccountHint[] = ((parentProfileRows || []) as Array<{
+    full_name: string | null
+    email: string | null
+    phone: string | null
+  }>)
+    .filter((row) => Boolean(row.full_name))
+    .map((row) => ({
+      fullName: row.full_name!.trim(),
+      email: row.email || undefined,
+      phone: row.phone || undefined,
+    }))
 
   // Manually fetch user profiles for all students
   const userIds = students.map(s => s.user_id).filter(Boolean)
@@ -110,7 +155,11 @@ export default async function StudentsPage(props: {
         </div>
         <div className="flex gap-2">
           <ImportStudentsDialog classes={classes} />
-          <CreateStudentDialog classes={classes} />
+          <CreateStudentDialog
+            classes={classes}
+            guardianSuggestions={guardianSuggestions}
+            parentAccountHints={parentAccountHints}
+          />
         </div>
       </div>
 
@@ -168,7 +217,11 @@ export default async function StudentsPage(props: {
           ) : (
             <div className="text-center py-12">
               <p className="text-gray-500 mb-4">No students found</p>
-              <CreateStudentDialog classes={classes} />
+              <CreateStudentDialog
+                classes={classes}
+                guardianSuggestions={guardianSuggestions}
+                parentAccountHints={parentAccountHints}
+              />
             </div>
           )}
         </CardContent>

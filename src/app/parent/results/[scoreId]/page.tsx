@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { notFound } from 'next/navigation'
+import { ReportAcknowledgeButton } from '@/components/parent/report-acknowledge-button'
 
 interface PageProps {
   params: Promise<{ scoreId: string }>
@@ -126,7 +127,7 @@ export default async function ParentSubjectDetailPage({ params, searchParams }: 
     <div className="space-y-6">
       <div>
         <Link
-          href={`/results${urlParams.ward ? `?ward=${urlParams.ward}` : ''}`}
+          href={`/parent/results${urlParams.ward ? `?ward=${urlParams.ward}` : ''}`}
           className="inline-flex items-center text-sm text-purple-600 hover:text-purple-700"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -139,11 +140,14 @@ export default async function ParentSubjectDetailPage({ params, searchParams }: 
           <h1 className="text-2xl font-semibold text-gray-900">{subjectName}</h1>
           <p className="text-sm text-gray-600">{studentName}'s performance in this subject.</p>
         </div>
-        {session && (
-          <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700">
-            {session.academic_year} • Term {session.term}
-          </Badge>
-        )}
+        <div className="flex items-center gap-3">
+          <ReportAcknowledgeButton scoreId={scoreId} />
+          {session && (
+            <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700">
+              {session.academic_year} • Term {session.term}
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Current Term Performance */}

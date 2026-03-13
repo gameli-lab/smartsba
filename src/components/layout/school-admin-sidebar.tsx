@@ -182,6 +182,13 @@ export function SchoolAdminSidebar({ schoolId }: SidebarProps) {
             
             isActive={pathname === '/school-admin/students'}
           />
+          <SidebarItem
+            href="/school-admin/parents"
+            icon={<UserCircle className="h-5 w-5" />}
+            label="Parents & Guardians"
+            
+            isActive={pathname === '/school-admin/parents'}
+          />
         </SidebarSection>
 
         {/* 6. Classes & Subjects */}
@@ -244,16 +251,7 @@ export function SchoolAdminSidebar({ schoolId }: SidebarProps) {
           isActive={pathname === '/school-admin/announcements'}
         />
 
-        {/* 10. Parents & Guardians */}
-        <SidebarItem
-          href="/school-admin/parents"
-          icon={<UserCircle className="h-5 w-5" />}
-          label="Parents & Guardians"
-          
-          isActive={pathname === '/school-admin/parents'}
-        />
-
-        {/* 11. Security & Access */}
+        {/* 10. Security & Access */}
         <SidebarItem
           href="/school-admin/security"
           icon={<Shield className="h-5 w-5" />}
@@ -262,7 +260,7 @@ export function SchoolAdminSidebar({ schoolId }: SidebarProps) {
           isActive={pathname === '/school-admin/security'}
         />
 
-        {/* 12. Settings */}
+        {/* 11. Settings */}
         <SidebarItem
           href="/school-admin/settings"
           icon={<Settings className="h-5 w-5" />}

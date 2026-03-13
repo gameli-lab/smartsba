@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toggleStudentStatus } from '@/app/(school-admin)/school-admin/students/actions'
+import { PromoteGuardianButton } from './promote-guardian-button'
 import type { Student, UserProfile, Class } from '@/types'
 
 interface StudentWithRelations extends Student {
@@ -338,6 +339,11 @@ export default async function StudentDetailPage({
               <CardDescription>Parent accounts linked to this student</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <PromoteGuardianButton
+                studentId={student.id}
+                disabled={!student.guardian_name && !student.guardian_email && !student.guardian_phone}
+              />
+
               {parents.length === 0 ? (
                 <p className="text-sm text-gray-500">No parents linked yet.</p>
               ) : (

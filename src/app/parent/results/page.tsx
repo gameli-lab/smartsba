@@ -11,6 +11,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import Link from 'next/link'
+import { selectWard } from '../_lib/ward-selection'
+import { renderNoLinkedWardsState, renderWardNotFoundState } from '../_lib/parent-states'
 
 interface PageProps {
   searchParams: Promise<{ ward?: string }>
@@ -21,25 +23,14 @@ export default async function ParentResultsPage({ searchParams }: PageProps) {
   const { wards } = await requireParent()
 
   if (wards.length === 0) {
-    return (
-      <div className="rounded-lg border bg-amber-50 p-6 text-amber-800">
-        <h1 className="text-lg font-semibold">No Linked Students</h1>
-        <p className="mt-2 text-sm">You do not have any wards linked to your account. Please contact your school administrator.</p>
-      </div>
-    )
+    return renderNoLinkedWardsState()
   }
 
   // Get selected ward or default to primary/first
-  const wardId = params.ward || wards.find(w => w.is_primary)?.student.id || wards[0].student.id
-  const selectedWard = wards.find(w => w.student.id === wardId)
+  const { selectedWard } = selectWard(wards, params.ward)
 
   if (!selectedWard) {
-    return (
-      <div className="rounded-lg border bg-red-50 p-6 text-red-800">
-        <h1 className="text-lg font-semibold">Ward not found</h1>
-        <p className="mt-2 text-sm">The selected ward was not found.</p>
-      </div>
-    )
+    return renderWardNotFoundState()
   }
 
   const student = selectedWard.student
@@ -214,7 +205,7 @@ export default async function ParentResultsPage({ searchParams }: PageProps) {
                     <TableRow key={score.id} className="hover:bg-gray-50">
                       <TableCell className="font-medium">
                         <Link
-                          href={`/results/${score.id}${params.ward ? `?ward=${params.ward}` : ''}`}
+                          href={`/parent/results/${score.id}${params.ward ? `?ward=${params.ward}` : ''}`}
                           className="text-purple-600 hover:text-purple-700 hover:underline"
                         >
                           {score.subjects?.name || 'Unknown Subject'}

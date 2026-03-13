@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Download, FileText } from 'lucide-react'
 import Link from 'next/link'
+import { selectWard } from '../_lib/ward-selection'
+import { renderNoLinkedWardsState, renderWardNotFoundState } from '../_lib/parent-states'
 
 interface PageProps {
   searchParams: Promise<{ ward?: string }>
@@ -15,25 +17,14 @@ export default async function ParentDownloadsPage({ searchParams }: PageProps) {
   const { wards } = await requireParent()
 
   if (wards.length === 0) {
-    return (
-      <div className="rounded-lg border bg-amber-50 p-6 text-amber-800">
-        <h1 className="text-lg font-semibold">No Linked Students</h1>
-        <p className="mt-2 text-sm">You do not have any wards linked to your account. Please contact your school administrator.</p>
-      </div>
-    )
+    return renderNoLinkedWardsState()
   }
 
   // Get selected ward or default to primary/first
-  const wardId = params.ward || wards.find(w => w.is_primary)?.student.id || wards[0].student.id
-  const selectedWard = wards.find(w => w.student.id === wardId)
+  const { selectedWard } = selectWard(wards, params.ward)
 
   if (!selectedWard) {
-    return (
-      <div className="rounded-lg border bg-red-50 p-6 text-red-800">
-        <h1 className="text-lg font-semibold">Ward not found</h1>
-        <p className="mt-2 text-sm">The selected ward was not found.</p>
-      </div>
-    )
+    return renderWardNotFoundState()
   }
 
   const student = selectedWard.student
@@ -58,7 +49,7 @@ export default async function ParentDownloadsPage({ searchParams }: PageProps) {
   const currentSession = currentSessionData as { id: string; academic_year: string; term: number } | null
 
   // Fetch all past sessions with data for this ward
-  const { data: pastSessionsData } = await supabase
+  const { data: allSessionsWithData } = await supabase
     .from('student_aggregates')
     .select(`
       session_id,
@@ -68,15 +59,24 @@ export default async function ParentDownloadsPage({ searchParams }: PageProps) {
       )
     `)
     .eq('student_id', student.id)
-    .neq('session_id', currentSession?.id || '')
     .order('academic_sessions(academic_year)', { ascending: false })
     .order('academic_sessions(term)', { ascending: false })
 
-  const pastSessions = (pastSessionsData || []).map((record: any) => ({
+  const normalizedSessions = (allSessionsWithData || []).map((record: any) => ({
     session_id: record.session_id,
     academic_year: record.academic_sessions?.academic_year || '',
     term: record.academic_sessions?.term || 0,
   }))
+
+  const uniqueSessions = Array.from(
+    new Map(normalizedSessions.map((session) => [session.session_id, session])).values()
+  )
+
+  const currentReportReady = currentSession
+    ? uniqueSessions.some((session) => session.session_id === currentSession.id)
+    : false
+
+  const pastSessions = uniqueSessions.filter((session) => session.session_id !== currentSession?.id)
 
   return (
     <div className="space-y-6">
@@ -109,18 +109,27 @@ export default async function ParentDownloadsPage({ searchParams }: PageProps) {
                   <p className="font-medium text-gray-900">
                     {studentName} - {currentSession.academic_year} Term {currentSession.term}
                   </p>
-                  <p className="text-sm text-gray-500">Term Report Card</p>
+                  <p className="text-sm text-gray-500">
+                    {currentReportReady ? 'Term Report Card is ready' : 'Report not generated yet for this term'}
+                  </p>
                 </div>
               </div>
-              <Link
-                href={`/api/parent/report?session_id=${currentSession.id}&ward_id=${student.id}`}
-                target="_blank"
-              >
-                <Button variant="outline" size="sm">
+              {currentReportReady ? (
+                <Link
+                  href={`/api/parent/report?session_id=${currentSession.id}&ward_id=${student.id}`}
+                  target="_blank"
+                >
+                  <Button variant="outline" size="sm">
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PDF
+                  </Button>
+                </Link>
+              ) : (
+                <Button variant="outline" size="sm" disabled>
                   <Download className="mr-2 h-4 w-4" />
-                  Download PDF
+                  Not available
                 </Button>
-              </Link>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -179,33 +179,22 @@ export class AuthService {
 
   // Parent login with Parent Name + Ward Admission Number and optional School verification
   static async loginParent(parentName: string, wardAdmissionNumber: string, password: string, schoolId?: string): Promise<AuthResult> {
-    // Build query to find parent by name and verify ward connection
-    let query = supabase
-      .from('user_profiles')
-      .select(`
-        *,
-        schools(id, name),
-        parent_student_relationships!inner(
-          student:students!inner(
-            admission_number,
-            school_id,
-            user_profiles!inner(full_name)
-          )
-        )
-      `)
-      .eq('role', 'parent')
-      .eq('full_name', parentName)
-      .eq('parent_student_relationships.student.admission_number', wardAdmissionNumber)
+    const lookupResponse = await fetch('/api/auth/parent-lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        parentName: parentName.trim(),
+        wardAdmissionNumber: wardAdmissionNumber.trim(),
+        schoolId,
+      }),
+    })
 
-    // If school ID provided, filter by it
-    if (schoolId) {
-      query = query.eq('parent_student_relationships.student.school_id', schoolId)
+    if (!lookupResponse.ok) {
+      throw new Error('Failed to look up parent credentials')
     }
 
-    const { data: parentProfiles, error: parentError } = await query
-
-    if (parentError) {
-      throw new Error('Failed to look up parent credentials')
+    const { profiles: parentProfiles } = (await lookupResponse.json()) as {
+      profiles: Partial<UserProfile & { schools?: { id: string; name: string } }>[]
     }
 
     if (!parentProfiles || parentProfiles.length === 0) {
@@ -215,10 +204,8 @@ export class AuthService {
     // If multiple schools found and no schoolId provided, ask user to select
     if (parentProfiles.length > 1 && !schoolId) {
       const schools = (parentProfiles as any[]).map((p) => {
-        const rel = (p.parent_student_relationships as any[])?.[0]
-        const studentSchoolId = rel?.student?.school_id
         return {
-          id: studentSchoolId,
+          id: p.school_id,
           name: (p.schools as any)?.name || 'Unknown School',
         }
       })
