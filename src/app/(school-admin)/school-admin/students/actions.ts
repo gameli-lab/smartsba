@@ -230,7 +230,7 @@ export async function createStudent(input: CreateStudentInput) {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: studentError } = await (adminSupabase as any)
+    const { data: insertedStudent, error: studentError } = await (adminSupabase as any)
       .from('students')
       .insert({
         user_id: userId,
@@ -247,6 +247,8 @@ export async function createStudent(input: CreateStudentInput) {
         admission_date: input.admission_date,
         is_active: true,
       })
+      .select('id, user_id, school_id, admission_number')
+      .single()
 
     if (studentError) {
       console.error('Rollback: deleting auth user after student error', studentError)
@@ -254,14 +256,25 @@ export async function createStudent(input: CreateStudentInput) {
       return { success: false, error: 'Failed to create student record' }
     }
 
+    if (!insertedStudent || insertedStudent.user_id !== userId || insertedStudent.school_id !== schoolId) {
+      console.error('Student insert verification failed, rolling back user', {
+        expectedUserId: userId,
+        expectedSchoolId: schoolId,
+        insertedStudent,
+      })
+      await adminSupabase.auth.admin.deleteUser(userId)
+      return { success: false, error: 'Student record was not persisted. Please try again.' }
+    }
+
     // Revalidate after successful creation, but catch any errors to avoid breaking the response
     try {
       revalidatePath('/school-admin/students')
+      revalidatePath('/school-admin')
     } catch (revalidateError) {
       console.warn('Warning: revalidatePath failed (this may be expected):', revalidateError)
     }
 
-    return { success: true, tempPassword }
+    return { success: true, tempPassword, studentId: insertedStudent.id }
   } catch (error) {
     console.error('Error in createStudent:', error)
     return { success: false, error: 'An unexpected error occurred' }

@@ -1,5 +1,5 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
+import { createAdminSupabaseClient } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -9,11 +9,18 @@ interface CountResult {
   error?: string | null
 }
 
-async function getCount(table: string, schoolId: string): Promise<CountResult> {
-  const { count, error } = await supabase
+async function getCount(table: string, schoolId: string, options?: { activeOnly?: boolean }): Promise<CountResult> {
+  const supabase = createAdminSupabaseClient()
+  let query = supabase
     .from(table)
     .select('*', { count: 'exact', head: true })
     .eq('school_id', schoolId)
+
+  if (options?.activeOnly) {
+    query = query.eq('is_active', true)
+  }
+
+  const { count, error } = await query
 
   if (error) return { count: 0, error: error.message }
   return { count: count || 0 }
@@ -22,10 +29,11 @@ async function getCount(table: string, schoolId: string): Promise<CountResult> {
 export default async function DashboardPage() {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
+  const supabase = createAdminSupabaseClient()
 
   // Fetch counts
   const [studentsCount, teachersCount, classesCount, subjectsCount] = await Promise.all([
-    getCount('students', schoolId),
+    getCount('students', schoolId, { activeOnly: true }),
     getCount('teachers', schoolId),
     getCount('classes', schoolId),
     getCount('subjects', schoolId),

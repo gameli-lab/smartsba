@@ -132,23 +132,17 @@ export class AuthService {
       throw new Error('Admission number is required')
     }
 
-    // Build query to find student by admission_number
-    let query = supabase
-      .from('user_profiles')
-      .select('*, schools(id, name)')
-      .ilike('admission_number', normalizedAdmission)
-      .eq('role', 'student')
+    const lookupResponse = await fetch('/api/auth/student-lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admissionNumber: normalizedAdmission, schoolId }),
+    })
 
-    // If school ID provided, filter by it
-    if (schoolId) {
-      query = query.eq('school_id', schoolId)
-    }
-
-    const { data: profiles, error: profileError } = await query
-
-    if (profileError) {
+    if (!lookupResponse.ok) {
       throw new Error('Failed to look up student credentials')
     }
+
+    const { profiles } = (await lookupResponse.json()) as { profiles: Partial<UserProfile & { schools?: { id: string; name: string } }>[] }
 
     if (!profiles || profiles.length === 0) {
       throw new Error('Invalid student credentials')
@@ -452,7 +446,7 @@ export async function requireTeacher(): Promise<TeacherGuardResult> {
   const { data: teacherRow } = await serverSupabase
     .from('teachers')
     .select('*')
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .single()
 
   if (!teacherRow || (teacherRow as Teacher).school_id !== profile.school_id) {

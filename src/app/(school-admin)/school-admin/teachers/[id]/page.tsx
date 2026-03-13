@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { createServerComponentClient } from '@/lib/supabase'
+import { createAdminSupabaseClient } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,38 +21,39 @@ interface AssignmentRow {
   subjects?: { id: string; name: string; code?: string | null } | null
 }
 
+interface TeacherBaseRow extends Teacher {
+  user_id: string
+}
+
 export default async function TeacherDetailPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
-  const supabase = await createServerComponentClient()
-  const teacherId = params.id
+  const supabase = createAdminSupabaseClient()
+  const { id: teacherId } = await params
 
-  const [{ data: teacherRow }, { data: assignmentsData }] = await Promise.all([
+  const { data: teacherBaseData } = await supabase
+    .from('teachers')
+    .select('*')
+    .eq('id', teacherId)
+    .eq('school_id', schoolId)
+    .maybeSingle()
+
+  const teacherBase = teacherBaseData as TeacherBaseRow | null
+
+  if (!teacherBase) {
+    return notFound()
+  }
+
+  const [{ data: profileRow }, { data: assignmentsData }] = await Promise.all([
     supabase
-      .from('teachers')
-      .select(
-        `
-        *,
-        user_profile:user_profiles!inner(
-          id,
-          full_name,
-          email,
-          staff_id,
-          phone,
-          gender,
-          date_of_birth,
-          address,
-          status
-        )
-      `
-      )
-      .eq('id', teacherId)
-      .eq('school_id', schoolId)
-      .single(),
+      .from('user_profiles')
+      .select('id, user_id, full_name, email, staff_id, phone, gender, date_of_birth, address, status, school_id, role, created_at, updated_at')
+      .eq('user_id', teacherBase.user_id)
+      .maybeSingle(),
     supabase
       .from('teacher_assignments')
       .select(
@@ -70,7 +71,13 @@ export default async function TeacherDetailPage({
       .order('created_at', { ascending: false }),
   ])
 
-  const teacher = teacherRow as TeacherWithProfile | null
+  const teacher = profileRow
+    ? ({
+        ...teacherBase,
+        user_profile: profileRow as UserProfile,
+      } as TeacherWithProfile)
+    : null
+
   if (!teacher) {
     return notFound()
   }

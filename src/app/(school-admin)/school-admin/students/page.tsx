@@ -9,8 +9,8 @@ import { StudentsFilters } from '@/app/(school-admin)/school-admin/students/stud
 import type { Student, UserProfile, Class } from '@/types'
 
 interface StudentWithRelations extends Student {
-  user_profile: UserProfile
-  classes: Class
+  user_profile: UserProfile | null
+  classes: Class | null
 }
 
 export const dynamic = 'force-dynamic'
@@ -75,25 +75,18 @@ export default async function StudentsPage(props: {
   const classesMap = new Map(classes.map(c => [c.id, c]))
 
   // Combine data manually
-  const studentsWithRelations: StudentWithRelations[] = students
-    .map(student => {
-      const user_profile = profilesMap.get(student.user_id)
-      const studentClass = classesMap.get(student.class_id)
-      if (!user_profile || !studentClass) return null
-      return {
-        ...student,
-        user_profile,
-        classes: studentClass
-      }
-    })
-    .filter(Boolean) as StudentWithRelations[]
+  const studentsWithRelations: StudentWithRelations[] = students.map(student => ({
+    ...student,
+    user_profile: profilesMap.get(student.user_id) ?? null,
+    classes: student.class_id ? classesMap.get(student.class_id) ?? null : null,
+  }))
 
   // Apply search filter on the combined data
   const search = searchParams.search as string | undefined
   const filteredStudents = search
     ? studentsWithRelations.filter(s =>
-        s.user_profile.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-        s.user_profile.admission_number?.toLowerCase().includes(search.toLowerCase())
+        s.user_profile?.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+        s.admission_number?.toLowerCase().includes(search.toLowerCase())
       )
     : studentsWithRelations
 

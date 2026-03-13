@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
-import { createServerComponentClient } from '@/lib/supabase'
+import { createAdminSupabaseClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -42,44 +42,46 @@ interface AggregateRow {
   academic_sessions?: { id: string; academic_year: string; term: number } | null
 }
 
+interface StudentBaseRow extends Student {
+  user_id: string
+  class_id: string
+}
+
 export default async function StudentDetailPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
-  const supabase = await createServerComponentClient()
-  const studentId = params.id
+  const supabase = createAdminSupabaseClient()
+  const { id: studentId } = await params
 
-  const [studentRes, parentsRes, promotionRes, aggregatesRes] = await Promise.all([
+  const { data: studentBaseData } = await supabase
+    .from('students')
+    .select('*')
+    .eq('id', studentId)
+    .eq('school_id', schoolId)
+    .maybeSingle()
+
+  const studentBase = studentBaseData as StudentBaseRow | null
+
+  if (!studentBase) {
+    return notFound()
+  }
+
+  const [profileRes, classRes, parentsRes, promotionRes, aggregatesRes] = await Promise.all([
     supabase
-      .from('students')
-      .select(
-        `
-        *,
-        user_profile:user_profiles!inner(
-          id,
-          full_name,
-          email,
-          admission_number,
-          phone,
-          address,
-          gender,
-          date_of_birth,
-          status
-        ),
-        classes!inner(
-          id,
-          name,
-          level,
-          stream
-        )
-      `
-      )
-      .eq('id', studentId)
+      .from('user_profiles')
+      .select('id, user_id, full_name, email, admission_number, phone, address, gender, date_of_birth, status, school_id, role, created_at, updated_at')
+      .eq('user_id', studentBase.user_id)
+      .maybeSingle(),
+    supabase
+      .from('classes')
+      .select('id, school_id, name, level, stream, description, class_teacher_id, created_at, updated_at')
+      .eq('id', studentBase.class_id)
       .eq('school_id', schoolId)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('parent_student_links')
       .select(
@@ -136,7 +138,17 @@ export default async function StudentDetailPage({
       .order('session_id', { ascending: false }),
   ])
 
-  const student = studentRes.data as StudentWithRelations | null
+  const userProfile = profileRes.data as UserProfile | null
+  const studentClass = classRes.data as Class | null
+
+  const student = userProfile && studentClass
+    ? ({
+        ...studentBase,
+        user_profile: userProfile,
+        classes: studentClass,
+      } as StudentWithRelations)
+    : null
+
   if (!student) {
     return notFound()
   }

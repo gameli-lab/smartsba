@@ -19,8 +19,8 @@ import { EditStudentDialog } from '@/app/(school-admin)/school-admin/students/ed
 import type { Student, UserProfile, Class } from '@/types'
 
 interface StudentRow extends Student {
-  user_profile: UserProfile
-  classes: Class
+  user_profile: UserProfile | null
+  classes: Class | null
 }
 
 interface Props {
@@ -77,15 +77,21 @@ export function StudentsList({ students, classes }: Props) {
             {students.map((student) => (
               <TableRow key={student.id}>
                 <TableCell className="font-medium">
-                  {student.user_profile.full_name}
-                  <div className="text-xs text-gray-500">{student.user_profile.email}</div>
+                  {student.user_profile?.full_name || 'Unnamed student'}
+                  <div className="text-xs text-gray-500">{student.user_profile?.email || 'No email available'}</div>
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline">{student.admission_number}</Badge>
                 </TableCell>
                 <TableCell>
-                  <div className="font-medium">{student.classes.name}</div>
-                  <div className="text-xs text-gray-500">Level {student.classes.level}{student.classes.stream ? ` • ${student.classes.stream}` : ''}</div>
+                  {student.classes ? (
+                    <>
+                      <div className="font-medium">{student.classes.name}</div>
+                      <div className="text-xs text-gray-500">Level {student.classes.level}{student.classes.stream ? ` • ${student.classes.stream}` : ''}</div>
+                    </>
+                  ) : (
+                    <span className="text-sm text-gray-500">Unassigned</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-sm text-gray-600">
                   {student.gender === 'male' ? 'Male' : 'Female'}
@@ -121,7 +127,8 @@ export function StudentsList({ students, classes }: Props) {
                       size="icon"
                       className="h-8 w-8"
                       onClick={() => setEditingStudent(student)}
-                      disabled={loadingId === student.id}
+                      disabled={loadingId === student.id || !student.user_profile}
+                      title={student.user_profile ? 'Edit student' : 'Student profile data is missing'}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -138,7 +145,7 @@ export function StudentsList({ students, classes }: Props) {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-red-600 hover:bg-red-50"
-                      onClick={() => handleDelete(student.id, student.user_profile.full_name)}
+                      onClick={() => handleDelete(student.id, student.user_profile?.full_name || student.admission_number)}
                       disabled={loadingId === student.id}
                     >
                       <Trash2 className="h-4 w-4" />

@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Loader2, Plus, Check, Copy } from 'lucide-react'
 import { createStudent } from './actions'
+import { useRouter } from 'next/navigation'
 import type { Class } from '@/types'
 
 interface Props {
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function CreateStudentDialog({ classes }: Props) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -62,6 +64,9 @@ export function CreateStudentDialog({ classes }: Props) {
       setError(result.error || 'Failed to create student')
       return
     }
+
+    // Ensure the list reflects what is persisted in the database
+    router.refresh()
 
     if (result.tempPassword) {
       setTempPassword(result.tempPassword)

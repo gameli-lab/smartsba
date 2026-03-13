@@ -1,4 +1,5 @@
 import { createBrowserClient, createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/supabase'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -90,21 +91,11 @@ export function createAdminSupabaseClient() {
     )
   }
 
-  return createServerClient<Database>(
-    url as string,
-    serviceRoleKey,
-    {
-      cookies: {
-        get() {
-          return undefined
-        },
-        set() {
-          // No-op in server environment
-        },
-        remove() {
-          // No-op in server environment
-        },
-      },
-    }
-  )
+  return createClient<Database>(url as string, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  })
 }

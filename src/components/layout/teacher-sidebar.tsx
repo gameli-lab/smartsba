@@ -10,6 +10,7 @@ import {
   X,
   LayoutDashboard,
   Users,
+  CalendarCheck,
   BookOpen,
   ClipboardList,
   FileText,
@@ -25,6 +26,7 @@ interface SidebarItem {
 
 const items: SidebarItem[] = [
   { href: '/teacher', label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
+  { href: '/teacher/attendance', label: 'Attendance', icon: <CalendarCheck className="h-5 w-5" /> },
   { href: '/teacher/classes', label: 'My Classes', icon: <Users className="h-5 w-5" /> },
   { href: '/teacher/subjects', label: 'My Subjects', icon: <BookOpen className="h-5 w-5" /> },
   { href: '/teacher/assessments', label: 'Assessments & Scores', icon: <ClipboardList className="h-5 w-5" /> },

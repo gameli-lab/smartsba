@@ -19,8 +19,8 @@ import { updateStudent } from './actions'
 import type { Student, UserProfile, Class } from '@/types'
 
 interface StudentWithRelations extends Student {
-  user_profile: UserProfile
-  classes: Class
+  user_profile: UserProfile | null
+  classes: Class | null
 }
 
 interface Props {
@@ -34,7 +34,11 @@ export function EditStudentDialog({ student, classes, open, onOpenChange }: Prop
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [gender, setGender] = useState<'male' | 'female' | ''>(student.gender || '')
-  const [classId, setClassId] = useState(student.class_id)
+  const [classId, setClassId] = useState<string>(student.class_id || '')
+
+  if (!student.user_profile) {
+    return null
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -55,7 +59,7 @@ export function EditStudentDialog({ student, classes, open, onOpenChange }: Prop
       guardian_name: (formData.get('guardian_name') as string) || undefined,
       guardian_phone: (formData.get('guardian_phone') as string) || undefined,
       guardian_email: (formData.get('guardian_email') as string) || undefined,
-      class_id: classId,
+      class_id: classId || undefined,
     })
 
     setIsSubmitting(false)
@@ -94,7 +98,7 @@ export function EditStudentDialog({ student, classes, open, onOpenChange }: Prop
             </div>
             <div className="space-y-2">
               <Label>Class</Label>
-              <Select value={classId} onValueChange={setClassId}>
+              <Select value={classId || undefined} onValueChange={setClassId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select class" />
                 </SelectTrigger>

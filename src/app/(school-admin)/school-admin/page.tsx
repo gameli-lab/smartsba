@@ -1,5 +1,5 @@
 import { requireSchoolAdmin } from '@/lib/auth'
-import { createServerComponentClient } from '@/lib/supabase'
+import { createAdminSupabaseClient, createServerComponentClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
@@ -116,6 +116,7 @@ export default async function SchoolAdminPage() {
  * Displays key metrics for immediate situational awareness
  */
 async function OperationalKPIs({ schoolId, currentTerm }: { schoolId: string; currentTerm: number }) {
+  const adminSupabase = createAdminSupabaseClient()
   const supabase = await createServerComponentClient()
 
   // Fetch all KPI data in parallel
@@ -128,7 +129,7 @@ async function OperationalKPIs({ schoolId, currentTerm }: { schoolId: string; cu
     // TODO: Calculate pending promotions from grading_promotion table
   ] = await Promise.all([
     // Total Students (active only)
-    supabase
+    adminSupabase
       .from('students')
       .select('id', { count: 'exact', head: true })
       .eq('school_id', schoolId)
