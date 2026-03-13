@@ -395,7 +395,7 @@ export async function promoteGuardianFromStudent(studentId: string) {
     const supabase = await createServerComponentClient()
     const adminSupabase = createAdminSupabaseClient()
 
-    const { data: studentRow } = await supabase
+    const { data: studentRow } = await adminSupabase
       .from('students')
       .select('id, school_id, guardian_name, guardian_email, guardian_phone')
       .eq('id', studentId)
@@ -486,7 +486,7 @@ export async function promoteGuardianFromStudent(studentId: string) {
     const studentIdsToLink = new Set<string>([student.id])
 
     if (guardianEmail) {
-      const { data } = await supabase
+      const { data } = await adminSupabase
         .from('students')
         .select('id')
         .eq('school_id', schoolId)
@@ -495,7 +495,7 @@ export async function promoteGuardianFromStudent(studentId: string) {
     }
 
     if (guardianPhone) {
-      const { data } = await supabase
+      const { data } = await adminSupabase
         .from('students')
         .select('id')
         .eq('school_id', schoolId)
@@ -505,7 +505,7 @@ export async function promoteGuardianFromStudent(studentId: string) {
 
     const linkTargets = Array.from(studentIdsToLink)
 
-    const { data: existingLinks } = await supabase
+    const { data: existingLinks } = await adminSupabase
       .from('parent_student_links')
       .select('student_id')
       .eq('parent_id', parentProfileId)
@@ -567,8 +567,9 @@ export async function findGuardianParentCandidates(studentId: string) {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const supabase = await createServerComponentClient()
+    const adminSupabase = createAdminSupabaseClient()
 
-    const { data: studentRow } = await supabase
+    const { data: studentRow } = await adminSupabase
       .from('students')
       .select('id, school_id, guardian_name, guardian_email, guardian_phone')
       .eq('id', studentId)
@@ -593,7 +594,7 @@ export async function findGuardianParentCandidates(studentId: string) {
     const candidates = new Map<string, ParentProfileLite>()
 
     if (guardianEmail) {
-      const { data } = await supabase
+      const { data } = await adminSupabase
         .from('user_profiles')
         .select('id, user_id, full_name, email, phone')
         .eq('role', 'parent')
@@ -603,7 +604,7 @@ export async function findGuardianParentCandidates(studentId: string) {
     }
 
     if (guardianPhone) {
-      const { data } = await supabase
+      const { data } = await adminSupabase
         .from('user_profiles')
         .select('id, user_id, full_name, email, phone')
         .eq('role', 'parent')
@@ -613,7 +614,7 @@ export async function findGuardianParentCandidates(studentId: string) {
     }
 
     if (guardianName) {
-      const { data } = await supabase
+      const { data } = await adminSupabase
         .from('user_profiles')
         .select('id, user_id, full_name, email, phone')
         .eq('role', 'parent')
@@ -637,13 +638,13 @@ export async function linkStudentGuardianToParent(studentId: string, parentProfi
     const adminSupabase = createAdminSupabaseClient()
 
     const [{ data: studentRow }, { data: parentRow }] = await Promise.all([
-      supabase
+      adminSupabase
         .from('students')
         .select('id, school_id, guardian_email, guardian_phone')
         .eq('id', studentId)
         .eq('school_id', schoolId)
         .maybeSingle(),
-      supabase
+      adminSupabase
         .from('user_profiles')
         .select('id, role')
         .eq('id', parentProfileId)
@@ -657,7 +658,7 @@ export async function linkStudentGuardianToParent(studentId: string, parentProfi
 
     const targets = new Set<string>([student.id])
     if (student.guardian_email) {
-      const { data } = await supabase
+      const { data } = await adminSupabase
         .from('students')
         .select('id')
         .eq('school_id', schoolId)
@@ -665,7 +666,7 @@ export async function linkStudentGuardianToParent(studentId: string, parentProfi
       ;(data || []).forEach((row: { id: string }) => targets.add(row.id))
     }
     if (student.guardian_phone) {
-      const { data } = await supabase
+      const { data } = await adminSupabase
         .from('students')
         .select('id')
         .eq('school_id', schoolId)
@@ -674,7 +675,7 @@ export async function linkStudentGuardianToParent(studentId: string, parentProfi
     }
 
     const targetIds = Array.from(targets)
-    const { data: existingLinks } = await supabase
+    const { data: existingLinks } = await adminSupabase
       .from('parent_student_links')
       .select('student_id')
       .eq('parent_id', parentProfileId)
@@ -723,7 +724,7 @@ export async function syncGuardianSnapshotToLinkedParents(studentId: string) {
     const supabase = await createServerComponentClient()
     const adminSupabase = createAdminSupabaseClient()
 
-    const { data: studentRow } = await supabase
+    const { data: studentRow } = await adminSupabase
       .from('students')
       .select('id, school_id, guardian_name, guardian_phone')
       .eq('id', studentId)
@@ -733,7 +734,7 @@ export async function syncGuardianSnapshotToLinkedParents(studentId: string) {
     const student = studentRow as { id: string; guardian_name: string | null; guardian_phone: string | null } | null
     if (!student) return { success: false, error: 'Student not found.' }
 
-    const { data: linkRows } = await supabase
+    const { data: linkRows } = await adminSupabase
       .from('parent_student_links')
       .select('parent_id')
       .eq('student_id', studentId)
@@ -747,7 +748,7 @@ export async function syncGuardianSnapshotToLinkedParents(studentId: string) {
     let updated = 0
 
     for (const parentId of parentIds) {
-      const { data: parentRaw } = await supabase
+      const { data: parentRaw } = await adminSupabase
         .from('user_profiles')
         .select('id, full_name, phone')
         .eq('id', parentId)

@@ -51,8 +51,9 @@ export async function POST(req: Request) {
       if (!wardAdmissionNumber) {
         return NextResponse.json({ error: 'Ward Admission Number is required for parent password reset requests.' }, { status: 400 });
       }
+      const normalizedIdentifier = String(identifier).trim().toLowerCase()
       // For parents, we need to join with parent_student_relationships and students
-      const { data: parentData, error: parentError } = await supabaseAdmin
+      const { data: parentRows, error: parentError } = await supabaseAdmin
         .from('user_profiles')
         .select(`
           id,
@@ -69,16 +70,24 @@ export async function POST(req: Request) {
           )
         `)
         .eq('role', 'parent')
-        .eq('full_name', identifier)
         .eq('parent_student_relationships.student.admission_number', wardAdmissionNumber)
         .eq('parent_student_relationships.student.school_id', schoolId) // Ensure ward is in the selected school
-        .limit(1)
-        .single();
+        .limit(20);
 
-      if (parentError || !parentData) {
+      if (parentError || !parentRows?.length) {
         console.error('Parent profile not found or ward mismatch:', parentError);
         return NextResponse.json({ error: 'Parent not found, ward admission number incorrect, or ward does not belong to the selected school.' }, { status: 404 });
       }
+      const parentData = parentRows.find((row) => {
+        const fullName = typeof row.full_name === 'string' ? row.full_name.trim().toLowerCase() : ''
+        const email = typeof row.email === 'string' ? row.email.trim().toLowerCase() : ''
+        return fullName === normalizedIdentifier || email === normalizedIdentifier
+      })
+
+      if (!parentData) {
+        return NextResponse.json({ error: 'Parent not found, ward admission number incorrect, or ward does not belong to the selected school.' }, { status: 404 });
+      }
+
       // Reassign to userProfile for consistent processing
       // Note: The 'school_id' directly on parent_profile might be null, but we've verified through the ward's school_id
       const parentRow = parentData as unknown as {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +13,9 @@ interface StudentOption {
   id: string
   name: string
   admission_number: string
+  guardian_name?: string | null
+  guardian_email?: string | null
+  guardian_phone?: string | null
 }
 
 interface Props {
@@ -27,10 +30,76 @@ export function CreateParentDialog({ students }: Props) {
   const [tempPassword, setTempPassword] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [relationship, setRelationship] = useState('Guardian')
+  const [manualOverride, setManualOverride] = useState(false)
 
   const toggleStudent = (id: string) => {
-    setSelectedStudents((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]))
+    setSelectedStudents((prev) => {
+      const next = prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
+      return next
+    })
   }
+
+  const selectedGuardianSource = useMemo(() => {
+    for (let i = selectedStudents.length - 1; i >= 0; i -= 1) {
+      const student = students.find((s) => s.id === selectedStudents[i])
+      if (!student) continue
+      if (student.guardian_name || student.guardian_email || student.guardian_phone) {
+        return student
+      }
+    }
+    return null
+  }, [selectedStudents, students])
+
+  const singleSelectedStudent = useMemo(() => {
+    if (selectedStudents.length !== 1) return null
+    return students.find((s) => s.id === selectedStudents[0]) || null
+  }, [selectedStudents, students])
+
+  const enforceSingleGuardian = Boolean(
+    singleSelectedStudent &&
+      (singleSelectedStudent.guardian_name || singleSelectedStudent.guardian_email || singleSelectedStudent.guardian_phone)
+  )
+
+  const fieldsLockedByGuardian = enforceSingleGuardian && !manualOverride
+
+  const applySelectedGuardianInfo = () => {
+    if (!selectedGuardianSource) return
+    setFullName(selectedGuardianSource.guardian_name || '')
+    setEmail(selectedGuardianSource.guardian_email || '')
+    setPhone(selectedGuardianSource.guardian_phone || '')
+    setRelationship('Guardian')
+  }
+
+  useEffect(() => {
+    if (!selectedGuardianSource || manualOverride) return
+    if (!fullName && selectedGuardianSource.guardian_name) {
+      setFullName(selectedGuardianSource.guardian_name)
+    }
+    if (!email && selectedGuardianSource.guardian_email) {
+      setEmail(selectedGuardianSource.guardian_email)
+    }
+    if (!phone && selectedGuardianSource.guardian_phone) {
+      setPhone(selectedGuardianSource.guardian_phone)
+    }
+  }, [selectedGuardianSource, fullName, email, phone, manualOverride])
+
+  useEffect(() => {
+    if (!enforceSingleGuardian) {
+      setManualOverride(false)
+      return
+    }
+
+    if (!manualOverride && singleSelectedStudent) {
+      setFullName(singleSelectedStudent.guardian_name || '')
+      setEmail(singleSelectedStudent.guardian_email || '')
+      setPhone(singleSelectedStudent.guardian_phone || '')
+      setRelationship('Guardian')
+    }
+  }, [enforceSingleGuardian, manualOverride, singleSelectedStudent])
 
   const onSubmit = async (formData: FormData) => {
     setIsSubmitting(true)
@@ -77,6 +146,11 @@ export function CreateParentDialog({ students }: Props) {
     setTempPassword(null)
     setSuccessMessage(null)
     setSelectedStudents([])
+    setFullName('')
+    setEmail('')
+    setPhone('')
+    setRelationship('Guardian')
+    setManualOverride(false)
   }
 
   return (
@@ -106,22 +180,73 @@ export function CreateParentDialog({ students }: Props) {
           </div>
         ) : (
           <form action={onSubmit} className="space-y-4">
+            {selectedGuardianSource && (
+              <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                <p className="font-medium">Guardian details found for selected ward</p>
+                <p className="mt-1 text-blue-700">
+                  Source: {selectedGuardianSource.name} ({selectedGuardianSource.admission_number})
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <Button type="button" variant="outline" onClick={applySelectedGuardianInfo}>
+                    Use this guardian info
+                  </Button>
+                  {enforceSingleGuardian && (
+                    <label className="flex items-center gap-2 text-xs text-blue-700">
+                      <Checkbox
+                        checked={manualOverride}
+                        onCheckedChange={(checked) => setManualOverride(Boolean(checked))}
+                      />
+                      Manual override
+                    </label>
+                  )}
+                </div>
+                {fieldsLockedByGuardian && (
+                  <p className="mt-2 text-xs text-blue-700">
+                    Guardian values are locked for this single selected ward. Enable Manual override to edit.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 space-y-2">
                 <Label>Full Name *</Label>
-                <Input name="full_name" required />
+                <Input
+                  name="full_name"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  readOnly={fieldsLockedByGuardian}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Email *</Label>
-                <Input name="email" type="email" required />
+                <Input
+                  name="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  readOnly={fieldsLockedByGuardian}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Phone</Label>
-                <Input name="phone" />
+                <Input
+                  name="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  readOnly={fieldsLockedByGuardian}
+                />
               </div>
               <div className="col-span-2 space-y-2">
                 <Label>Relationship Label</Label>
-                <Input name="relationship" placeholder="Guardian, Mother, Father..." />
+                <Input
+                  name="relationship"
+                  placeholder="Guardian, Mother, Father..."
+                  value={relationship}
+                  onChange={(e) => setRelationship(e.target.value)}
+                />
               </div>
             </div>
 

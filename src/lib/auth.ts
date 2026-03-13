@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation'
-import { supabase, createServerComponentClient } from './supabase'
+import { supabase, createServerComponentClient, createAdminSupabaseClient } from './supabase'
 import { UserRole, UserProfile, Teacher, TeacherAssignment, Student } from '@/types'
 import type { User } from '@supabase/supabase-js'
 
 export interface LoginCredentials {
-  identifier: string // Email, Staff ID, Admission Number, or Parent Name
+  identifier: string // Email, Staff ID, Admission Number, or Parent Name/Email
   password: string
   role: UserRole
   schoolId?: string // School ID for multi-school verification (optional - can be discovered)
@@ -177,7 +177,7 @@ export class AuthService {
     return { user: authUser.user, profile: typedProfile }
   }
 
-  // Parent login with Parent Name + Ward Admission Number and optional School verification
+  // Parent login with Parent Name/Email + Ward Admission Number and optional School verification
   static async loginParent(parentName: string, wardAdmissionNumber: string, password: string, schoolId?: string): Promise<AuthResult> {
     const lookupResponse = await fetch('/api/auth/parent-lookup', {
       method: 'POST',
@@ -193,12 +193,19 @@ export class AuthService {
       throw new Error('Failed to look up parent credentials')
     }
 
-    const { profiles: parentProfiles } = (await lookupResponse.json()) as {
+    const { profiles: parentProfiles, reason } = (await lookupResponse.json()) as {
       profiles: Partial<UserProfile & { schools?: { id: string; name: string } }>[]
+      reason?: 'no_parent_link_for_ward' | 'identifier_not_matching_linked_parent' | 'single_link_parent_fallback' | null
     }
 
     if (!parentProfiles || parentProfiles.length === 0) {
-      throw new Error('Invalid parent credentials or ward not found')
+      if (reason === 'no_parent_link_for_ward') {
+        throw new Error('No parent account is linked to that ward admission number in the selected school')
+      }
+      if (reason === 'identifier_not_matching_linked_parent') {
+        throw new Error('Parent name/email does not match the linked parent account for that ward')
+      }
+      throw new Error('Invalid parent name/email, password, or ward admission number')
     }
 
     // If multiple schools found and no schoolId provided, ask user to select
@@ -224,6 +231,12 @@ export class AuthService {
     })
 
     if (authError) throw authError
+
+    // Ensure we authenticated the exact parent account resolved by lookup.
+    if (typedProfile.user_id !== authUser.user.id) {
+      await supabase.auth.signOut()
+      throw new Error('Resolved parent account does not match authenticated user')
+    }
 
     // Set custom JWT claims for proper authorization
     await AuthService.setUserClaims(authUser.user.id)
@@ -528,21 +541,59 @@ export async function requireParent(): Promise<ParentGuardResult> {
     redirect('/login')
   }
 
-  // Fetch linked students via parent_student_relationships
-  const { data: linksData } = await serverSupabase
-    .from('parent_student_relationships')
-    .select(`
-      relationship,
-      is_primary,
-      student:students(*)
-    `)
+  // Fetch linked students; prefer base table joins to avoid view drift/missing migrations.
+  const { data: linkRows, error: linkError } = await serverSupabase
+    .from('parent_student_links')
+    .select('relationship, is_primary, student:students(*)')
     .eq('parent_id', profile.id)
 
-  const links = (linksData || []) as Array<{
+  let links = (linkRows || []) as Array<{
     relationship: string
     is_primary: boolean
     student: Student
   }>
+
+  if (linkError) {
+    console.warn('requireParent link query failed on parent_student_links, retrying via relationship view', linkError)
+    const { data: fallbackRows } = await serverSupabase
+      .from('parent_student_relationships')
+      .select('relationship, is_primary, student:students(*)')
+      .eq('parent_id', profile.id)
+
+    links = (fallbackRows || []) as Array<{
+      relationship: string
+      is_primary: boolean
+      student: Student
+    }>
+  }
+
+  // Safety net: if session-scoped query unexpectedly returns no links,
+  // verify with admin client so valid parents do not see false "No Linked Students".
+  if (links.length === 0) {
+    const adminSupabase = createAdminSupabaseClient()
+
+    const { data: parentProfileRow } = await adminSupabase
+      .from('user_profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('role', 'parent')
+      .maybeSingle()
+
+    const parentProfile = parentProfileRow as { id: string } | null
+
+    if (parentProfile?.id) {
+      const { data: adminLinks } = await adminSupabase
+        .from('parent_student_links')
+        .select('relationship, is_primary, student:students(*)')
+        .eq('parent_id', parentProfile.id)
+
+      links = (adminLinks || []) as Array<{
+        relationship: string
+        is_primary: boolean
+        student: Student
+      }>
+    }
+  }
 
   const wards = links.map((link) => ({
     student: link.student,

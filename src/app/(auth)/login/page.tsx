@@ -78,7 +78,7 @@ export default function LoginPage() {
       case "student":
         return "Admission Number";
       case "parent":
-        return "Parent Name";
+        return "Parent Name or Email";
       default:
         return "Identifier";
     }
@@ -92,7 +92,7 @@ export default function LoginPage() {
       case "student":
         return "SBA2024001";
       case "parent":
-        return "John Doe";
+        return "John Doe or parent@example.com";
       default:
         return "";
     }
