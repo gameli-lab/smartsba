@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase'
  */
 export async function refreshUserClaims() {
   try {
-    const { user } = await requireSchoolAdmin()
+    await requireSchoolAdmin()
 
     // Call the database function to refresh claims
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -20,8 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AuthService, MultipleSchoolsFoundError, SchoolOption } from "@/lib/auth";
-import { SchoolService, School } from "@/lib/schools";
-import { UserRole } from "@/types";
+import { SchoolService } from "@/lib/schools";
 import {
   Dialog,
   DialogContent,
@@ -33,10 +32,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SchoolSelectionDialog } from "@/components/auth/SchoolSelectionDialog";
-import Link from "next/link";
 
 type AuthRole = "student" | "teacher" | "school_admin" | "parent";
-type AdminRole = "super_admin";
 
 export default function LoginPage() {
   // Main role selection: Auth roles vs Super Admin
@@ -60,10 +57,6 @@ export default function LoginPage() {
   // School Selection Dialog (Smart Discovery)
   const [showSchoolDialog, setShowSchoolDialog] = useState(false);
   const [availableSchools, setAvailableSchools] = useState<SchoolOption[]>([]);
-  const [pendingLoginData, setPendingLoginData] = useState<{
-    role: AuthRole;
-    wardAdmissionNumber?: string;
-  } | null>(null);
   
   // Forgot Password Modal
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
@@ -115,8 +108,8 @@ export default function LoginPage() {
 
   // --- Auth User Login Handler ---
 
-  const handleAuthSubmit = async (e: React.FormEvent, schoolIdOverride?: string) => {
-    e.preventDefault();
+  const handleAuthSubmit = async (e?: React.FormEvent, schoolIdOverride?: string) => {
+    e?.preventDefault();
     setIsLoading(true);
     setError("");
 
@@ -129,7 +122,7 @@ export default function LoginPage() {
 
       // If school provided manually, resolve it
       if (selectedSchool && !schoolIdOverride) {
-        resolvedSchoolId = await SchoolService.resolveSchoolId(selectedSchool);
+        resolvedSchoolId = (await SchoolService.resolveSchoolId(selectedSchool)) ?? undefined;
         if (!resolvedSchoolId) {
           throw new Error(
             "School not found. Enter the exact registered school name or ID."
@@ -174,10 +167,6 @@ export default function LoginPage() {
       if (err instanceof MultipleSchoolsFoundError) {
         // User's identifier is associated with multiple schools - show selection dialog
         setAvailableSchools(err.schools);
-        setPendingLoginData({
-          role: authRole,
-          wardAdmissionNumber: authRole === "parent" ? wardAdmissionNumber : undefined,
-        });
         setShowSchoolDialog(true);
       } else {
         setError(err instanceof Error ? err.message : "Login failed");
@@ -190,8 +179,7 @@ export default function LoginPage() {
   const handleSchoolSelected = async (schoolId: string) => {
     setShowSchoolDialog(false);
     // Retry login with selected school
-    const e = new Event("submit");
-    await handleAuthSubmit(e as any, schoolId);
+    await handleAuthSubmit(undefined, schoolId);
   };
 
   // --- Super Admin Login Handler ---

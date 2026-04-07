@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Calendar, CheckCircle, Edit, Trash2, Circle } from 'lucide-react'
+import { CheckCircle, Edit, Trash2, Circle } from 'lucide-react'
 import { setCurrentSession, deleteAcademicSession } from './actions'
 import { useRouter } from 'next/navigation'
 import { EditSessionDialog } from '@/app/(school-admin)/school-admin/academic-sessions/edit-session-dialog'

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,17 +28,12 @@ interface Props {
 }
 
 export function EditSubjectDialog({ subject, classes, open, onOpenChange }: Props) {
+  void classes
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [levelGroup, setLevelGroup] = useState<string>(subject.level_group)
   const [isCore, setIsCore] = useState(subject.is_core)
-
-  // Get unique levels from classes
-  const uniqueLevels = useMemo(() => {
-    const levels = new Set(classes.map(c => c.level))
-    return Array.from(levels).sort((a, b) => a - b)
-  }, [classes])
 
   useEffect(() => {
     if (open) {

@@ -7,6 +7,20 @@ interface ParentLookupBody {
   schoolId?: string
 }
 
+interface ParentStudentLinkRow {
+  student?: {
+    guardian_name?: string | null
+    guardian_email?: string | null
+  } | null
+}
+
+interface ParentLookupProfile {
+  id: string
+  full_name: string | null
+  email: string | null
+  parent_student_relationships?: ParentStudentLinkRow[] | ParentStudentLinkRow | null
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { parentName, wardAdmissionNumber, schoolId }: ParentLookupBody = await req.json()
@@ -54,7 +68,11 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedLookup = normalizedParentName.toLowerCase()
-    const profiles = Array.from(new Map((parentRows || []).map((profile: any) => [profile.id, profile])).values()).filter((profile: any) => {
+    const dedupedProfiles = Array.from(
+      new Map(((parentRows || []) as ParentLookupProfile[]).map((profile) => [profile.id, profile])).values()
+    )
+
+    const profiles = dedupedProfiles.filter((profile) => {
       const fullName = typeof profile.full_name === 'string' ? profile.full_name.trim().toLowerCase() : ''
       const email = typeof profile.email === 'string' ? profile.email.trim().toLowerCase() : ''
 
@@ -64,7 +82,7 @@ export async function POST(req: NextRequest) {
           ? [profile.parent_student_relationships]
           : []
 
-      const guardianMatch = relationshipRows.some((link: any) => {
+      const guardianMatch = relationshipRows.some((link) => {
         const guardianName = typeof link?.student?.guardian_name === 'string'
           ? link.student.guardian_name.trim().toLowerCase()
           : ''

@@ -4,6 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ScoresTable } from './scores-table'
 import type { AcademicSession, Score } from '@/types'
 
+interface GroupedStudentSubjectScores {
+  student_id: string
+  student_name: string
+  subject_id: string
+  subject_name: string
+  scores: Score[]
+}
+
 export default async function ScoresPage() {
   const { profile } = await requireSchoolAdmin()
   const schoolId = profile.school_id
@@ -57,7 +65,7 @@ export default async function ScoresPage() {
       acc[key].scores.push(score)
       return acc
     },
-    {} as Record<string, any>
+    {} as Record<string, GroupedStudentSubjectScores>
   )
 
   const groupedArray = Object.values(grouped)

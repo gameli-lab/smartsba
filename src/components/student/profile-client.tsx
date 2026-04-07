@@ -58,7 +58,7 @@ export function ProfileClient({ student }: ProfileClientProps) {
       } else {
         setMessage({ type: 'error', text: result.error || 'Failed to submit request.' })
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: 'error', text: 'An error occurred. Please try again.' })
     } finally {
       setLoading(false)

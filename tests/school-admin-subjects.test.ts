@@ -141,7 +141,7 @@ describe('School Admin - Subjects Management', () => {
       const subjectCode = subject.code
 
       if (subjectCode) {
-        const { data: found, error } = await supabase
+        const { error } = await supabase
           .from('subjects')
           .select('id')
           .eq('school_id', SCHOOL_ID)

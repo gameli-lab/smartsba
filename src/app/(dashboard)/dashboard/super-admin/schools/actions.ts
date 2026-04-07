@@ -5,6 +5,38 @@ import { updateSchoolStatus as updateStatus } from '@/lib/school-operations'
 import { sendSchoolStatusChangedEmail } from '@/services/emailService'
 import logAction from '@/lib/audit'
 
+interface UserProfileRow {
+  full_name: string
+  role: string
+}
+
+interface SchoolNameRow {
+  name: string
+}
+
+interface AdminProfileRow {
+  user_id: string
+  full_name: string
+}
+
+interface AdminUserLookup {
+  data: {
+    user: {
+      email?: string | null
+    } | null
+  } | null
+}
+
+interface SupabaseWithAdminLookup {
+  auth: {
+    admin: {
+      getUserById(userId: string): Promise<AdminUserLookup>
+    }
+  }
+}
+
+const supabaseAdmin = supabase as unknown as SupabaseWithAdminLookup
+
 export async function updateSchoolStatusWithEmail(
   schoolId: string,
   newStatus: 'active' | 'inactive',
@@ -18,22 +50,26 @@ export async function updateSchoolStatusWithEmail(
     }
 
     // Get user profile for audit
-    const { data: userProfile } = await supabase
+    const { data: userProfileData } = await supabase
       .from('user_profiles')
       .select('full_name, role')
       .eq('user_id', user.id)
       .single()
+
+    const userProfile = userProfileData as UserProfileRow | null
 
     if (!userProfile) {
       return { error: 'User profile not found', data: null }
     }
 
     // Get school details
-    const { data: school } = await supabase
+    const { data: schoolData } = await supabase
       .from('schools')
       .select('name')
       .eq('id', schoolId)
       .single()
+
+    const school = schoolData as SchoolNameRow | null
 
     if (!school) {
       return { error: 'School not found', data: null }
@@ -48,7 +84,7 @@ export async function updateSchoolStatusWithEmail(
 
     // Get school admin email to notify
     // Type assertion needed until types are regenerated
-    const { data: adminProfile } = await (supabase as any)
+    const { data: adminProfileData } = await supabase
       .from('user_profiles')
       .select('user_id, full_name')
       .eq('school_id', schoolId)
@@ -56,19 +92,22 @@ export async function updateSchoolStatusWithEmail(
       .limit(1)
       .single()
 
+    const adminProfile = adminProfileData as AdminProfileRow | null
+
     if (adminProfile) {
       // Get admin email from auth.users
-      const { data: adminUser } = await (supabase as any).auth.admin.getUserById(adminProfile.user_id)
+      const adminLookup = await supabaseAdmin.auth.admin.getUserById(adminProfile.user_id)
+      const adminUser = adminLookup.data
       
       if (adminUser?.user?.email) {
         // Send email notification (don't await to avoid blocking)
         sendSchoolStatusChangedEmail({
-          schoolName: (school as any).name,
+          schoolName: school.name,
           schoolId,
           adminEmail: adminUser.user.email,
-          adminUserId: (adminProfile as any).user_id,
+          adminUserId: adminProfile.user_id,
           newStatus,
-          changedBy: (userProfile as any).full_name,
+          changedBy: userProfile.full_name,
           reason,
         }).catch(error => {
           console.error('Failed to send status change email:', error)
@@ -85,7 +124,7 @@ export async function updateSchoolStatusWithEmail(
       'school',
       schoolId,
       {
-        school_name: (school as any).name,
+        school_name: school.name,
         new_status: newStatus,
         reason,
       }

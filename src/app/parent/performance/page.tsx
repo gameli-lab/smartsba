@@ -8,6 +8,29 @@ interface PageProps {
   searchParams: Promise<{ ward?: string }>
 }
 
+interface AggregateRecordRow {
+  session_id: string
+  aggregate_score: number | null
+  total_subjects: number | null
+  class_position: number | null
+  academic_sessions: {
+    academic_year: string
+    term: number
+  } | null
+}
+
+interface SubjectTrendRow {
+  subject_id: string
+  total_score: number | null
+  subjects: {
+    name: string
+  } | null
+  academic_sessions: {
+    academic_year: string
+    term: number
+  } | null
+}
+
 export default async function ParentPerformancePage({ searchParams }: PageProps) {
   const params = await searchParams
   const { wards } = await requireParent()
@@ -51,7 +74,7 @@ export default async function ParentPerformancePage({ searchParams }: PageProps)
     .order('academic_sessions(academic_year)', { ascending: false })
     .order('academic_sessions(term)', { ascending: false })
 
-  const records = (performanceData || []).map((record: any) => ({
+  const records = ((performanceData || []) as AggregateRecordRow[]).map((record) => ({
     session_id: record.session_id,
     academic_year: record.academic_sessions?.academic_year || '',
     term: record.academic_sessions?.term || 0,
@@ -77,7 +100,7 @@ export default async function ParentPerformancePage({ searchParams }: PageProps)
     .order('academic_sessions(academic_year)', { ascending: true })
     .order('academic_sessions(term)', { ascending: true })
 
-  const subjectTrendData = (subjectScoresData || []).map((row: any) => ({
+  const subjectTrendData = ((subjectScoresData || []) as SubjectTrendRow[]).map((row) => ({
     subject_id: row.subject_id,
     subject_name: row.subjects?.name || 'Unknown Subject',
     total_score: row.total_score as number | null,

@@ -17,11 +17,37 @@ function getSupabase() {
 interface SystemSetting {
   id: string
   setting_key: string
-  setting_value: any
+  setting_value: unknown
   description: string | null
   category: string
   updated_at: string
   updated_by: string | null
+}
+
+interface SettingProfileRow {
+  role: string
+}
+
+interface CurrentSettingRow {
+  setting_value: unknown
+  category: string
+}
+
+interface LogAuditParams {
+  p_actor_user_id: string
+  p_actor_role: string
+  p_action_type: string
+  p_entity_type: string
+  p_entity_id: string | null
+  p_metadata: Record<string, unknown>
+}
+
+interface AuditRpcClient {
+  rpc(fn: 'log_audit_action', params: LogAuditParams): Promise<{ error: { message?: string } | null }>
+}
+
+function getAuditRpcClient(): AuditRpcClient {
+  return getSupabase() as unknown as AuditRpcClient
 }
 
 export async function getSystemSettings(category?: string): Promise<{
@@ -53,7 +79,7 @@ export async function getSystemSettings(category?: string): Promise<{
 
 export async function updateSystemSetting(
   settingKey: string,
-  settingValue: any,
+  settingValue: unknown,
   userId: string,
   userRole: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -69,7 +95,7 @@ export async function updateSystemSetting(
       .from('user_profiles')
       .select('role')
       .eq('user_id', userId)
-      .single()) as { data: { role: string } | null }
+      .single()) as { data: SettingProfileRow | null }
 
     if (!profile || profile.role !== 'super_admin') {
       console.log('User is not super_admin:', profile)
@@ -81,22 +107,22 @@ export async function updateSystemSetting(
       .from('system_settings')
       .select('setting_value, category')
       .eq('setting_key', settingKey)
-      .single()) as { data: { setting_value: any; category: string } | null }
+      .single()) as { data: CurrentSettingRow | null }
 
     console.log('Current setting:', currentSetting)
 
     // Update setting
-    const { data: updateData, error: updateError, count } = (await (getSupabase()
-      .from('system_settings') as any)
+    const { data: updateData, error: updateError } = await getSupabase()
+      .from('system_settings')
       .update({
         setting_value: settingValue,
         updated_by: userId,
         updated_at: new Date().toISOString(),
       })
       .eq('setting_key', settingKey)
-      .select()) as { data: any; error: any; count: number }
+      .select()
 
-    console.log('Update response - data:', updateData, 'error:', updateError, 'count:', count)
+    console.log('Update response - data:', updateData, 'error:', updateError)
 
     if (updateError) {
       console.error('Error updating system setting:', updateError)
@@ -111,7 +137,7 @@ export async function updateSystemSetting(
     console.log('Setting updated successfully:', updateData[0])
 
     // Log to audit trail
-    const { error: auditError } = await getSupabase().rpc('log_audit_action' as any, {
+    const { error: auditError } = await getAuditRpcClient().rpc('log_audit_action', {
       p_actor_user_id: userId,
       p_actor_role: userRole,
       p_action_type: 'system_setting_updated',
@@ -123,7 +149,7 @@ export async function updateSystemSetting(
         new_value: settingValue,
         category: currentSetting?.category,
       },
-    } as any)
+    })
 
     if (auditError) {
       console.warn('Warning: Failed to log audit action:', auditError)
@@ -141,7 +167,7 @@ export async function updateSystemSetting(
 }
 
 export async function updateMultipleSettings(
-  updates: Array<{ key: string; value: any }>,
+  updates: Array<{ key: string; value: unknown }>,
   userId: string,
   userRole: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -151,7 +177,7 @@ export async function updateMultipleSettings(
       .from('user_profiles')
       .select('role')
       .eq('user_id', userId)
-      .single()) as { data: { role: string } | null }
+      .single()) as { data: SettingProfileRow | null }
 
     if (!profile || profile.role !== 'super_admin') {
       return { success: false, error: 'Unauthorized: Super admin privileges required' }

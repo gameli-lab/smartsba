@@ -4,6 +4,8 @@ import "./globals.css";
 import { GlobalHeader } from "@/components/layout/global-header";
 import { GlobalFooter } from "@/components/layout/global-footer";
 
+export const dynamic = 'force-dynamic'
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

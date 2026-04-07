@@ -152,8 +152,9 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
   }
 
   const students = (studentRows || []) as StudentRow[]
+  const scoreEntries = (scoreRows || []) as ScoreRow[]
   const scores = new Map<string, ScoreRow>()
-  ;(scoreRows || []).forEach((s: any) => scores.set(s.student_id, s as ScoreRow))
+  scoreEntries.forEach((s) => scores.set(s.student_id, s))
 
   const readOnly = false // TODO: wire to term lock when available
 

@@ -57,7 +57,7 @@ export function BulkOperationDialog({
     try {
       const res = await onConfirm()
       setResult(res)
-    } catch (err) {
+    } catch {
       setResult({
         success: false,
         message: 'Operation failed unexpectedly',

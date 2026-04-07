@@ -11,6 +11,30 @@ interface BulkResult {
   message: string
 }
 
+interface MutationResult {
+  error: { message?: string } | null
+}
+
+interface TableMutationClient {
+  update: (payload: Record<string, unknown>) => {
+    eq: (column: string, value: string) => Promise<MutationResult>
+  }
+  delete: () => {
+    eq: (column: string, value: string) => Promise<MutationResult>
+  }
+}
+
+interface RpcClient {
+  rpc: (fn: string, params: Record<string, unknown>) => Promise<unknown>
+}
+
+function getTableMutationClient(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  table: string
+): TableMutationClient {
+  return supabase.from(table) as unknown as TableMutationClient
+}
+
 export async function bulkActivateSchools(
   schoolIds: string[],
   userId: string,
@@ -41,10 +65,9 @@ export async function bulkActivateSchools(
     let successCount = 0
 
     for (const schoolId of schoolIds) {
-      const { error } = (await (supabase
-        .from('schools') as any)
+      const { error } = await getTableMutationClient(supabase, 'schools')
         .update({ status: 'active' })
-        .eq('id', schoolId)) as { error: any }
+        .eq('id', schoolId)
 
       if (error) {
         failures.push({ id: schoolId, error: error.message })
@@ -54,7 +77,7 @@ export async function bulkActivateSchools(
     }
 
     // Log to audit trail
-    await supabase.rpc('log_audit_action' as any, {
+    await (supabase as unknown as RpcClient).rpc('log_audit_action', {
       p_actor_user_id: userId,
       p_actor_role: userRole,
       p_action_type: 'bulk_activate',
@@ -66,7 +89,7 @@ export async function bulkActivateSchools(
         failure_count: failures.length,
         failures: failures,
       },
-    } as any)
+    })
 
     revalidatePath('/dashboard/super-admin/schools')
 
@@ -120,10 +143,9 @@ export async function bulkDeactivateSchools(
     let successCount = 0
 
     for (const schoolId of schoolIds) {
-      const { error } = (await (supabase
-        .from('schools') as any)
+      const { error } = await getTableMutationClient(supabase, 'schools')
         .update({ status: 'inactive' })
-        .eq('id', schoolId)) as { error: any }
+        .eq('id', schoolId)
 
       if (error) {
         failures.push({ id: schoolId, error: error.message })
@@ -133,7 +155,7 @@ export async function bulkDeactivateSchools(
     }
 
     // Log to audit trail
-    await supabase.rpc('log_audit_action' as any, {
+    await (supabase as unknown as RpcClient).rpc('log_audit_action', {
       p_actor_user_id: userId,
       p_actor_role: userRole,
       p_action_type: 'bulk_deactivate',
@@ -145,7 +167,7 @@ export async function bulkDeactivateSchools(
         failure_count: failures.length,
         failures: failures,
       },
-    } as any)
+    })
 
     revalidatePath('/dashboard/super-admin/schools')
 
@@ -199,10 +221,9 @@ export async function bulkDeleteSchools(
     let successCount = 0
 
     for (const schoolId of schoolIds) {
-      const { error } = (await (supabase
-        .from('schools') as any)
+      const { error } = await getTableMutationClient(supabase, 'schools')
         .delete()
-        .eq('id', schoolId)) as { error: any }
+        .eq('id', schoolId)
 
       if (error) {
         failures.push({ id: schoolId, error: error.message })
@@ -212,7 +233,7 @@ export async function bulkDeleteSchools(
     }
 
     // Log to audit trail
-    await supabase.rpc('log_audit_action' as any, {
+    await (supabase as unknown as RpcClient).rpc('log_audit_action', {
       p_actor_user_id: userId,
       p_actor_role: userRole,
       p_action_type: 'bulk_delete',
@@ -224,7 +245,7 @@ export async function bulkDeleteSchools(
         failure_count: failures.length,
         failures: failures,
       },
-    } as any)
+    })
 
     revalidatePath('/dashboard/super-admin/schools')
 
@@ -291,10 +312,9 @@ export async function bulkDeleteUsers(
       }
 
       // Delete from user_profiles (auth user will be handled by CASCADE or trigger)
-      const { error } = (await (supabase
-        .from('user_profiles') as any)
+      const { error } = await getTableMutationClient(supabase, 'user_profiles')
         .delete()
-        .eq('id', profileId)) as { error: any }
+        .eq('id', profileId)
 
       if (error) {
         failures.push({ id: profileId, error: error.message })
@@ -304,7 +324,7 @@ export async function bulkDeleteUsers(
     }
 
     // Log to audit trail
-    await supabase.rpc('log_audit_action' as any, {
+    await (supabase as unknown as RpcClient).rpc('log_audit_action', {
       p_actor_user_id: userId,
       p_actor_role: userRole,
       p_action_type: 'bulk_delete',
@@ -316,7 +336,7 @@ export async function bulkDeleteUsers(
         failure_count: failures.length,
         failures: failures,
       },
-    } as any)
+    })
 
     revalidatePath('/dashboard/super-admin/users')
 
@@ -370,10 +390,9 @@ export async function bulkActivateUsers(
     let successCount = 0
 
     for (const profileId of profileIds) {
-      const { error } = (await (supabase
-        .from('user_profiles') as any)
+      const { error } = await getTableMutationClient(supabase, 'user_profiles')
         .update({ status: 'active' })
-        .eq('id', profileId)) as { error: any }
+        .eq('id', profileId)
 
       if (error) {
         failures.push({ id: profileId, error: error.message })
@@ -383,7 +402,7 @@ export async function bulkActivateUsers(
     }
 
     // Log to audit trail
-    await supabase.rpc('log_audit_action' as any, {
+    await (supabase as unknown as RpcClient).rpc('log_audit_action', {
       p_actor_user_id: userId,
       p_actor_role: userRole,
       p_action_type: 'bulk_activate',
@@ -395,7 +414,7 @@ export async function bulkActivateUsers(
         failure_count: failures.length,
         failures: failures,
       },
-    } as any)
+    })
 
     revalidatePath('/dashboard/super-admin/users')
 
@@ -449,10 +468,9 @@ export async function bulkDeactivateUsers(
     let successCount = 0
 
     for (const profileId of profileIds) {
-      const { error } = (await (supabase
-        .from('user_profiles') as any)
+      const { error } = await getTableMutationClient(supabase, 'user_profiles')
         .update({ status: 'inactive' })
-        .eq('id', profileId)) as { error: any }
+        .eq('id', profileId)
 
       if (error) {
         failures.push({ id: profileId, error: error.message })
@@ -462,7 +480,7 @@ export async function bulkDeactivateUsers(
     }
 
     // Log to audit trail
-    await supabase.rpc('log_audit_action' as any, {
+    await (supabase as unknown as RpcClient).rpc('log_audit_action', {
       p_actor_user_id: userId,
       p_actor_role: userRole,
       p_action_type: 'bulk_deactivate',
@@ -474,7 +492,7 @@ export async function bulkDeactivateUsers(
         failure_count: failures.length,
         failures: failures,
       },
-    } as any)
+    })
 
     revalidatePath('/dashboard/super-admin/users')
 

@@ -12,6 +12,14 @@ interface PageProps {
   searchParams: Promise<{ ward?: string }>
 }
 
+interface AggregateSessionRow {
+  session_id: string
+  academic_sessions: {
+    academic_year: string
+    term: number
+  } | null
+}
+
 export default async function ParentDownloadsPage({ searchParams }: PageProps) {
   const params = await searchParams
   const { wards } = await requireParent()
@@ -62,7 +70,7 @@ export default async function ParentDownloadsPage({ searchParams }: PageProps) {
     .order('academic_sessions(academic_year)', { ascending: false })
     .order('academic_sessions(term)', { ascending: false })
 
-  const normalizedSessions = (allSessionsWithData || []).map((record: any) => ({
+  const normalizedSessions = ((allSessionsWithData || []) as AggregateSessionRow[]).map((record) => ({
     session_id: record.session_id,
     academic_year: record.academic_sessions?.academic_year || '',
     term: record.academic_sessions?.term || 0,
@@ -181,8 +189,8 @@ export default async function ParentDownloadsPage({ searchParams }: PageProps) {
             <div className="flex-1 text-sm text-gray-600">
               <p className="font-medium text-gray-900 mb-1">About Reports</p>
               <p>
-                Reports are generated as PDF documents containing the ward's performance summary, subject scores,
-                attendance, and teacher remarks for each term. Click "Download PDF" to view or save the report.
+                Reports are generated as PDF documents containing the ward&apos;s performance summary, subject scores,
+                attendance, and teacher remarks for each term. Click &quot;Download PDF&quot; to view or save the report.
               </p>
             </div>
           </div>

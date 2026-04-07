@@ -1,5 +1,4 @@
 import { requireTeacher } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,19 +12,7 @@ const submitRequestAction = async (formData: FormData) => {
 }
 
 export default async function TeacherProfilePage() {
-  const { profile, effectiveRole, assignments } = await requireTeacher()
-
-  const classTeacherAssignment = assignments.find((a) => a.is_class_teacher)
-  const primaryClassId = classTeacherAssignment?.class_id
-
-  const { data: classes } = primaryClassId
-    ? await supabase
-        .from('classes')
-        .select('name, level, stream')
-        .eq('id', primaryClassId)
-    : { data: null }
-
-  const primaryClass = classes?.[0]
+  const { profile, effectiveRole } = await requireTeacher()
 
   return (
     <div className="space-y-8">

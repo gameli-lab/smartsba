@@ -138,7 +138,7 @@ export default async function ParentSubjectDetailPage({ params, searchParams }: 
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">{subjectName}</h1>
-          <p className="text-sm text-gray-600">{studentName}'s performance in this subject.</p>
+          <p className="text-sm text-gray-600">{studentName}&apos;s performance in this subject.</p>
         </div>
         <div className="flex items-center gap-3">
           <ReportAcknowledgeButton scoreId={scoreId} />

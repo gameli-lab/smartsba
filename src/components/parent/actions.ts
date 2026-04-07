@@ -9,7 +9,7 @@ export async function submitProfileUpdateRequest(
   reason: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { user, profile } = await requireParent()
+    const { user } = await requireParent()
 
     // Map updateType to field names
     const fieldMap = {
@@ -43,7 +43,7 @@ export async function submitProfileUpdateRequest(
         requested_value: newValue,
         reason,
         status: 'pending',
-      } as any) // Type assertion since table doesn't exist yet
+      }) // Type assertion removed for lint cleanup
 
     if (error) {
       console.error('Error submitting profile update request:', error)

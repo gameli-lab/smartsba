@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createAnnouncement, updateAnnouncement, archiveAnnouncement } from './actions'
 import type { Announcement, Class } from '@/types'
-import { Loader2, Edit, Archive, Plus } from 'lucide-react'
+import { Loader2, Edit, Archive } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 
 interface Props {
@@ -41,7 +41,7 @@ const defaultForm: FormState = {
 }
 
 export function AnnouncementsClient({ initialAnnouncements, classes }: Props) {
-  const [announcements, setAnnouncements] = useState(initialAnnouncements)
+  const [announcements] = useState(initialAnnouncements)
   const [form, setForm] = useState<FormState>(defaultForm)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)

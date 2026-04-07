@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -100,7 +99,10 @@ export function PromotionRemarkDialog({ student, nextClasses, open, onOpenChange
 
           <div className="space-y-2">
             <Label>Promotion Status *</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v as any)}>
+            <Select
+              value={status}
+              onValueChange={(v: 'promoted' | 'repeated' | 'withdrawn') => setStatus(v)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>

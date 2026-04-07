@@ -21,6 +21,10 @@ export interface SchoolOption {
   name: string
 }
 
+type LookupProfile = Partial<UserProfile> & {
+  schools?: { id: string; name: string } | null
+}
+
 /**
  * Custom error thrown when multiple schools are found for an identifier
  * Frontend should catch this and show a school selection dialog
@@ -88,7 +92,7 @@ export class AuthService {
       throw new Error('Failed to look up staff credentials')
     }
 
-    const { profiles } = (await lookupResponse.json()) as { profiles: Partial<UserProfile & { schools?: { id: string; name: string } }>[]} 
+    const { profiles } = (await lookupResponse.json()) as { profiles: LookupProfile[] }
 
     if (!profiles || profiles.length === 0) {
       throw new Error('Invalid staff credentials')
@@ -96,10 +100,12 @@ export class AuthService {
 
     // If multiple schools found and no schoolId provided, ask user to select
     if (profiles.length > 1 && !schoolId) {
-      const schools = (profiles as any[]).map((p) => ({
-        id: p.school_id,
+      const schools = profiles
+        .map((p) => ({
+          id: p.school_id,
         name: p.schools?.name || 'Unknown School',
-      }))
+        }))
+        .filter((school): school is SchoolOption => Boolean(school.id))
       throw new MultipleSchoolsFoundError(schools)
     }
 
@@ -142,7 +148,7 @@ export class AuthService {
       throw new Error('Failed to look up student credentials')
     }
 
-    const { profiles } = (await lookupResponse.json()) as { profiles: Partial<UserProfile & { schools?: { id: string; name: string } }>[] }
+    const { profiles } = (await lookupResponse.json()) as { profiles: LookupProfile[] }
 
     if (!profiles || profiles.length === 0) {
       throw new Error('Invalid student credentials')
@@ -150,10 +156,12 @@ export class AuthService {
 
     // If multiple schools found and no schoolId provided, ask user to select
     if (profiles.length > 1 && !schoolId) {
-      const schools = (profiles as any[]).map((p) => ({
-        id: p.school_id,
-        name: (p.schools as any)?.name || 'Unknown School',
-      }))
+      const schools = profiles
+        .map((p) => ({
+          id: p.school_id,
+        name: p.schools?.name || 'Unknown School',
+        }))
+        .filter((school): school is SchoolOption => Boolean(school.id))
       throw new MultipleSchoolsFoundError(schools)
     }
 
@@ -194,7 +202,7 @@ export class AuthService {
     }
 
     const { profiles: parentProfiles, reason } = (await lookupResponse.json()) as {
-      profiles: Partial<UserProfile & { schools?: { id: string; name: string } }>[]
+      profiles: LookupProfile[]
       reason?: 'no_parent_link_for_ward' | 'identifier_not_matching_linked_parent' | 'single_link_parent_fallback' | null
     }
 
@@ -210,12 +218,12 @@ export class AuthService {
 
     // If multiple schools found and no schoolId provided, ask user to select
     if (parentProfiles.length > 1 && !schoolId) {
-      const schools = (parentProfiles as any[]).map((p) => {
-        return {
+      const schools = parentProfiles
+        .map((p) => ({
           id: p.school_id,
-          name: (p.schools as any)?.name || 'Unknown School',
-        }
-      })
+          name: p.schools?.name || 'Unknown School',
+        }))
+        .filter((school): school is SchoolOption => Boolean(school.id))
       // Deduplicate schools
       const uniqueSchools = Array.from(new Map(schools.map((s) => [s.id, s])).values())
       if (uniqueSchools.length > 1) {
@@ -439,7 +447,9 @@ export async function requireTeacher(): Promise<TeacherGuardResult> {
     redirect('/login')
   }
 
-  if (profile.role !== 'teacher') {
+  const teacherProfile = profile as UserProfile
+
+  if (teacherProfile.role !== 'teacher') {
     redirect('/login')
   }
 
@@ -449,7 +459,7 @@ export async function requireTeacher(): Promise<TeacherGuardResult> {
     .eq('user_id', user.id)
     .single()
 
-  if (!teacherRow || (teacherRow as Teacher).school_id !== profile.school_id) {
+  if (!teacherRow || (teacherRow as Teacher).school_id !== teacherProfile.school_id) {
     redirect('/login')
   }
 
@@ -463,7 +473,7 @@ export async function requireTeacher(): Promise<TeacherGuardResult> {
 
   return {
     user,
-    profile: profile as UserProfile,
+    profile: teacherProfile,
     teacher: teacherRow as Teacher,
     assignments,
     effectiveRole,
@@ -495,7 +505,9 @@ export async function requireStudent(): Promise<StudentGuardResult> {
     redirect('/login')
   }
 
-  if (profile.role !== 'student') {
+  const studentProfile = profile as UserProfile
+
+  if (studentProfile.role !== 'student') {
     redirect('/login')
   }
 
@@ -507,8 +519,8 @@ export async function requireStudent(): Promise<StudentGuardResult> {
 
   return {
     user,
-    profile: profile as UserProfile,
-    student: (studentRow as Student) || null,
+    profile: studentProfile,
+    student: studentRow ? (studentRow as Student) : null,
   }
 }
 
@@ -519,6 +531,7 @@ export async function requireStudent(): Promise<StudentGuardResult> {
  */
 export async function requireParent(): Promise<ParentGuardResult> {
   const serverSupabase = await createServerComponentClient()
+  const adminSupabase = createAdminSupabaseClient()
   
   const { data: { user }, error } = await serverSupabase.auth.getUser()
   
@@ -537,41 +550,46 @@ export async function requireParent(): Promise<ParentGuardResult> {
     redirect('/login')
   }
 
-  if (profile.role !== 'parent') {
+  const parentProfile = profile as UserProfile
+
+  if (parentProfile.role !== 'parent') {
     redirect('/login')
   }
 
-  // Fetch linked students; prefer base table joins to avoid view drift/missing migrations.
-  const { data: linkRows, error: linkError } = await serverSupabase
-    .from('parent_student_links')
-    .select('relationship, is_primary, student:students(*)')
-    .eq('parent_id', profile.id)
-
-  let links = (linkRows || []) as Array<{
+  type ParentLinkRow = {
     relationship: string
     is_primary: boolean
-    student: Student
-  }>
-
-  if (linkError) {
-    console.warn('requireParent link query failed on parent_student_links, retrying via relationship view', linkError)
-    const { data: fallbackRows } = await serverSupabase
-      .from('parent_student_relationships')
-      .select('relationship, is_primary, student:students(*)')
-      .eq('parent_id', profile.id)
-
-    links = (fallbackRows || []) as Array<{
-      relationship: string
-      is_primary: boolean
-      student: Student
-    }>
+    student_id: string
   }
+
+  const fetchParentLinks = async () => {
+    const { data: linkRows, error: linkError } = await adminSupabase
+    .from('parent_student_links')
+      .select('relationship, is_primary, student_id')
+      .eq('parent_id', parentProfile.id)
+
+    if (linkError) {
+      console.warn('requireParent link query failed on parent_student_links, retrying via relationship view', linkError)
+      const { data: fallbackRows, error: fallbackError } = await adminSupabase
+        .from('parent_student_relationships')
+        .select('relationship, is_primary, student_id')
+        .eq('parent_id', parentProfile.id)
+
+      if (fallbackError) {
+        return [] as ParentLinkRow[]
+      }
+
+      return (fallbackRows || []) as ParentLinkRow[]
+    }
+
+    return (linkRows || []) as ParentLinkRow[]
+  }
+
+  let links = await fetchParentLinks()
 
   // Safety net: if session-scoped query unexpectedly returns no links,
   // verify with admin client so valid parents do not see false "No Linked Students".
   if (links.length === 0) {
-    const adminSupabase = createAdminSupabaseClient()
-
     const { data: parentProfileRow } = await adminSupabase
       .from('user_profiles')
       .select('id')
@@ -584,22 +602,42 @@ export async function requireParent(): Promise<ParentGuardResult> {
     if (parentProfile?.id) {
       const { data: adminLinks } = await adminSupabase
         .from('parent_student_links')
-        .select('relationship, is_primary, student:students(*)')
+        .select('relationship, is_primary, student_id')
         .eq('parent_id', parentProfile.id)
 
-      links = (adminLinks || []) as Array<{
-        relationship: string
-        is_primary: boolean
-        student: Student
-      }>
+      links = (adminLinks || []) as ParentLinkRow[]
     }
   }
 
-  const wards = links.map((link) => ({
-    student: link.student,
-    relationship: link.relationship,
-    is_primary: link.is_primary,
-  }))
+  const studentIds = Array.from(new Set(links.map((link) => link.student_id)))
+  const studentsById = new Map<string, Student>()
+
+  if (studentIds.length > 0) {
+    const { data: studentRows } = await adminSupabase
+      .from('students')
+      .select('*')
+      .in('id', studentIds)
+
+    ;(studentRows || []).forEach((studentRow) => {
+      studentsById.set((studentRow as Student).id, studentRow as Student)
+    })
+  }
+
+  const wards = links
+    .map((link) => {
+      const student = studentsById.get(link.student_id)
+
+      if (!student) {
+        return null
+      }
+
+      return {
+        student,
+        relationship: link.relationship,
+        is_primary: link.is_primary,
+      }
+    })
+    .filter((ward): ward is { student: Student; relationship: string; is_primary: boolean } => ward !== null)
 
   return {
     user,

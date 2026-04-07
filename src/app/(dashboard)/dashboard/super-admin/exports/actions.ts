@@ -9,6 +9,84 @@ interface ExportResult {
   error?: string
 }
 
+interface SchoolRow {
+  id: string
+  name: string | null
+  email: string | null
+  phone: string | null
+  address: string | null
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+interface SchoolRelation {
+  name: string | null
+}
+
+interface UserProfileExportRow {
+  id: string
+  user_id: string | null
+  full_name: string | null
+  role: string
+  school_id: string | null
+  created_at: string
+  updated_at: string
+  schools: SchoolRelation | SchoolRelation[] | null
+}
+
+interface AuditActorRelation {
+  full_name: string | null
+}
+
+interface AuditLogExportRow {
+  id: string
+  actor_user_id: string | null
+  actor_role: string | null
+  action_type: string
+  entity_type: string
+  entity_id: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
+  user_profiles: AuditActorRelation | AuditActorRelation[] | null
+}
+
+interface UserRoleRow {
+  role: string
+  school_id: string | null
+}
+
+interface LogAuditActionParams {
+  p_actor_user_id: string
+  p_actor_role: string
+  p_action_type: string
+  p_entity_type: string
+  p_entity_id: string | null
+  p_metadata: Record<string, unknown>
+}
+
+interface AuditRpcClient {
+  rpc(functionName: 'log_audit_action', params: LogAuditActionParams): Promise<unknown>
+}
+
+const auditRpcClient = supabase as unknown as AuditRpcClient
+
+function getSchoolName(schools: UserProfileExportRow['schools']): string {
+  if (Array.isArray(schools)) {
+    return schools[0]?.name ?? ''
+  }
+
+  return schools?.name ?? ''
+}
+
+function getActorName(userProfiles: AuditLogExportRow['user_profiles']): string {
+  if (Array.isArray(userProfiles)) {
+    return userProfiles[0]?.full_name ?? 'Unknown'
+  }
+
+  return userProfiles?.full_name ?? 'Unknown'
+}
+
 export async function exportSchoolsToCSV(
   userId: string,
   userRole: string,
@@ -67,7 +145,7 @@ export async function exportSchoolsToCSV(
     const headers = ['ID', 'Name', 'Email', 'Phone', 'Address', 'Status', 'Created At', 'Updated At']
     const csvRows = [headers.join(',')]
 
-    const schoolsData = schools as any[] | null
+    const schoolsData = (schools ?? []) as SchoolRow[]
 
     schoolsData?.forEach((school) => {
       const row = [
@@ -88,7 +166,7 @@ export async function exportSchoolsToCSV(
     const filename = `schools_export_${timestamp}.csv`
 
     // Log to audit trail
-    await supabase.rpc('log_audit_action' as any, {
+    await auditRpcClient.rpc('log_audit_action', {
       p_actor_user_id: userId,
       p_actor_role: userRole,
       p_action_type: 'export_csv',
@@ -100,7 +178,7 @@ export async function exportSchoolsToCSV(
         filters: filters,
         filename: filename,
       },
-    } as any)
+    })
 
     return {
       success: true,
@@ -167,8 +245,7 @@ export async function exportUsersToCSV(
     }
 
     // Get emails from auth.users
-    const usersData = users as any[] | null
-    const userIds = usersData?.map((u) => u.user_id).filter(Boolean) || []
+    const usersData = (users ?? []) as UserProfileExportRow[]
     const { data: authUsers } = await supabase.auth.admin.listUsers()
     const emailMap = new Map(authUsers?.users.map((u) => [u.id, u.email]))
 
@@ -178,7 +255,7 @@ export async function exportUsersToCSV(
 
     usersData?.forEach((user) => {
       const email = user.user_id ? emailMap.get(user.user_id) : ''
-      const schoolName = (user.schools as any)?.name || ''
+      const schoolName = getSchoolName(user.schools)
       const row = [
         user.id,
         `"${user.full_name || ''}"`,
@@ -196,7 +273,7 @@ export async function exportUsersToCSV(
     const filename = `users_export_${timestamp}.csv`
 
     // Log to audit trail
-    await supabase.rpc('log_audit_action' as any, {
+    await auditRpcClient.rpc('log_audit_action', {
       p_actor_user_id: userId,
       p_actor_role: userRole,
       p_action_type: 'export_csv',
@@ -208,7 +285,7 @@ export async function exportUsersToCSV(
         filters: filters,
         filename: filename,
       },
-    } as any)
+    })
 
     return {
       success: true,
@@ -290,10 +367,10 @@ export async function exportAuditLogsToCSV(
     const headers = ['ID', 'Actor', 'Role', 'Action', 'Entity Type', 'Entity ID', 'Metadata', 'Created At']
     const csvRows = [headers.join(',')]
 
-    const logsData = logs as any[] | null
+    const logsData = (logs ?? []) as AuditLogExportRow[]
 
     logsData?.forEach((log) => {
-      const actorName = (log.user_profiles as any)?.full_name || 'Unknown'
+      const actorName = getActorName(log.user_profiles)
       const metadataStr = log.metadata ? JSON.stringify(log.metadata) : ''
       const row = [
         log.id,
@@ -313,7 +390,7 @@ export async function exportAuditLogsToCSV(
     const filename = `audit_logs_export_${timestamp}.csv`
 
     // Log to audit trail
-    await supabase.rpc('log_audit_action' as any, {
+    await auditRpcClient.rpc('log_audit_action', {
       p_actor_user_id: userId,
       p_actor_role: userRole,
       p_action_type: 'export_csv',
@@ -325,7 +402,7 @@ export async function exportAuditLogsToCSV(
         filters: filters,
         filename: filename,
       },
-    } as any)
+    })
 
     return {
       success: true,
@@ -371,11 +448,12 @@ export async function exportAnalyticsToCSV(
       .select('role, school_id')
 
     // Calculate metrics
-    const totalSchools = schools?.length || 0
-    const activeSchools = schools?.filter((s: any) => s.status === 'active').length || 0
+    const schoolsData = (schools ?? []) as SchoolRow[]
+    const totalSchools = schoolsData.length
+    const activeSchools = schoolsData.filter((s) => s.status === 'active').length
     const inactiveSchools = totalSchools - activeSchools
 
-    const usersData = users as any[] | null
+    const usersData = (users ?? []) as UserRoleRow[]
 
     const usersByRole = {
       super_admin: usersData?.filter((u) => u.role === 'super_admin').length || 0,
@@ -403,13 +481,11 @@ export async function exportAnalyticsToCSV(
       `Teachers,${usersByRole.teacher}`,
       `Students,${usersByRole.student}`,
       `Parents,${usersByRole.parent}`,
-      `Total Users,${usersData?.length || 0}`,
+      `Total Users,${usersData.length}`,
       '',
       '# School Details',
       'ID,Name,Status,Created At',
     ]
-
-    const schoolsData = schools as any[] | null
 
     schoolsData?.forEach((school) => {
       csvRows.push(`${school.id},"${school.name}",${school.status},${school.created_at}`)
@@ -420,7 +496,7 @@ export async function exportAnalyticsToCSV(
     const filename = `analytics_export_${timestamp}.csv`
 
     // Log to audit trail
-    await supabase.rpc('log_audit_action' as any, {
+    await auditRpcClient.rpc('log_audit_action', {
       p_actor_user_id: userId,
       p_actor_role: userRole,
       p_action_type: 'export_csv',
@@ -431,12 +507,12 @@ export async function exportAnalyticsToCSV(
         metrics: {
           total_schools: totalSchools,
           active_schools: activeSchools,
-          total_users: usersData?.length || 0,
+          total_users: usersData.length,
           users_by_role: usersByRole,
         },
         filename: filename,
       },
-    } as any)
+    })
 
     return {
       success: true,

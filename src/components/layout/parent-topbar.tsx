@@ -61,8 +61,6 @@ export function ParentTopbar({
     .slice(0, 2)
     .toUpperCase()
 
-  const selectedWard = wards.find((w) => w.student_id === selectedWardId)
-
   return (
     <header
       className={cn(

@@ -19,6 +19,7 @@ interface AssetUploadProps {
 }
 
 export function AssetUpload({ school, type, title, description, currentAssetUrl }: AssetUploadProps) {
+  void school
   const router = useRouter()
   const [isUploading, setIsUploading] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@/lib/supabase';
-import { UserRole } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Placeholder for email sending functionality

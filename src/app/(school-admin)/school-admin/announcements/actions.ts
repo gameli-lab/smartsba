@@ -14,6 +14,16 @@ export interface AnnouncementInput {
   expires_at?: string | null
 }
 
+interface ClassOwnerRow {
+  id: string
+  school_id: string
+}
+
+interface AnnouncementOwnerRow {
+  id: string
+  school_id: string
+}
+
 export async function createAnnouncement(input: AnnouncementInput) {
   try {
     const { profile } = await requireSchoolAdmin()
@@ -35,12 +45,11 @@ export async function createAnnouncement(input: AnnouncementInput) {
         .in('id', class_ids)
 
       if (error) return { success: false, error: 'Failed to validate classes' }
-      const invalid = (classes || []).some((c: any) => c.school_id !== schoolId)
+      const invalid = ((classes || []) as ClassOwnerRow[]).some((c) => c.school_id !== schoolId)
       if (invalid) return { success: false, error: 'Invalid class selection' }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insertError } = await (supabase as any)
+    const { error: insertError } = await supabase
       .from('announcements')
       .insert({
         school_id: schoolId,
@@ -88,7 +97,8 @@ export async function updateAnnouncement(id: string, input: AnnouncementInput) {
       .eq('id', id)
       .single()
 
-    if (fetchError || !existing || (existing as any).school_id !== schoolId) {
+    const typedExisting = existing as AnnouncementOwnerRow | null
+    if (fetchError || !typedExisting || typedExisting.school_id !== schoolId) {
       return { success: false, error: 'Announcement not found' }
     }
 
@@ -99,12 +109,11 @@ export async function updateAnnouncement(id: string, input: AnnouncementInput) {
         .in('id', class_ids)
 
       if (error) return { success: false, error: 'Failed to validate classes' }
-      const invalid = (classes || []).some((c: any) => c.school_id !== schoolId)
+      const invalid = ((classes || []) as ClassOwnerRow[]).some((c) => c.school_id !== schoolId)
       if (invalid) return { success: false, error: 'Invalid class selection' }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase as any)
+    const { error: updateError } = await supabase
       .from('announcements')
       .update({
         title: input.title.trim(),
@@ -143,12 +152,12 @@ export async function archiveAnnouncement(id: string) {
       .eq('id', id)
       .single()
 
-    if (fetchError || !existing || (existing as any).school_id !== schoolId) {
+    const typedExisting = existing as AnnouncementOwnerRow | null
+    if (fetchError || !typedExisting || typedExisting.school_id !== schoolId) {
       return { success: false, error: 'Announcement not found' }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase as any)
+    const { error: updateError } = await supabase
       .from('announcements')
       .update({ expires_at: new Date().toISOString() })
       .eq('id', id)

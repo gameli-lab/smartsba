@@ -46,7 +46,7 @@ interface StudentRow {
 
 export default async function ClassDetailPage({ params }: ClassDetailPageProps) {
   const { classId } = params
-  const { assignments, effectiveRole, profile } = await requireTeacher()
+  const { assignments, profile } = await requireTeacher()
 
   const allowedClassIds = new Set(assignments.map((a) => a.class_id))
   if (!allowedClassIds.has(classId)) {
@@ -85,10 +85,11 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
 
   const subjects = (subjectsData || []) as SubjectRow[]
   const students = (studentsData || []) as StudentRow[]
+  const assignmentsRows = (assignmentsData || []) as AssignmentRow[]
   const assignmentsBySubject = new Map<string, AssignmentRow[]>()
-  ;(assignmentsData || []).forEach((a: any) => {
+  assignmentsRows.forEach((a) => {
     const list = assignmentsBySubject.get(a.subject_id) || []
-    list.push(a as AssignmentRow)
+    list.push(a)
     assignmentsBySubject.set(a.subject_id, list)
   })
 

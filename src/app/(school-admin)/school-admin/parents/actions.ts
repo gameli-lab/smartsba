@@ -349,9 +349,12 @@ export async function unlinkParentFromWard(linkId: string) {
 
     if (error) return { success: false, error: 'Failed to unlink ward.' }
 
+    const linkedParentId = (linkRow as { parent_id?: string }).parent_id
+    const linkedStudentId = (linkRow as { student_id?: string }).student_id
+
     await logAudit(adminSupabase, user.id, 'unlink_parent_from_ward', 'parent_student_link', linkId, {
-      parentId: (linkRow as any).parent_id,
-      studentId: (linkRow as any).student_id,
+      parentId: linkedParentId,
+      studentId: linkedStudentId,
     })
 
     revalidatePath('/school-admin/parents')
@@ -566,7 +569,6 @@ export async function findGuardianParentCandidates(studentId: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
-    const supabase = await createServerComponentClient()
     const adminSupabase = createAdminSupabaseClient()
 
     const { data: studentRow } = await adminSupabase
@@ -634,7 +636,6 @@ export async function linkStudentGuardianToParent(studentId: string, parentProfi
   try {
     const { user, profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
-    const supabase = await createServerComponentClient()
     const adminSupabase = createAdminSupabaseClient()
 
     const [{ data: studentRow }, { data: parentRow }] = await Promise.all([
@@ -721,7 +722,6 @@ export async function syncGuardianSnapshotToLinkedParents(studentId: string) {
   try {
     const { user, profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
-    const supabase = await createServerComponentClient()
     const adminSupabase = createAdminSupabaseClient()
 
     const { data: studentRow } = await adminSupabase

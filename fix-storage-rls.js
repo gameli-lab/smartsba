@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 const https = require('https');
 
 const SUPABASE_URL = 'https://mxgcchhyjzgfyrbzwzon.supabase.co';
@@ -74,10 +76,11 @@ const queries = [
 
 async function executeQuery(query) {
   return new Promise((resolve, reject) => {
+    const parsedSupabaseUrl = new URL(SUPABASE_URL);
     const data = JSON.stringify({ query });
     
     const options = {
-      hostname: 'mxgcchhyjzgfyrbzwzon.supabase.co',
+      hostname: parsedSupabaseUrl.hostname,
       port: 443,
       path: '/rest/v1/rpc/exec_sql',
       method: 'POST',

@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import ExcelJS from 'exceljs'
 import { requireSchoolAdmin } from '@/lib/auth'
 import { createServerComponentClient, createAdminSupabaseClient } from '@/lib/supabase'
-import { UserProfile, Teacher } from '@/types'
+import { Teacher } from '@/types'
 
 interface CreateTeacherInput {
   full_name: string
@@ -440,8 +440,7 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
 
     const buffer = Buffer.from(new Uint8Array(await file.arrayBuffer()))
     const workbook = new ExcelJS.Workbook()
-    // ExcelJS typings expect Buffer; cast the typed buffer to satisfy bundler resolution
-    await workbook.xlsx.load(buffer as any)
+    await workbook.xlsx.load(buffer)
     const sheet = workbook.worksheets[0]
 
     if (!sheet) {

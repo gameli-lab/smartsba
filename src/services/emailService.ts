@@ -11,8 +11,8 @@ interface SendEmailOptions {
   to: string
   userId?: string
   type: 'school_created' | 'user_created' | 'role_changed' | 'school_status_changed'
-  data: any
-  metadata?: Record<string, any>
+  data: unknown
+  metadata?: Record<string, unknown>
 }
 
 interface EmailResult {
@@ -31,9 +31,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
     const template = getEmailTemplate(options.type, options.data)
     
     // Log the email attempt in database
-    // Type assertion needed until types are regenerated
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: logData, error: logError } = await (supabase as any)
+    const { data: logData, error: logError } = await supabase
       .rpc('log_email_send', {
         p_recipient_email: options.to,
         p_recipient_user_id: options.userId || null,
@@ -64,8 +62,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
       
       if (emailSent) {
         // Update email status to 'sent'
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase as any).rpc('update_email_status', {
+        await supabase.rpc('update_email_status', {
           p_log_id: logId,
           p_status: 'sent',
           p_error_message: null
@@ -77,8 +74,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
       }
     } catch (sendError) {
       // Update email status to 'failed'
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).rpc('update_email_status', {
+      await supabase.rpc('update_email_status', {
         p_log_id: logId,
         p_status: 'failed',
         p_error_message: sendError instanceof Error ? sendError.message : 'Unknown error'
@@ -102,7 +98,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
 /**
  * Get the appropriate email template based on type
  */
-function getEmailTemplate(type: string, data: any) {
+function getEmailTemplate(type: string, data: unknown) {
   switch (type) {
     case 'school_created':
       return emailTemplates.schoolCreated(data)

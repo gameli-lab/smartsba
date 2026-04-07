@@ -33,6 +33,7 @@ interface SidebarProps {
 }
 
 export function SchoolAdminSidebar({ schoolId }: SidebarProps) {
+  void schoolId
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()

@@ -5,7 +5,7 @@ export default async function SchoolAdminDashboardRedirect() {
   await requireSchoolAdmin()
   redirect('/school-admin')
 }
-  return (
+  /**return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">School Dashboard</h1>
@@ -14,7 +14,7 @@ export default async function SchoolAdminDashboardRedirect() {
         </p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards /}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -69,7 +69,7 @@ export default async function SchoolAdminDashboardRedirect() {
         </Card>
       </div>
 
-      {/* Current Session Info */}
+      {/* Current Session Info *}
       <Card>
         <CardHeader>
           <CardTitle>Current Academic Session</CardTitle>
@@ -98,7 +98,7 @@ export default async function SchoolAdminDashboardRedirect() {
         </CardContent>
       </Card>
 
-      {/* Recent Activities & Quick Actions */}
+      {/* Recent Activities & Quick Actions *}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -161,7 +161,7 @@ export default async function SchoolAdminDashboardRedirect() {
         </Card>
       </div>
 
-      {/* Class Performance Overview */}
+      {/* Class Performance Overview *}
       <Card>
         <CardHeader>
           <CardTitle>Class Performance Overview</CardTitle>
@@ -192,4 +192,4 @@ export default async function SchoolAdminDashboardRedirect() {
       </Card>
     </div>
   );
-}
+}**/

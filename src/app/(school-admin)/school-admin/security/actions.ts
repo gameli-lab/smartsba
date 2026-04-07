@@ -17,12 +17,11 @@ export async function setUserStatus(userProfileId: string, status: 'active' | 'd
       .eq('id', userProfileId)
       .single()
 
-    if (fetchError || !target || (target as any).school_id !== schoolId) {
+    if (fetchError || !target || target.school_id !== schoolId) {
       return { success: false, error: 'User not found' }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase as any)
+    const { error: updateError } = await supabase
       .from('user_profiles')
       .update({ status })
       .eq('id', userProfileId)
@@ -39,7 +38,7 @@ export async function setUserStatus(userProfileId: string, status: 'active' | 'd
   }
 }
 
-export async function resetUserPassword(_userProfileId: string) {
+export async function resetUserPassword() {
   // TODO: Implement password reset via service-role admin API or email flow.
   return { success: false, error: 'Password reset not available in this environment (TODO).' }
 }

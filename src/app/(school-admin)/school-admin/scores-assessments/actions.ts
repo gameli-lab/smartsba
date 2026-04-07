@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache'
 import ExcelJS from 'exceljs'
 import { requireSchoolAdmin } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import type { Score } from '@/types'
 
 interface ScoreInput {
   student_id: string
@@ -17,14 +16,6 @@ interface ScoreInput {
 
 interface UpdateScoreInput extends Partial<ScoreInput> {
   id: string
-}
-
-interface ImportRow {
-  student_admission: string
-  subject_name: string
-  ca_score?: number
-  exam_score?: number
-  subject_remark?: string
 }
 
 interface ImportFailure {
@@ -309,7 +300,7 @@ export async function importScores(formData: FormData, sessionId: string): Promi
 
     const buffer = Buffer.from(new Uint8Array(await file.arrayBuffer()))
     const workbook = new ExcelJS.Workbook()
-    await workbook.xlsx.load(buffer as any)
+    await workbook.xlsx.load(buffer)
     const sheet = workbook.worksheets[0]
     if (!sheet) return { success: false, error: 'Excel file is empty or invalid' }
 

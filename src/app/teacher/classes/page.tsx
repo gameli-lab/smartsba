@@ -18,10 +18,9 @@ interface SubjectRow {
 }
 
 export default async function TeacherClassesPage() {
-  const { assignments, effectiveRole, profile } = await requireTeacher()
+  const { assignments, effectiveRole } = await requireTeacher()
 
   const classIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean)))
-  const subjectIds = Array.from(new Set(assignments.map((a) => a.subject_id).filter(Boolean)))
   const classTeacherClassIds = assignments.filter((a) => a.is_class_teacher).map((a) => a.class_id)
 
   const [{ data: classesData }, { data: subjectsData }, { data: studentCounts }] = await Promise.all([

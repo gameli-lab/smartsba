@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { ProfileClient } from '@/components/parent/profile-client'
 
 export default async function ParentProfilePage() {
-  const { user, profile, wards } = await requireParent()
+  const { user, wards } = await requireParent()
 
   // Get parent's full profile
   const { data: profileData } = await supabase

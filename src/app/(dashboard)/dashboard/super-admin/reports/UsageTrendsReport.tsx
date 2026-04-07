@@ -35,8 +35,6 @@ export default function UsageTrendsReport({ data }: UsageTrendsReportProps) {
     { activeUsers: 0, newSchools: 0, newUsers: 0, totalLogins: 0 }
   )
 
-  const avgActiveUsers = data.length > 0 ? Math.round(totals.activeUsers / data.length) : 0
-
   return (
     <div className="space-y-6">
       {/* Summary Cards */}

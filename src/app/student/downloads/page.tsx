@@ -56,7 +56,7 @@ export default async function StudentDownloadsPage() {
   // For now, we'll assume all sessions with scores are published
   // In production, check a publication_status field or similar
 
-  const handleDownloadReport = (sessionId: string, academicYear: string, term: number) => {
+  const handleDownloadReport = (sessionId: string) => {
     // Trigger download via API endpoint
     window.open(`/api/student/report?session_id=${sessionId}`, '_blank')
   }
@@ -86,7 +86,7 @@ export default async function StudentDownloadsPage() {
           </CardHeader>
           <CardContent>
             <Button
-              onClick={() => handleDownloadReport(currentSession.id, currentSession.academic_year, currentSession.term)}
+              onClick={() => handleDownloadReport(currentSession.id)}
               className="w-full sm:w-auto"
             >
               <Download className="mr-2 h-4 w-4" />

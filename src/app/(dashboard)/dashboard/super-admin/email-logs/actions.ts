@@ -13,9 +13,13 @@ export interface EmailLog {
   body_text: string
   status: 'pending' | 'sent' | 'failed' | 'bounced'
   error_message: string | null
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
   sent_at: string | null
   created_at: string
+}
+
+interface EmailStatusRow {
+  status: EmailLog['status'] | null
 }
 
 export interface GetEmailLogsParams {
@@ -85,12 +89,13 @@ export async function getEmailLogs(params: GetEmailLogsParams = {}) {
       }
     }
 
-    const nextCursor = data && data.length === limit 
-      ? (data as any[])[data.length - 1].created_at 
+    const logs = (data ?? []) as EmailLog[]
+    const nextCursor = logs.length === limit
+      ? logs[logs.length - 1]?.created_at ?? null
       : null
 
     return {
-      logs: data as EmailLog[] || [],
+      logs,
       count: count || 0,
       nextCursor,
     }
@@ -109,19 +114,18 @@ export async function getEmailStats() {
 
   try {
     // Get total counts by status
-    const { data: statusCounts } = await supabase
+    const { data: statusRows } = await supabase
       .from('email_logs')
       .select('status')
-      .then(({ data }: { data: any }) => {
-        const counts = {
-          total: data?.length || 0,
-          sent: data?.filter((log: any) => log.status === 'sent').length || 0,
-          pending: data?.filter((log: any) => log.status === 'pending').length || 0,
-          failed: data?.filter((log: any) => log.status === 'failed').length || 0,
-          bounced: data?.filter((log: any) => log.status === 'bounced').length || 0,
-        }
-        return { data: counts }
-      })
+
+    const statusData = (statusRows ?? []) as EmailStatusRow[]
+    const statusCounts = {
+      total: statusData.length,
+      sent: statusData.filter((log) => log.status === 'sent').length,
+      pending: statusData.filter((log) => log.status === 'pending').length,
+      failed: statusData.filter((log) => log.status === 'failed').length,
+      bounced: statusData.filter((log) => log.status === 'bounced').length,
+    }
 
     // Get today's email count
     const today = new Date()

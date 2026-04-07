@@ -15,6 +15,31 @@ interface TeacherWithProfile extends Teacher {
   teacher_assignments: { count: number }[]
 }
 
+interface TeacherProfileRow {
+  user_id: string
+  id: string
+  full_name: string
+  email: string
+  staff_id?: string
+  phone?: string
+  gender?: UserProfile['gender']
+  date_of_birth?: string
+  address?: string
+  status?: UserProfile['status']
+}
+
+interface CurrentSessionBadge {
+  academic_year: string
+  term: number
+}
+
+interface SubjectFilterOption {
+  id: string
+  name: string
+  code?: string
+  class_id?: string | null
+}
+
 /**
  * Teacher Management Page
  */
@@ -104,36 +129,69 @@ export default async function TeachersPage(props: {
 
   // Fetch user profiles for all teachers
   if (rawTeachers && rawTeachers.length > 0) {
-    const userIds = (rawTeachers as any[]).map(t => t.user_id)
+    const teacherRows = rawTeachers as Teacher[]
+    const userIds = teacherRows.map((t) => t.user_id)
     const { data: profiles } = await supabase
       .from('user_profiles')
       .select('user_id, id, full_name, email, staff_id, phone, gender, date_of_birth, address, status')
       .in('user_id', userIds)
 
     // Create a map of user_id -> profile
-    const profileMap = new Map((profiles || []).map(p => [p.user_id, p]))
+    const profileRows = (profiles || []) as TeacherProfileRow[]
+    const profileMap = new Map(profileRows.map((p) => [p.user_id, p]))
 
     // Attach profiles to teachers
-    const teachersWithProfiles = (rawTeachers as any[]).map(t => ({
-      ...t,
-      user_profile: profileMap.get(t.user_id),
-      teacher_assignments: []
-    }))
+    const nowIso = new Date().toISOString()
+    const teachersWithProfiles = teacherRows.map((t) => {
+      const profile = profileMap.get(t.user_id)
+      const user_profile: UserProfile = {
+        id: profile?.id || '',
+        user_id: t.user_id,
+        school_id: t.school_id,
+        role: 'teacher',
+        email: profile?.email || '',
+        full_name: profile?.full_name || 'Unknown Teacher',
+        status: profile?.status,
+        staff_id: profile?.staff_id || t.staff_id,
+        phone: profile?.phone,
+        address: profile?.address,
+        gender: profile?.gender,
+        date_of_birth: profile?.date_of_birth,
+        created_at: nowIso,
+        updated_at: nowIso,
+      }
+
+      return {
+        ...t,
+        user_profile,
+        teacher_assignments: [],
+      }
+    })
 
     const teachers = teachersWithProfiles as TeacherWithProfile[]
-    
-    return renderTeachersPage(teachers, classesData, subjectsData, currentSession)
+
+    return renderTeachersPage(
+      teachers,
+      (classesData || []) as Class[],
+      (subjectsData || []) as SubjectFilterOption[],
+      (currentSession as CurrentSessionBadge | null) || null
+    )
   }
 
   const teachers: TeacherWithProfile[] = []
-  return renderTeachersPage(teachers, classesData, subjectsData, currentSession)
+  return renderTeachersPage(
+    teachers,
+    (classesData || []) as Class[],
+    (subjectsData || []) as SubjectFilterOption[],
+    (currentSession as CurrentSessionBadge | null) || null
+  )
 }
 
 function renderTeachersPage(
   teachers: TeacherWithProfile[],
-  classesData: any,
-  subjectsData: any,
-  currentSession: any
+  classesData: Class[],
+  subjectsData: SubjectFilterOption[],
+  currentSession: CurrentSessionBadge | null
 ) {
   return (
     <div className="p-8 space-y-8">
@@ -218,7 +276,7 @@ function renderTeachersPage(
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <TeachersFilters classes={(classesData || []) as Class[]} subjects={(subjectsData || []) as Subject[]} />
+          <TeachersFilters classes={classesData} subjects={subjectsData as Subject[]} />
           {teachers.length > 0 ? (
             <TeachersList teachers={teachers} />
           ) : (

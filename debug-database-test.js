@@ -68,5 +68,7 @@ async function testDatabaseStructure() {
   }
 }
 
+void testDatabaseStructure;
+
 // To run the test, copy this into browser console after logging in:
 // testDatabaseStructure();

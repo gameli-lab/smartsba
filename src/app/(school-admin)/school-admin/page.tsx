@@ -3,7 +3,7 @@ import { createAdminSupabaseClient, createServerComponentClient } from '@/lib/su
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
-import { Users, GraduationCap, BookOpen, Shapes, CheckCircle2, ArrowUpCircle, AlertCircle, AlertTriangle, Clock, UserCheck, ChevronRight, Layers, Settings, BarChart3, Lock, Unlock, FileText, Eye, EyeOff, Megaphone, Send, TrendingUp, TrendingDown, UserMinus, UserPlus, Calendar, Award, Scale, Shield, History } from 'lucide-react'
+import { Users, GraduationCap, BookOpen, Shapes, CheckCircle2, ArrowUpCircle, AlertCircle, AlertTriangle, Clock, UserCheck, ChevronRight, Layers, Settings, BarChart3, Lock, Unlock, FileText, Eye, EyeOff, Megaphone, TrendingUp, TrendingDown, UserMinus, UserPlus, Calendar, Award, Scale, Shield, History } from 'lucide-react'
 import { Suspense } from 'react'
 
 /**
@@ -306,7 +306,8 @@ function KPISkeleton() {
  * Highlights items requiring immediate attention
  */
 async function ActionPriorityPanel({ schoolId, currentTerm }: { schoolId: string; currentTerm: number }) {
-  const supabase = await createServerComponentClient()
+  void schoolId
+  void currentTerm
 
   // Fetch critical items in parallel
   // TODO: Implement data fetching queries
@@ -361,7 +362,7 @@ async function ActionPriorityPanel({ schoolId, currentTerm }: { schoolId: string
  * Priority Alert Component
  * Displays a single critical item with severity highlight
  */
-function PriorityAlert({ item }: { item: any }) {
+function PriorityAlert({ item }: { item: PriorityAlertItem }) {
   const severityConfig = {
     high: {
       bg: 'bg-red-50',
@@ -634,7 +635,7 @@ function OperationsHubSkeleton() {
  * Controls results lifecycle (lock/unlock, publish/unpublish)
  */
 async function ResultsControlPanel({ schoolId }: { schoolId: string }) {
-  const supabase = await createServerComponentClient()
+  void schoolId
 
   // TODO: Fetch results status by class from results or scores table
   // For now, showing structure with placeholder data
@@ -865,7 +866,7 @@ function ResultsControlSkeleton() {
  * School-wide announcements and messaging
  */
 async function CommunicationCenter({ schoolId }: { schoolId: string }) {
-  const supabase = await createServerComponentClient()
+  void schoolId
 
   // TODO: Fetch announcements from announcements table
   // Filter by school_id, order by created_at DESC, limit 5 most recent
@@ -1086,9 +1087,9 @@ async function StaffStudentOversight({ schoolId }: { schoolId: string }) {
   }
 
   // Check for overcrowded classes
-  const overcrowdedClasses = classPopulations.data?.filter(
-    (cls: any) => cls.students && cls.capacity && cls.students.length > cls.capacity
-  ) || []
+  const overcrowdedClasses = (classPopulations.data ?? []).filter(
+    (cls: ClassPopulationRow) => cls.students && cls.capacity && cls.students.length > cls.capacity
+  )
 
   return (
     <div>
@@ -1181,7 +1182,7 @@ async function StaffStudentOversight({ schoolId }: { schoolId: string }) {
             <h3 className="font-semibold text-gray-900 mb-4">Class Population</h3>
             {overcrowdedClasses.length > 0 ? (
               <div className="space-y-2">
-                {overcrowdedClasses.slice(0, 3).map((cls: any) => (
+                {overcrowdedClasses.slice(0, 3).map((cls) => (
                   <div key={cls.id} className="flex items-center justify-between p-2 bg-amber-50 border border-amber-200 rounded">
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -1241,7 +1242,7 @@ function OversightSkeleton() {
  * School-level configuration controls
  */
 async function SettingsConfiguration({ schoolId }: { schoolId: string }) {
-  const supabase = await createServerComponentClient()
+  void schoolId
 
   // TODO: Fetch school settings from database
   // These would come from a school_settings table or similar
@@ -1436,7 +1437,7 @@ async function ActivityLog({ schoolId }: { schoolId: string }) {
         <Card>
           <CardContent className="p-0">
             <div className="divide-y divide-gray-100">
-              {activities.map((activity: any) => (
+              {activities.map((activity) => (
                 <ActivityLogItem key={activity.id} activity={activity} />
               ))}
             </div>
@@ -1475,7 +1476,7 @@ async function ActivityLog({ schoolId }: { schoolId: string }) {
  * Activity Log Item Component
  * Displays a single audit log entry
  */
-function ActivityLogItem({ activity }: { activity: any }) {
+function ActivityLogItem({ activity }: { activity: ActivityLogRow }) {
   const actionTypeConfig: Record<string, { icon: React.ReactNode; color: string }> = {
     create: { icon: <UserPlus className="h-4 w-4" />, color: 'text-green-600 bg-green-50' },
     update: { icon: <Settings className="h-4 w-4" />, color: 'text-blue-600 bg-blue-50' },
@@ -1566,4 +1567,25 @@ interface PriorityAlertItem {
   title: string
   description: string
   href: string
+}
+
+interface ClassPopulationRow {
+  id: string
+  name: string
+  capacity: number | null
+  students: Array<{ id: string }> | null
+}
+
+interface ActivityActor {
+  full_name?: string | null
+  role?: string | null
+}
+
+interface ActivityLogRow {
+  id: string
+  action: string | null
+  entity_type: string | null
+  changes: Record<string, unknown> | null
+  created_at: string
+  user_profiles?: ActivityActor | ActivityActor[] | null
 }

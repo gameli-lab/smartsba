@@ -138,7 +138,7 @@ export default async function ParentDashboardPage({ searchParams }: PageProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Parent Dashboard</h1>
-          <p className="text-sm text-gray-600">Overview of {studentName}'s academic performance.</p>
+          <p className="text-sm text-gray-600">Overview of {studentName}&apos;s academic performance.</p>
         </div>
         <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700">
           {session.academic_year} • Term {session.term}

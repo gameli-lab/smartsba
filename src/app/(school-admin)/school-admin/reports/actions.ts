@@ -3,25 +3,12 @@
 import { requireSchoolAdmin } from '@/lib/auth'
 import { supabase, createServerComponentClient } from '@/lib/supabase'
 import { getSchoolAssetSignedUrl } from '@/lib/storage'
-import type { ReportCardData, ClassReportData, Score, Subject, Student, UserProfile, AcademicSession } from '@/types'
+import type { ReportCardData, ClassReportData, Score, AcademicSession } from '@/types'
 
 export type ReportMetadata = {
-  class: any
+  class: ClassMetadataRow
   students: Array<{ id: string; admission_number: string; user_profile: { id: string; full_name: string } }>
   classTeacher: { id: string; user_profile: { id: string; full_name: string } } | null
-}
-
-interface StudentScoreRow {
-  id: string
-  student_id: string
-  subject_id: string
-  ca_score: number | null
-  exam_score: number | null
-  total_score: number | null
-  grade: string | null
-  subject_remark: string | null
-  created_at: string
-  updated_at: string
 }
 
 interface StudentRow {
@@ -55,16 +42,57 @@ interface SubjectRow {
   updated_at: string
 }
 
-interface ClassTeacherRemarkRow {
+interface ScoreWithSubjectRow {
+  id: string
+  student_id: string
+  ca_score: number | null
+  exam_score: number | null
+  total_score: number | null
+  grade: string | null
+  subject_remark: string | null
+  subjects: SubjectRow
+}
+
+interface StudentIdRow {
+  id: string
+}
+
+interface StudentTotalScoreRow {
+  student_id: string
+  total_score: number | null
+}
+
+interface StudentWithProfileRow extends StudentRow {
+  user_profile: {
+    id: string
+    full_name: string
+    email: string | null
+    phone: string | null
+  }
+}
+
+interface ClassRow {
+  id: string
+  name: string
+  level: string | null
+  stream: string | null
+}
+
+interface ClassWithSchoolRow extends ClassRow {
+  school_id: string
+}
+
+interface ClassMetadataRow extends ClassWithSchoolRow {
+  class_teacher_id: string | null
+}
+
+interface AttendanceRow {
   id: string
   student_id: string
   session_id: string
-  remark: string
-  promotion_status: string | null
-  next_class_id: string | null
-  entered_by: string
-  created_at: string
-  updated_at: string
+  present_days: number
+  total_days: number
+  percentage: number
 }
 
 export async function generateStudentReportCard(
@@ -148,7 +176,8 @@ export async function generateStudentReportCard(
       .eq('student_id', studentId)
       .eq('session_id', sessionId)
 
-    const scores = (scoresData || []).map((s: any) => ({
+    const scoresRows = (scoresData || []) as ScoreWithSubjectRow[]
+    const scores = scoresRows.map((s) => ({
       id: s.id,
       ca_score: s.ca_score,
       exam_score: s.exam_score,
@@ -180,7 +209,7 @@ export async function generateStudentReportCard(
       .eq('class_id', student.class_id)
       .eq('school_id', schoolId)
 
-    const classStudentIds = (classStudentsData || []).map((s: any) => s.id)
+    const classStudentIds = ((classStudentsData || []) as StudentIdRow[]).map((s) => s.id)
     const outOf = classStudentIds.length
     let position = 0
 
@@ -192,7 +221,7 @@ export async function generateStudentReportCard(
         .in('student_id', classStudentIds)
 
       const studentTotals = new Map<string, number>()
-      for (const row of (allClassScores || [])) {
+      for (const row of ((allClassScores || []) as StudentTotalScoreRow[])) {
         const prev = studentTotals.get(row.student_id) || 0
         studentTotals.set(row.student_id, prev + (row.total_score || 0))
       }
@@ -218,13 +247,13 @@ export async function generateStudentReportCard(
           logo_url: logoSignedUrl ?? schoolRow?.logo_url,
           stamp_url: stampSignedUrl ?? schoolRow?.stamp_url,
           head_signature_url: signatureSignedUrl ?? schoolRow?.head_signature_url,
-        } as any,
+        } as unknown as ReportCardData['school'],
         session,
-        student: { ...student, user_profile: profileRow as any },
-        class: classRow as any,
+        student: { ...student, user_profile: profileRow },
+        class: classRow as unknown as ReportCardData['class'],
         scores,
-        attendance: (attendanceRow ?? {}) as any,
-        class_teacher_remark: remarkRow as any,
+        attendance: (attendanceRow ?? {}) as AttendanceRow,
+        class_teacher_remark: remarkRow as unknown as ReportCardData['class_teacher_remark'],
         totals: {
           total_ca: totalCa,
           total_exam: totalExam,
@@ -257,7 +286,8 @@ export async function generateClassReport(
       .eq('id', classId)
       .single()
 
-    if (!classRow || (classRow as any).school_id !== schoolId) {
+    const resolvedClass = classRow as ClassWithSchoolRow | null
+    if (!resolvedClass || resolvedClass.school_id !== schoolId) {
       return { success: false, error: 'Class not found' }
     }
 
@@ -308,10 +338,10 @@ export async function generateClassReport(
         subjects!inner(id, name, code)
       `)
       .eq('session_id', sessionId)
-      .in('student_id', (studentsData || []).map((s: any) => s.id))
+        .in('student_id', ((studentsData || []) as StudentIdRow[]).map((s) => s.id))
 
     const studentMap = new Map<string, Array<Score & { subject: SubjectRow }>>()
-    ;(allScoresData || []).forEach((row: any) => {
+    ;((allScoresData || []) as ScoreWithSubjectRow[]).forEach((row) => {
       const list = studentMap.get(row.student_id) || []
       list.push({
         id: row.id,
@@ -320,11 +350,11 @@ export async function generateClassReport(
         total_score: row.total_score,
         grade: row.grade,
         subject: row.subjects as SubjectRow,
-      } as any)
+      })
       studentMap.set(row.student_id, list)
     })
 
-    const classStudents = (studentsData || []).map((s: any) => {
+    const classStudents = ((studentsData || []) as StudentWithProfileRow[]).map((s) => {
       const scores = studentMap.get(s.id) || []
       const totalScore = scores.reduce((sum, sc) => sum + (sc.total_score || 0), 0)
       const avgScore = scores.length > 0 ? totalScore / scores.length : 0
@@ -344,9 +374,9 @@ export async function generateClassReport(
     return {
       success: true,
       data: {
-        school: schoolRow as any,
+        school: schoolRow as unknown as ClassReportData['school'],
         session,
-        class: classRow as any,
+        class: resolvedClass,
         students: classStudents,
         subjects,
       } as ClassReportData,
@@ -371,7 +401,8 @@ export async function getReportMetadata(
       .eq('id', classId)
       .single()
 
-    if (!classRow || (classRow as any).school_id !== schoolId) {
+    const resolvedClass = classRow as ClassMetadataRow | null
+    if (!resolvedClass || resolvedClass.school_id !== schoolId) {
       return { success: false, error: 'Class not found' }
     }
 
@@ -384,11 +415,11 @@ export async function getReportMetadata(
 
     // Get class teacher info if assigned
     let classTeacher = null
-    if ((classRow as any).class_teacher_id) {
+    if (resolvedClass.class_teacher_id) {
       const { data: teacherRow } = await supabase
         .from('teachers')
         .select('id, user_profile:user_profiles!inner(id, full_name)')
-        .eq('id', (classRow as any).class_teacher_id)
+        .eq('id', resolvedClass.class_teacher_id)
         .single()
 
       classTeacher = teacherRow
@@ -397,7 +428,7 @@ export async function getReportMetadata(
     return {
       success: true,
       data: {
-        class: classRow,
+        class: resolvedClass,
         students: students || [],
         classTeacher,
       },

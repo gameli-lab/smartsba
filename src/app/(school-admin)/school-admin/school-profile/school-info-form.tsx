@@ -55,7 +55,7 @@ export function SchoolInfoForm({ school }: SchoolInfoFormProps) {
       <CardHeader>
         <CardTitle>School Information</CardTitle>
         <CardDescription>
-          Update your school's basic information
+          Update your school&apos;s basic information
         </CardDescription>
       </CardHeader>
       <CardContent>

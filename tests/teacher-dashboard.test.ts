@@ -351,21 +351,6 @@ describe('Teacher - Class Management', () => {
 })
 
 describe('Teacher - Announcements', () => {
-  let testTeacherId: string
-
-  beforeAll(async () => {
-    const { data: teachers } = await supabase
-      .from('teachers')
-      .select('id, user_id')
-      .eq('school_id', SCHOOL_ID)
-      .eq('is_active', true)
-      .limit(1)
-
-    if (teachers && teachers.length > 0) {
-      testTeacherId = teachers[0].id
-    }
-  })
-
   test('should retrieve announcements for teacher school', async () => {
     const { data, error } = await supabase
       .from('announcements')

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,7 @@ interface AuditLog {
   action_type: string
   entity_type: string
   entity_id: string | null
-  metadata: Record<string, any> | null
+  metadata: Record<string, unknown> | null
   created_at: string
 }
 
@@ -88,11 +88,7 @@ export default function AuditLogsPage() {
     init()
   }, [])
 
-  useEffect(() => {
-    fetchLogs()
-  }, [actionType, entityType, dateFrom, dateTo, searchQuery])
-
-  const fetchLogs = async (cursor?: string | null) => {
+  const fetchLogs = useCallback(async (cursor?: string | null) => {
     setLoading(true)
     setError(null)
 
@@ -133,7 +129,11 @@ export default function AuditLogsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [actionType, dateFrom, dateTo, entityType, searchQuery])
+
+  useEffect(() => {
+    fetchLogs()
+  }, [fetchLogs])
 
   const handleNextPage = () => {
     if (!nextCursor) return

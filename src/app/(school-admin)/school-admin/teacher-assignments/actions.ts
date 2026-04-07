@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache'
 import { requireSchoolAdmin } from '@/lib/auth'
 import { createAdminSupabaseClient } from '@/lib/supabase'
-import type { TeacherAssignment } from '@/types'
 
 interface CreateAssignmentInput {
   class_id: string

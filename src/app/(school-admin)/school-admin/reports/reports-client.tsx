@@ -11,11 +11,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Loader2, Eye } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { generateStudentReportCard, generateClassReport, getReportMetadata, type ReportMetadata } from './actions'
-import { StudentReportPreview } from './student-report-preview'
-import { ClassReportPreview } from './class-report-preview'
-import type { AcademicSession, Class, ReportCardData, ClassReportData } from '@/types'
+import type { AcademicSession, Class } from '@/types'
 
 type ClassMetadata = Pick<ReportMetadata, 'students'>
 
@@ -31,10 +29,6 @@ export function ReportsClient({ sessions, classes }: Props) {
   const [selectedStudent, setSelectedStudent] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [studentReport, setStudentReport] = useState<ReportCardData | null>(null)
-  const [classReport, setClassReport] = useState<ClassReportData | null>(null)
-  const [showStudentPreview, setShowStudentPreview] = useState(false)
-  const [showClassPreview, setShowClassPreview] = useState(false)
   const [classMetadata, setClassMetadata] = useState<ClassMetadata | null>(null)
 
   const handleClassChange = async (classId: string) => {
@@ -76,8 +70,6 @@ export function ReportsClient({ sessions, classes }: Props) {
       return
     }
 
-    setStudentReport(result.data || null)
-    setShowStudentPreview(true)
   }
 
   const handleGenerateClassReport = async () => {
@@ -96,8 +88,6 @@ export function ReportsClient({ sessions, classes }: Props) {
       return
     }
 
-    setClassReport(result.data || null)
-    setShowClassPreview(true)
   }
 
   return (
@@ -187,7 +177,7 @@ export function ReportsClient({ sessions, classes }: Props) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {classMetadata.students.map((student: any) => (
+                  {classMetadata.students.map((student) => (
                     <SelectItem key={student.id} value={student.id}>
                       {student.user_profile.full_name}
                     </SelectItem>
@@ -213,21 +203,6 @@ export function ReportsClient({ sessions, classes }: Props) {
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isLoading ? 'Generating...' : 'Generate Report'}
             </Button>
-            {(studentReport || classReport) && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (reportType === 'student') {
-                    setShowStudentPreview(true)
-                  } else {
-                    setShowClassPreview(true)
-                  }
-                }}
-              >
-                <Eye className="mr-2 h-4 w-4" />
-                Preview
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>

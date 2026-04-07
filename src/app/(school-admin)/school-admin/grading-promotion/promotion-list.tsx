@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -12,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Edit, Check } from 'lucide-react'
+import { Edit } from 'lucide-react'
 import { PromotionRemarkDialog } from './promotion-remark-dialog'
 
 interface StudentRow {
@@ -39,7 +38,6 @@ interface Props {
 }
 
 export function PromotionList({ students, nextClasses }: Props) {
-  const router = useRouter()
   const [editingStudent, setEditingStudent] = useState<StudentRow | null>(null)
 
   const getStatusBadge = (status?: string | null) => {

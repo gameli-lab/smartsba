@@ -219,6 +219,7 @@ export function Sidebar({
   onOpen,
   onClose,
 }: SidebarProps) {
+  void schoolName;
   const pathname = usePathname();
   const config = roleConfig[userRole];
   const sidebarRef = useRef<HTMLDivElement>(null);

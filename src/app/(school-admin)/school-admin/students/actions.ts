@@ -598,8 +598,7 @@ export async function toggleStudentStatus(studentId: string, isActive: boolean) 
       return { success: false, error: 'Failed to update student status' }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: profileError } = await (supabase as any)
+    const { error: profileError } = await supabase
       .from('user_profiles')
       .update({ status: isActive ? 'active' : 'disabled' })
       .eq('user_id', student.user_id)
@@ -636,8 +635,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
 
     const buffer = Buffer.from(new Uint8Array(await file.arrayBuffer()))
     const workbook = new ExcelJS.Workbook()
-    // ExcelJS typings are strict; cast to any for compatibility
-    await workbook.xlsx.load(buffer as any)
+    await workbook.xlsx.load(buffer)
     const sheet = workbook.worksheets[0]
     if (!sheet) return { success: false, error: 'Excel file is empty or invalid' }
 

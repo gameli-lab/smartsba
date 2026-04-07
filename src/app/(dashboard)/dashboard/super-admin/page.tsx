@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, School, Users, UserCheck, TrendingUp, AlertCircle, CheckCircle2, AlertTriangle, Clock, BarChart3 } from 'lucide-react';
+import { RefreshCw, School, Users, TrendingUp, AlertCircle, CheckCircle2, AlertTriangle, Clock, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface KPIData {
   totalSchools: number;
@@ -61,6 +61,45 @@ interface SchoolSnapshot {
   updated_at: string;
   student_count: number;
   teacher_count: number;
+}
+
+interface SchoolAuditRow {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  status?: 'active' | 'inactive';
+}
+
+interface AuditLogRow {
+  id: string;
+  actor_user_id: string;
+  actor_role: string;
+  action_type: string;
+  entity_type: string;
+  entity_id: string | null;
+  created_at: string;
+}
+
+interface ProfileLookupRow {
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+}
+
+interface SchoolLookupRow {
+  id: string;
+  name: string;
+}
+
+interface CreatedAtRow {
+  id: string;
+  created_at: string;
+}
+
+interface RoleRow {
+  role: string | null;
 }
 
 const KPISkeleton = () => (
@@ -132,7 +171,7 @@ const KPICard = ({
   </Link>
 );
 
-const AttentionBadge = ({ type, severity }: { type: string; severity: 'info' | 'warning' | 'critical' }) => {
+const AttentionBadge = ({ type }: { type: string }) => {
   const config = {
     pending_activation: { label: 'Pending Activation', color: 'bg-blue-50 text-blue-700' },
     recently_deactivated: { label: 'Recently Deactivated', color: 'bg-yellow-50 text-yellow-700' },
@@ -286,7 +325,7 @@ export default function SuperAdminDashboard() {
         .limit(5);
 
       if (recentlyDeactivated) {
-        recentlyDeactivated.forEach((school: any) => {
+        (recentlyDeactivated as SchoolAuditRow[]).forEach((school) => {
           items.push({
             id: `deactivated-${school.id}`,
             type: 'recently_deactivated',
@@ -311,7 +350,7 @@ export default function SuperAdminDashboard() {
         .limit(5);
 
       if (pendingActivations) {
-        pendingActivations.forEach((school: any) => {
+        (pendingActivations as SchoolAuditRow[]).forEach((school) => {
           items.push({
             id: `pending-${school.id}`,
             type: 'pending_activation',
@@ -333,7 +372,7 @@ export default function SuperAdminDashboard() {
         .limit(3);
 
       if (failedOps) {
-        failedOps.forEach((log: any) => {
+        (failedOps as AuditLogRow[]).forEach((log) => {
           items.push({
             id: `failed-${log.id}`,
             type: 'failed_operation',
@@ -355,7 +394,7 @@ export default function SuperAdminDashboard() {
         .limit(3);
 
       if (overrides) {
-        overrides.forEach((log: any) => {
+        (overrides as AuditLogRow[]).forEach((log) => {
           items.push({
             id: `override-${log.id}`,
             type: 'admin_override',
@@ -405,12 +444,20 @@ export default function SuperAdminDashboard() {
         console.error('Error fetching activity logs:', error?.message || JSON.stringify(error));
         setActivityLogs([]);
       } else if (logs) {
+        const logRows = logs as AuditLogRow[]
         // Fetch user profiles to get names and emails for each log entry
-        const userIds = [...new Set(logs.map((log: any) => log.actor_user_id))];
-        const schoolIds = [...new Set(logs.filter((log: any) => log.entity_type === 'school' && log.entity_id).map((log: any) => log.entity_id))];
+        const userIds = [...new Set(logRows.map((log) => log.actor_user_id))];
+        const schoolIds = [
+          ...new Set(
+            logRows
+              .filter((log) => log.entity_type === 'school' && !!log.entity_id)
+              .map((log) => log.entity_id)
+              .filter((id): id is string => !!id)
+          ),
+        ];
         
-        let profileMap: any = {};
-        let schoolMap: any = {};
+        let profileMap: Record<string, ProfileLookupRow> = {};
+        let schoolMap: Record<string, SchoolLookupRow> = {};
 
         if (userIds.length > 0) {
           const { data: profiles } = await supabase
@@ -418,7 +465,7 @@ export default function SuperAdminDashboard() {
             .select('user_id, first_name, last_name, email')
             .in('user_id', userIds);
 
-          profileMap = (profiles || []).reduce((acc: any, profile: any) => {
+          profileMap = ((profiles || []) as ProfileLookupRow[]).reduce<Record<string, ProfileLookupRow>>((acc, profile) => {
             acc[profile.user_id] = profile;
             return acc;
           }, {});
@@ -430,19 +477,21 @@ export default function SuperAdminDashboard() {
             .select('id, name')
             .in('id', schoolIds);
 
-          schoolMap = (schools || []).reduce((acc: any, school: any) => {
+          schoolMap = ((schools || []) as SchoolLookupRow[]).reduce<Record<string, SchoolLookupRow>>((acc, school) => {
             acc[school.id] = school;
             return acc;
           }, {});
         }
 
-        const enrichedLogs = logs.map((log: any) => {
+        const enrichedLogs = logRows.map((log) => {
           const profile = profileMap[log.actor_user_id];
-          const school = schoolMap[log.entity_id];
+          const school = log.entity_id ? schoolMap[log.entity_id] : undefined;
           return {
             ...log,
-            actor_name: profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown User',
-            actor_email: profile?.email || 'N/A',
+            actor_name: profile
+              ? `${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim() || 'Unknown User'
+              : 'Unknown User',
+            actor_email: profile?.email || null,
             entity_name: school?.name || null,
           };
         });
@@ -486,7 +535,7 @@ export default function SuperAdminDashboard() {
         .gte('created_at', thirtyDaysAgo.toISOString());
 
       if (schools) {
-        schools.forEach((school: any) => {
+        (schools as CreatedAtRow[]).forEach((school) => {
           const dateStr = school.created_at.split('T')[0];
           if (schoolsByDate[dateStr] !== undefined) {
             schoolsByDate[dateStr]++;
@@ -501,7 +550,7 @@ export default function SuperAdminDashboard() {
         .gte('created_at', thirtyDaysAgo.toISOString());
 
       if (users) {
-        users.forEach((user: any) => {
+        (users as CreatedAtRow[]).forEach((user) => {
           const dateStr = user.created_at.split('T')[0];
           if (usersByDate[dateStr] !== undefined) {
             usersByDate[dateStr]++;
@@ -551,7 +600,7 @@ export default function SuperAdminDashboard() {
           parent: 0,
         };
 
-        profiles.forEach((profile: any) => {
+        (profiles as RoleRow[]).forEach((profile) => {
           if (profile.role && distribution[profile.role] !== undefined) {
             distribution[profile.role]++;
           }
@@ -572,7 +621,7 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const fetchSchoolsSnapshot = async () => {
+  const fetchSchoolsSnapshot = useCallback(async () => {
     setSchoolsLoading(true);
     try {
       let query = supabase
@@ -607,7 +656,7 @@ export default function SuperAdminDashboard() {
 
       // For each school, fetch student and teacher counts
       const enrichedSchools = await Promise.all(
-        schools.map(async (school: any) => {
+        (schools as SchoolAuditRow[]).map(async (school) => {
           const { count: studentCount } = await supabase
             .from('user_profiles')
             .select('id', { count: 'exact', head: true })
@@ -639,7 +688,7 @@ export default function SuperAdminDashboard() {
     } finally {
       setSchoolsLoading(false);
     }
-  };
+  }, [searchQuery, statusFilter]);
 
   useEffect(() => {
     fetchKPIData();
@@ -647,14 +696,13 @@ export default function SuperAdminDashboard() {
     fetchActivityLogs();
     fetchTrendsData();
     fetchUserDistribution();
-    fetchSchoolsSnapshot();
   }, []);
 
   // Refetch schools when search or filter changes
   useEffect(() => {
     setCurrentPage(1);
     fetchSchoolsSnapshot();
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, fetchSchoolsSnapshot]);
 
   const getEnvironment = () => {
     // TODO: Add environment detection from env vars when available
@@ -942,7 +990,7 @@ export default function SuperAdminDashboard() {
                       )}
                     </div>
                     <div className="flex-shrink-0 ml-4">
-                      <AttentionBadge type={item.type} severity={item.severity} />
+                      <AttentionBadge type={item.type} />
                     </div>
                   </div>
                 </Link>

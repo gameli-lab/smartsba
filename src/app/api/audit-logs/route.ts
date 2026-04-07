@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+interface AuditLogRow {
+  id: string
+  actor_user_id: string | null
+  actor_role: string | null
+  action_type: string
+  entity_type: string
+  entity_id: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
+}
+
+interface ActorProfile {
+  full_name: string | null
+  email: string | null
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Verify environment variables
@@ -130,7 +146,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch audit logs' }, { status: 500 })
     }
 
-    const rows = data || []
+    const rows: AuditLogRow[] = (data || []) as AuditLogRow[]
     let next_cursor: string | null = null
 
     // Check if there are more results
@@ -142,8 +158,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user profiles for actor_user_ids
-    const userIds = [...new Set(rows.map((row: any) => row.actor_user_id).filter(Boolean))]
-    let userProfiles: Record<string, any> = {}
+    const userIds = [...new Set(rows.map((row) => row.actor_user_id).filter((id): id is string => Boolean(id)))]
+    let userProfiles: Record<string, ActorProfile> = {}
 
     if (userIds.length > 0) {
       const { data: profiles } = await supabaseAdmin
@@ -153,13 +169,13 @@ export async function GET(request: NextRequest) {
 
       if (profiles) {
         userProfiles = Object.fromEntries(
-          profiles.map((p: any) => [p.user_id, { full_name: p.full_name, email: p.email }])
+          profiles.map((p) => [p.user_id, { full_name: p.full_name, email: p.email }])
         )
       }
     }
 
     // Format logs for response
-    const logs = rows.map((row: any) => {
+    const logs = rows.map((row) => {
       const profile = userProfiles[row.actor_user_id]
       return {
         id: row.id,

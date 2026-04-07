@@ -12,7 +12,7 @@ const SCHOOL_ID = '00000000-0000-0000-0000-000000000001' // Test school ID
 
 describe('School Admin - Teachers Management', () => {
   let testTeacherId: string = ''
-  let testUserId: string = ''
+  const testUserId: string = ''
 
   beforeAll(async () => {
     // Ensure school exists
@@ -172,7 +172,7 @@ describe('School Admin - Teachers Management', () => {
   })
 
   test('should count teachers by school', async () => {
-    const { data, count, error } = await supabase
+    const { count, error } = await supabase
       .from('teachers')
       .select('id', { count: 'exact', head: true })
       .eq('school_id', SCHOOL_ID)

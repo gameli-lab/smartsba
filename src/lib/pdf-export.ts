@@ -3,16 +3,65 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-interface PDFExportOptions {
-  title: string
-  orientation?: 'portrait' | 'landscape'
-  data: any[]
-  columns: Array<{ header: string; dataKey: string }>
-  metadata?: Record<string, string>
+interface SchoolPDFRow {
+  name: string
+  email?: string | null
+  phone?: string | null
+  status: string
+  created_at: string
+}
+
+interface UserPDFRow {
+  full_name?: string | null
+  email?: string | null
+  role: string
+  school?: string | null
+  created_at: string
+}
+
+interface RecentSchoolRow {
+  name: string
+  status: string
+  created_at: string
+}
+
+interface AuditLogPDFRow {
+  actor_name?: string | null
+  action_type: string
+  entity_type: string
+  entity_id?: string | null
+  created_at: string
+}
+
+interface SchoolPerformanceRow {
+  school_name: string
+  status: string
+  total_students: number
+  total_teachers: number
+  total_classes: number
+  active_users: number
+  assessment_count: number
+  announcement_count: number
+}
+
+interface UsageTrendRow {
+  date: string
+  active_users: number
+  new_schools: number
+  new_users: number
+  total_logins: number
+}
+
+interface FeatureAdoptionRow {
+  feature_name: string
+  schools_using: number
+  total_schools: number
+  adoption_rate: number
+  usage_count: number
 }
 
 export async function exportSchoolsToPDF(
-  schools: any[],
+  schools: SchoolPDFRow[],
   filters?: { status?: string; search?: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -49,7 +98,7 @@ export async function exportSchoolsToPDF(
     })
 
     // Add footer
-    const pageCount = (doc as any).internal.getNumberOfPages()
+    const pageCount = doc.getNumberOfPages()
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i)
       doc.setFontSize(8)
@@ -73,7 +122,7 @@ export async function exportSchoolsToPDF(
 }
 
 export async function exportUsersToPDF(
-  users: any[],
+  users: UserPDFRow[],
   filters?: { role?: string; search?: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -106,7 +155,7 @@ export async function exportUsersToPDF(
       styles: { fontSize: 9 },
     })
 
-    const pageCount = (doc as any).internal.getNumberOfPages()
+    const pageCount = doc.getNumberOfPages()
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i)
       doc.setFontSize(8)
@@ -134,7 +183,7 @@ export async function exportAnalyticsToPDF(
     activeSchools: number
     inactiveSchools: number
     usersByRole: Record<string, number>
-    recentSchools: any[]
+    recentSchools: RecentSchoolRow[]
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -181,7 +230,7 @@ export async function exportAnalyticsToPDF(
       styles: { fontSize: 9 },
     })
 
-    const pageCount = (doc as any).internal.getNumberOfPages()
+    const pageCount = doc.getNumberOfPages()
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i)
       doc.setFontSize(8)
@@ -204,7 +253,7 @@ export async function exportAnalyticsToPDF(
 }
 
 export async function exportAuditLogsToPDF(
-  logs: any[],
+  logs: AuditLogPDFRow[],
   filters?: { actionType?: string; entityType?: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -237,7 +286,7 @@ export async function exportAuditLogsToPDF(
       styles: { fontSize: 8 },
     })
 
-    const pageCount = (doc as any).internal.getNumberOfPages()
+    const pageCount = doc.getNumberOfPages()
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i)
       doc.setFontSize(8)
@@ -260,7 +309,7 @@ export async function exportAuditLogsToPDF(
 }
 
 export async function exportSchoolPerformanceToPDF(
-  schools: any[],
+  schools: SchoolPerformanceRow[],
   dateRange?: { startDate?: string; endDate?: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -321,7 +370,7 @@ export async function exportSchoolPerformanceToPDF(
       styles: { fontSize: 8 },
     })
 
-    const pageCount = (doc as any).internal.getNumberOfPages()
+    const pageCount = doc.getNumberOfPages()
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i)
       doc.setFontSize(8)
@@ -344,7 +393,7 @@ export async function exportSchoolPerformanceToPDF(
 }
 
 export async function exportUsageTrendsToPDF(
-  trends: any[],
+  trends: UsageTrendRow[],
   dateRange?: { startDate?: string; endDate?: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -392,7 +441,7 @@ export async function exportUsageTrendsToPDF(
     autoTable(doc, {
       startY: summaryY + 26,
       head: [['Date', 'Active Users', 'New Schools', 'New Users', 'Logins']],
-      body: trends.reverse().map((day) => [
+      body: [...trends].reverse().map((day) => [
         new Date(day.date).toLocaleDateString(),
         day.active_users,
         day.new_schools,
@@ -404,7 +453,7 @@ export async function exportUsageTrendsToPDF(
       styles: { fontSize: 9 },
     })
 
-    const pageCount = (doc as any).internal.getNumberOfPages()
+    const pageCount = doc.getNumberOfPages()
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i)
       doc.setFontSize(8)
@@ -427,7 +476,7 @@ export async function exportUsageTrendsToPDF(
 }
 
 export async function exportFeatureAdoptionToPDF(
-  features: any[],
+  features: FeatureAdoptionRow[],
   dateRange?: { startDate?: string; endDate?: string }
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -477,7 +526,7 @@ export async function exportFeatureAdoptionToPDF(
       styles: { fontSize: 9 },
     })
 
-    const pageCount = (doc as any).internal.getNumberOfPages()
+    const pageCount = doc.getNumberOfPages()
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i)
       doc.setFontSize(8)

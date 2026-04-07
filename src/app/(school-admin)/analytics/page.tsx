@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { cn, calculateGrade } from '@/lib/utils'
-import { AcademicSession, Class, Subject } from '@/types'
+import { AcademicSession, Class } from '@/types'
 
 interface AnalyticsFilters {
   sessionId?: string
@@ -21,6 +21,12 @@ interface ScoreRow {
     id: string
     class_id: string | null
   }
+}
+
+interface SubjectOption {
+  id: string
+  name: string
+  class_id?: string | null
 }
 
 export default async function AnalyticsPage({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
@@ -53,11 +59,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Re
 
   const sessionList = (sessions as AcademicSession[] | null) || []
   const classList = (classes as Pick<Class, 'id' | 'name'>[] | null) || []
-  const subjectList = (subjects as Pick<Subject, 'id' | 'name' | 'class_id'>[] | null) || []
+  const subjectList = (subjects as SubjectOption[] | null) || []
   const totalTeachers = (teachers as { user_id: string }[] | null)?.length || 0
 
   // Resolve filters with sensible defaults
-  const currentSessionId = sessionList.find((s) => (s as any).is_current)?.id
+  const currentSessionId = sessionList.find((s) => s.is_current)?.id
   const selectedSessionId = (typeof searchParams.sessionId === 'string' && searchParams.sessionId) || currentSessionId || sessionList[0]?.id
   const selectedClassId = typeof searchParams.classId === 'string' ? searchParams.classId : undefined
   const selectedSubjectId = typeof searchParams.subjectId === 'string' ? searchParams.subjectId : undefined
@@ -166,7 +172,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Re
                 <SelectContent>
                   {sessionList.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
-                      {s.academic_year} • Term {s.term}{(s as any).is_current ? ' (Current)' : ''}
+                      {s.academic_year} • Term {s.term}{s.is_current ? ' (Current)' : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

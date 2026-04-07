@@ -13,7 +13,6 @@ const SCHOOL_ID = '00000000-0000-0000-0000-000000000001' // Test school ID
 describe('Parent - Dashboard & Profile', () => {
   let testParentId: string
   let testUserId: string
-  let testStudentId: string
 
   beforeAll(async () => {
     // Get or create test school
@@ -370,7 +369,7 @@ describe('Parent - Student Performance & Results', () => {
       return // Skip if no student
     }
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('student_aggregates')
       .select('*')
       .eq('student_id', testStudentId)
@@ -432,20 +431,6 @@ describe('Parent - Student Performance & Results', () => {
 })
 
 describe('Parent - Announcements & Communication', () => {
-  let testParentId: string
-
-  beforeAll(async () => {
-    const { data: parents } = await supabase
-      .from('parents')
-      .select('id')
-      .eq('school_id', SCHOOL_ID)
-      .limit(1)
-
-    if (parents && parents.length > 0) {
-      testParentId = parents[0].id
-    }
-  })
-
   test('should retrieve announcements for parents', async () => {
     const { data, error } = await supabase
       .from('announcements')

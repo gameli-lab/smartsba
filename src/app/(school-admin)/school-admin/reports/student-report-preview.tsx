@@ -19,6 +19,7 @@ export function StudentReportPreview({ report, open, onOpenChange }: Props) {
   if (!report) return null
 
   const { school, student, class: klass, session, scores, totals, class_teacher_remark, attendance } = report
+  const attendanceData = attendance as { present_days?: number | null; total_days?: number | null } | null
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return ''
@@ -252,11 +253,11 @@ export function StudentReportPreview({ report, open, onOpenChange }: Props) {
               <tr>
                 <td className="border border-black px-2 py-[3px] font-bold w-[80px]">Attendance</td>
                 <td className="border border-black px-2 py-[3px] text-center w-[40px]">
-                  {(attendance as any)?.present_days ?? ''}
+                  {attendanceData?.present_days ?? ''}
                 </td>
                 <td className="border border-black px-2 py-[3px] font-bold text-center w-[50px]">out of</td>
                 <td className="border border-black px-2 py-[3px] text-center w-[40px]">
-                  {(attendance as any)?.total_days ?? ''}
+                  {attendanceData?.total_days ?? ''}
                 </td>
                 <td className="border border-black px-2 py-[3px] font-bold w-[60px]">Remarks</td>
                 <td className="border border-black px-2 py-[3px] font-bold text-center uppercase">

@@ -1,15 +1,15 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
-import { TrendingUp, TrendingDown, School, Users, UserCheck, GraduationCap, AlertTriangle, Download, Calendar } from 'lucide-react'
+import { TrendingUp, TrendingDown, School, Users, UserCheck, GraduationCap, AlertTriangle, Calendar } from 'lucide-react'
 import { ExportButton } from '@/components/super-admin/ExportButton'
 import { exportAnalyticsToCSV } from '../exports/actions'
 import { exportAnalyticsToPDF } from '@/lib/pdf-export'
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 interface AnalyticsData {
   totalSchools: number
@@ -57,6 +57,14 @@ interface ActivityPattern {
   count: number
 }
 
+interface CreatedAtRow {
+  created_at: string
+}
+
+interface RoleRow {
+  role: string | null
+}
+
 export default function SuperAdminAnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesPoint[]>([])
@@ -68,10 +76,10 @@ export default function SuperAdminAnalyticsPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState<'7' | '30' | '90' | 'custom'>('30')
-  const [startDate, setStartDate] = useState<string>('')
-  const [endDate, setEndDate] = useState<string>('')
+  const [startDate] = useState<string>('')
+  const [endDate] = useState<string>('')
 
-  const getDateRange = () => {
+  const getDateRange = useCallback(() => {
     const end = new Date()
     const start = new Date()
 
@@ -96,28 +104,9 @@ export default function SuperAdminAnalyticsPage() {
       start: start.toISOString().split('T')[0],
       end: end.toISOString().split('T')[0],
     }
-  }
+  }, [dateRange, endDate, startDate])
 
-  useEffect(() => {
-    async function init() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        setUserId(session.user.id)
-        const profileResponse = (await supabase
-          .from('user_profiles')
-          .select('role')
-          .eq('user_id', session.user.id)
-          .single()) as { data: { role: string } | null }
-        if (profileResponse.data) {
-          setUserRole(profileResponse.data.role)
-        }
-      }
-      fetchAnalytics()
-    }
-    init()
-  }, [])
-
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = useCallback(async () => {
     setLoading(true)
     setError(null)
 
@@ -233,9 +222,9 @@ export default function SuperAdminAnalyticsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const fetchTimeSeriesData = async () => {
+  const fetchTimeSeriesData = useCallback(async () => {
     setChartsLoading(true)
     try {
       const range = getDateRange()
@@ -267,8 +256,10 @@ export default function SuperAdminAnalyticsPage() {
         .lte('created_at', endStr + 'T23:59:59')
 
       if (schools) {
-        schools.forEach((school: any) => {
-          const dateStr = school.created_at.split('T')[0]
+        schools.forEach((school) => {
+          const createdAt = (school as CreatedAtRow).created_at
+          if (!createdAt) return
+          const dateStr = createdAt.split('T')[0]
           if (schoolsByDate[dateStr] !== undefined) {
             schoolsByDate[dateStr]++
           }
@@ -283,8 +274,10 @@ export default function SuperAdminAnalyticsPage() {
         .lte('created_at', endStr + 'T23:59:59')
 
       if (users) {
-        users.forEach((user: any) => {
-          const dateStr = user.created_at.split('T')[0]
+        users.forEach((user) => {
+          const createdAt = (user as CreatedAtRow).created_at
+          if (!createdAt) return
+          const dateStr = createdAt.split('T')[0]
           if (usersByDate[dateStr] !== undefined) {
             usersByDate[dateStr]++
           }
@@ -299,8 +292,10 @@ export default function SuperAdminAnalyticsPage() {
         .lte('created_at', endStr + 'T23:59:59')
 
       if (logs) {
-        logs.forEach((log: any) => {
-          const dateStr = log.created_at.split('T')[0]
+        logs.forEach((log) => {
+          const createdAt = (log as CreatedAtRow).created_at
+          if (!createdAt) return
+          const dateStr = createdAt.split('T')[0]
           if (activityByDate[dateStr] !== undefined) {
             activityByDate[dateStr]++
           }
@@ -324,9 +319,9 @@ export default function SuperAdminAnalyticsPage() {
     } finally {
       setChartsLoading(false)
     }
-  }
+  }, [getDateRange])
 
-  const fetchRoleDistribution = async () => {
+  const fetchRoleDistribution = useCallback(async () => {
     try {
       const { data: profiles } = await supabase
         .from('user_profiles')
@@ -341,9 +336,10 @@ export default function SuperAdminAnalyticsPage() {
           parent: 0,
         }
 
-        profiles.forEach((profile: any) => {
-          if (profile.role && distribution[profile.role] !== undefined) {
-            distribution[profile.role]++
+        profiles.forEach((profile) => {
+          const role = (profile as RoleRow).role
+          if (role && distribution[role] !== undefined) {
+            distribution[role]++
           }
         })
 
@@ -359,9 +355,9 @@ export default function SuperAdminAnalyticsPage() {
     } catch (error) {
       console.error('Error fetching role distribution:', error)
     }
-  }
+  }, [])
 
-  const fetchActivityPattern = async () => {
+  const fetchActivityPattern = useCallback(async () => {
     try {
       const { data: logs } = await supabase
         .from('audit_logs')
@@ -371,8 +367,10 @@ export default function SuperAdminAnalyticsPage() {
       if (logs) {
         const activityByHour: { [key: string]: number } = {}
 
-        logs.forEach((log: any) => {
-          const hour = new Date(log.created_at).getHours()
+        logs.forEach((log) => {
+          const createdAt = (log as CreatedAtRow).created_at
+          if (!createdAt) return
+          const hour = new Date(createdAt).getHours()
           const timeStr = `${hour}:00`
           activityByHour[timeStr] = (activityByHour[timeStr] || 0) + 1
         })
@@ -387,17 +385,32 @@ export default function SuperAdminAnalyticsPage() {
     } catch (error) {
       console.error('Error fetching activity pattern:', error)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    fetchAnalytics()
-  }, [])
+    async function init() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setUserId(session.user.id)
+        const profileResponse = (await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .single()) as { data: { role: string } | null }
+        if (profileResponse.data) {
+          setUserRole(profileResponse.data.role)
+        }
+      }
+      fetchAnalytics()
+    }
+    init()
+  }, [fetchAnalytics])
 
   useEffect(() => {
     fetchTimeSeriesData()
     fetchRoleDistribution()
     fetchActivityPattern()
-  }, [dateRange, startDate, endDate])
+  }, [fetchActivityPattern, fetchRoleDistribution, fetchTimeSeriesData])
 
   const handleExportCSV = async () => {
     if (!userId || !userRole) {

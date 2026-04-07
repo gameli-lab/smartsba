@@ -15,7 +15,7 @@ import { getSystemSettings, updateSystemSetting } from './actions'
 interface SystemSetting {
   id: string
   setting_key: string
-  setting_value: any
+  setting_value: unknown
   description: string | null
   category: string
   updated_at: string
@@ -104,7 +104,7 @@ export default function SettingsPage() {
   const [savingFeatures, setSavingFeatures] = useState(false)
 
   // Backup state
-  const [backupLoading, setBackupLoading] = useState(false)
+  const [backupLoading] = useState(false)
 
   useEffect(() => {
     async function checkAuth() {
@@ -211,7 +211,7 @@ export default function SettingsPage() {
     setLoading(false)
   }
 
-  async function handleUpdateSetting(settingKey: string, newValue: any) {
+  async function handleUpdateSetting(settingKey: string, newValue: unknown) {
     if (!userId || !userRole) {
       setError('Not authenticated')
       return
@@ -423,7 +423,7 @@ export default function SettingsPage() {
     }
   }
 
-  function handleSecurityChange(field: keyof typeof securityValues, value: any) {
+  function handleSecurityChange(field: keyof typeof securityValues, value: unknown) {
     setSecurityValues(prev => ({
       ...prev,
       [field]: value
@@ -518,7 +518,7 @@ export default function SettingsPage() {
     return settings.find((s) => s.setting_key === key)
   }
 
-  function getSettingValue(key: string, defaultValue: any = null): any {
+  function getSettingValue(key: string, defaultValue: unknown = null): unknown {
     const setting = getSetting(key)
     if (!setting) return defaultValue
     

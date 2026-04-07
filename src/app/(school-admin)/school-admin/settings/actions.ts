@@ -14,7 +14,8 @@ export interface SettingsInput {
 }
 
 // Placeholder action until a storage backend for settings is defined.
-export async function saveSettings(_input: SettingsInput) {
+export async function saveSettings(input: SettingsInput) {
+  void input
   await requireSchoolAdmin()
   return { success: false, error: 'TODO: Persist settings when storage is available.' }
 }

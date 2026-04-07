@@ -68,7 +68,7 @@ export default function EmailLogsTable({ logs, count, nextCursor }: EmailLogsTab
   }
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, any> = {
+    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
       sent: 'default',
       pending: 'secondary',
       failed: 'destructive',

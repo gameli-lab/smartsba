@@ -13,7 +13,6 @@ const SCHOOL_ID = '00000000-0000-0000-0000-000000000001' // Test school ID
 describe('Student - Dashboard & Profile', () => {
   let testStudentId: string
   let testUserId: string
-  let testClassId: string
 
   beforeAll(async () => {
     // Get or create test school
@@ -183,7 +182,6 @@ describe('Student - Dashboard & Profile', () => {
 })
 
 describe('Student - Class & Subjects', () => {
-  let testStudentId: string
   let testClassId: string
 
   beforeAll(async () => {
@@ -195,7 +193,6 @@ describe('Student - Class & Subjects', () => {
       .limit(1)
 
     if (students && students.length > 0) {
-      testStudentId = students[0].id
       testClassId = students[0].class_id
     }
   })
@@ -435,21 +432,6 @@ describe('Student - Assessments & Results', () => {
 })
 
 describe('Student - Announcements', () => {
-  let testStudentId: string
-
-  beforeAll(async () => {
-    const { data: students } = await supabase
-      .from('students')
-      .select('id')
-      .eq('school_id', SCHOOL_ID)
-      .eq('is_active', true)
-      .limit(1)
-
-    if (students && students.length > 0) {
-      testStudentId = students[0].id
-    }
-  })
-
   test('should retrieve announcements for student school', async () => {
     const { data, error } = await supabase
       .from('announcements')
@@ -541,7 +523,7 @@ describe('Student - Performance Analytics', () => {
       return // Skip if no student
     }
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('student_aggregates')
       .select('*')
       .eq('student_id', testStudentId)

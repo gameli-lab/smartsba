@@ -8,6 +8,16 @@ interface PageProps {
   searchParams: Promise<{ ward?: string }>
 }
 
+interface AnnouncementRow {
+  id: string
+  title: string
+  content: string | null
+  created_at: string
+  is_urgent: boolean | null
+  target_audience: string[] | null
+  class_ids: string[] | null
+}
+
 export default async function ParentAnnouncementsPage({ searchParams }: PageProps) {
   const params = await searchParams
   const { user, wards } = await requireParent()
@@ -43,7 +53,7 @@ export default async function ParentAnnouncementsPage({ searchParams }: PageProp
     .or(buildParentAnnouncementFilter(student.class_id))
     .order('created_at', { ascending: false })
 
-  const announcements = (announcementsData || []).map((ann: any) => ({
+  const announcements = ((announcementsData || []) as AnnouncementRow[]).map((ann) => ({
     id: ann.id,
     title: ann.title,
     content: ann.content || '',

@@ -86,7 +86,6 @@ export default async function TeacherPage({ searchParams }: { searchParams: Reco
 
   const pendingScoreEntries = data.summary.pendingScoresToSubmit
   const attendancePendingClasses = data.summary.attendanceNotMarked
-  const atRiskCombined = data.summary.atRiskStudents
   const isClassTeacher = data.roleSpecific.role === 'class_teacher'
   const canPublishScores = data.guardrails.canPublishOrLock
   const incompleteByPair = data.assessmentPipeline.submittedIncomplete

@@ -76,5 +76,7 @@ async function testCreateAdmins() {
   }
 }
 
+void testCreateAdmins;
+
 // To run the test:
 // testCreateAdmins();

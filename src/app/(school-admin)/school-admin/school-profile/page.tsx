@@ -55,7 +55,7 @@ export default async function SchoolProfilePage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">School Profile</h1>
         <p className="text-gray-600 mt-1">
-          Manage your school's information and assets
+          Manage your school&apos;s information and assets
         </p>
       </div>
 
@@ -131,7 +131,7 @@ export default async function SchoolProfilePage() {
                     </h2>
                     {typedSchool.motto && (
                       <p className="text-sm italic text-gray-600 mt-1">
-                        "{typedSchool.motto}"
+                        &ldquo;{typedSchool.motto}&rdquo;
                       </p>
                     )}
                   </div>
@@ -187,7 +187,7 @@ export default async function SchoolProfilePage() {
                       )}
                     </div>
                     <div className="border-t border-gray-400 pt-1">
-                      <p className="text-xs font-medium">Headmaster's Signature</p>
+                      <p className="text-xs font-medium">Headmaster&apos;s Signature</p>
                     </div>
                   </div>
 

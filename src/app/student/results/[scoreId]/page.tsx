@@ -19,7 +19,7 @@ export default async function SubjectResultPage({ params }: PageProps) {
     redirect('/student')
   }
 
-  const { student, profile } = guard
+  const { student } = guard
 
   // Fetch the specific score
   const { data: scoreData } = await supabase
@@ -50,7 +50,7 @@ export default async function SubjectResultPage({ params }: PageProps) {
         </Link>
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-gray-500">Score not found or you don't have access to view it.</p>
+            <p className="text-sm text-gray-500">Score not found or you don&apos;t have access to view it.</p>
           </CardContent>
         </Card>
       </div>
@@ -160,7 +160,7 @@ export default async function SubjectResultPage({ params }: PageProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Teacher's Remark</CardTitle>
+          <CardTitle>Teacher&apos;s Remark</CardTitle>
           <CardDescription>Feedback from your subject teacher.</CardDescription>
         </CardHeader>
         <CardContent>

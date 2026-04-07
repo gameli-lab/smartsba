@@ -88,7 +88,9 @@ describe('School Admin - Classes Management', () => {
         })
         .select('id')
         .single()
-      testClassId = data?.id!
+      if (data?.id) {
+        testClassId = data.id
+      }
     }
 
     const { data, error } = await supabase
@@ -156,7 +158,9 @@ describe('School Admin - Classes Management', () => {
         })
         .select('id')
         .single()
-      testClassId = data?.id!
+      if (data?.id) {
+        testClassId = data.id
+      }
     }
 
     const { data, error } = await supabase

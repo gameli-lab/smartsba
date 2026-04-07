@@ -15,11 +15,6 @@ interface UpdateSchoolProfileInput {
   website?: string
 }
 
-interface UploadAssetInput {
-  file: File
-  type: 'logo' | 'stamp' | 'signature'
-}
-
 /**
  * Update school profile basic information
  */

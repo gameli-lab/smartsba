@@ -1,7 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Mail, CheckCircle2, Clock, XCircle, AlertCircle } from 'lucide-react'
+import { Mail, CheckCircle2, Clock, XCircle } from 'lucide-react'
 
 interface EmailStats {
   total: number

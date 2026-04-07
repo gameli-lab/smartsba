@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -16,7 +15,7 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertTriangle, CheckCircle2, Loader2, Download, Upload, Trash2, CheckCircle, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Loader2, Download } from 'lucide-react'
 import {
   bulkActivateSchools,
   bulkDeactivateSchools,
@@ -48,6 +47,8 @@ interface OperationResult {
   failures: Array<{ id: string; error: string }>
   message: string
 }
+
+type ExportRow = Record<string, unknown>
 
 export default function BulkOperationsPage() {
   const [userId, setUserId] = useState<string | null>(null)
@@ -209,7 +210,7 @@ export default function BulkOperationsPage() {
   const exportData = async () => {
     setExporting(true)
     try {
-      let data: any[] = []
+      let data: ExportRow[] = []
       let filename = ''
 
       if (exportType === 'schools') {
@@ -233,14 +234,14 @@ export default function BulkOperationsPage() {
       } else if (exportFormat === 'json') {
         downloadJSON(data, filename)
       }
-    } catch (err) {
+    } catch {
       setError('Export failed')
     } finally {
       setExporting(false)
     }
   }
 
-  const downloadCSV = (data: any[], filename: string) => {
+  const downloadCSV = (data: ExportRow[], filename: string) => {
     if (data.length === 0) return
 
     const headers = Object.keys(data[0])
@@ -252,7 +253,7 @@ export default function BulkOperationsPage() {
             const value = row[header]
             return typeof value === 'string' && value.includes(',')
               ? `"${value}"`
-              : value
+              : String(value ?? '')
           })
           .join(',')
       ),
@@ -267,7 +268,7 @@ export default function BulkOperationsPage() {
     URL.revokeObjectURL(url)
   }
 
-  const downloadJSON = (data: any[], filename: string) => {
+  const downloadJSON = (data: ExportRow[], filename: string) => {
     const json = JSON.stringify(data, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -328,7 +329,10 @@ export default function BulkOperationsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="school-action">Action</Label>
-                  <Select value={schoolAction} onValueChange={(value: any) => setSchoolAction(value)}>
+                  <Select
+                    value={schoolAction}
+                    onValueChange={(value) => setSchoolAction(value as 'activate' | 'deactivate' | 'delete')}
+                  >
                     <SelectTrigger id="school-action" className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
@@ -415,7 +419,10 @@ export default function BulkOperationsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="user-action">Action</Label>
-                  <Select value={userAction} onValueChange={(value: any) => setUserAction(value)}>
+                  <Select
+                    value={userAction}
+                    onValueChange={(value) => setUserAction(value as 'activate' | 'deactivate' | 'delete')}
+                  >
                     <SelectTrigger id="user-action" className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
@@ -492,7 +499,10 @@ export default function BulkOperationsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="export-type">Data Type</Label>
-                  <Select value={exportType} onValueChange={(value: any) => setExportType(value)}>
+                  <Select
+                    value={exportType}
+                    onValueChange={(value) => setExportType(value as 'schools' | 'users' | 'logs')}
+                  >
                     <SelectTrigger id="export-type" className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
@@ -506,7 +516,10 @@ export default function BulkOperationsPage() {
 
                 <div>
                   <Label htmlFor="export-format">Format</Label>
-                  <Select value={exportFormat} onValueChange={(value: any) => setExportFormat(value)}>
+                  <Select
+                    value={exportFormat}
+                    onValueChange={(value) => setExportFormat(value as 'csv' | 'json')}
+                  >
                     <SelectTrigger id="export-format" className="mt-1">
                       <SelectValue />
                     </SelectTrigger>

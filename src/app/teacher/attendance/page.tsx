@@ -107,9 +107,10 @@ export default async function TeacherAttendancePage({ searchParams }: { searchPa
   ])
 
   const students = (studentRows || []) as StudentRow[]
+  const attendanceEntries = (attendanceRows || []) as AttendanceRow[]
   const attendanceMap = new Map<string, AttendanceRow>()
-  ;(attendanceRows || []).forEach((row: any) => {
-    attendanceMap.set(row.student_id, row as AttendanceRow)
+  attendanceEntries.forEach((row) => {
+    attendanceMap.set(row.student_id, row)
   })
 
   return (

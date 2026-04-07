@@ -11,7 +11,7 @@ const supabase = createClient(
 const SCHOOL_ID = '00000000-0000-0000-0000-000000000001' // Test school ID
 
 describe('School Admin - Teacher Assignments Management', () => {
-  let testAssignmentId: string = ''
+  const testAssignmentId: string = ''
 
   beforeAll(async () => {
     // Ensure school exists
@@ -96,7 +96,7 @@ describe('School Admin - Teacher Assignments Management', () => {
 
     // All should have same teacher_id
     if (data && data.length > 0) {
-      data.forEach((assignment: any) => {
+      data.forEach((assignment: { teacher_id?: string }) => {
         expect(assignment.teacher_id || true).toBeTruthy() // teacher_id exists on parent
       })
     }
@@ -131,7 +131,7 @@ describe('School Admin - Teacher Assignments Management', () => {
 
     // All should have same class_id
     if (data && data.length > 0) {
-      data.forEach((assignment: any) => {
+      data.forEach((assignment: { class_id?: string }) => {
         expect(assignment.class_id || true).toBeTruthy() // class_id exists on parent
       })
     }
@@ -229,7 +229,7 @@ describe('School Admin - Teacher Assignments Management', () => {
     expect(Array.isArray(data)).toBe(true)
 
     if (data && data.length > 0) {
-      data.forEach((assignment: any) => {
+      data.forEach((assignment: { teacher_id?: string; class_id?: string; subject_id?: string }) => {
         expect(assignment.teacher_id).toBeDefined()
         expect(assignment.class_id).toBeDefined()
         expect(assignment.subject_id).toBeDefined()

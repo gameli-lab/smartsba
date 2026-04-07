@@ -22,13 +22,26 @@ interface Props {
   sessions: AcademicSession[]
 }
 
+interface PromotionStudent {
+  id: string
+  promotion_status?: string | null
+}
+
+interface PromotionData {
+  class: { name: string }
+  students: PromotionStudent[]
+  nextClasses: Array<{ id: string; name: string }>
+  totalStudents: number
+  promotedCount: number
+}
+
 export function GradingPromotionClient({ classes, sessions }: Props) {
   const router = useRouter()
   const [selectedClass, setSelectedClass] = useState(classes[0]?.id || '')
   const [selectedSession, setSelectedSession] = useState(sessions[0]?.id || '')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [promotionData, setPromotionData] = useState<any>(null)
+  const [promotionData, setPromotionData] = useState<PromotionData | null>(null)
   const [isBulkPromoting, setIsBulkPromoting] = useState(false)
 
   const handleLoadData = async () => {
@@ -47,7 +60,7 @@ export function GradingPromotionClient({ classes, sessions }: Props) {
       return
     }
 
-    setPromotionData(result.data)
+    setPromotionData(result.data as PromotionData)
   }
 
   const handleBulkPromote = async () => {
@@ -63,8 +76,8 @@ export function GradingPromotionClient({ classes, sessions }: Props) {
 
     const nextClassId = promotionData.nextClasses[0].id
     const studentIds = promotionData.students
-      .filter((s: any) => !s.promotion_status)
-      .map((s: any) => s.id)
+      .filter((s) => !s.promotion_status)
+      .map((s) => s.id)
 
     if (studentIds.length === 0) {
       setError('All students already have a promotion status')

@@ -180,10 +180,10 @@ describe('School Admin - Students Management', () => {
 
     if (students && students.length > 0) {
       const student = students[0]
-      const admissionNumber = (student.user_profile as any)?.admission_number
+      const admissionNumber = (student.user_profile as { admission_number?: string } | null)?.admission_number
 
       if (admissionNumber) {
-        const { data: foundStudent, error } = await supabase
+        const { error } = await supabase
           .from('students')
           .select('id')
           .eq('school_id', SCHOOL_ID)

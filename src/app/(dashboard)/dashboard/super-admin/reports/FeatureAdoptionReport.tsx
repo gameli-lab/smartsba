@@ -24,13 +24,6 @@ export default function FeatureAdoptionReport({ data }: FeatureAdoptionReportPro
     return 'text-red-600'
   }
 
-  const getProgressColor = (rate: number) => {
-    if (rate >= 75) return 'bg-green-600'
-    if (rate >= 50) return 'bg-yellow-600'
-    if (rate >= 25) return 'bg-orange-600'
-    return 'bg-red-600'
-  }
-
   const totalUsage = data.reduce((acc, feature) => acc + feature.usage_count, 0)
   const avgAdoptionRate = data.length > 0
     ? data.reduce((acc, feature) => acc + feature.adoption_rate, 0) / data.length

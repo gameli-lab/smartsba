@@ -29,6 +29,8 @@ interface PerformanceClientProps {
 }
 
 export function PerformanceClient({ studentId, schoolId, sessions, initialData }: PerformanceClientProps) {
+  void studentId
+  void schoolId
   const [selectedYear, setSelectedYear] = useState<string>('')
   const [selectedTerm, setSelectedTerm] = useState<string>('')
   const [data, setData] = useState<PerformanceData | null>(initialData)
@@ -176,7 +178,7 @@ export function PerformanceClient({ studentId, schoolId, sessions, initialData }
           {data.remark && (
             <Card>
               <CardHeader>
-                <CardTitle>Class Teacher's Remark</CardTitle>
+                <CardTitle>Class Teacher&apos;s Remark</CardTitle>
                 <CardDescription>Feedback from your class teacher for this term.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">

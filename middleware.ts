@@ -118,40 +118,6 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // If authenticated user visits homepage, redirect to their dashboard
-  if (user && req.nextUrl.pathname === '/') {
-    // Get user profile to determine redirect
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
-
-    if (profile) {
-      let redirectPath = '/'
-      
-      switch (profile.role) {
-        case 'super_admin':
-          redirectPath = '/dashboard/super-admin'
-          break
-        case 'school_admin':
-          redirectPath = '/school-admin'
-          break
-        case 'teacher':
-          redirectPath = '/teacher'
-          break
-        case 'student':
-          redirectPath = '/student'
-          break
-        case 'parent':
-          redirectPath = '/parent'
-          break
-      }
-      
-      return NextResponse.redirect(new URL(redirectPath, req.url))
-    }
-  }
-
   return response
 }
 
