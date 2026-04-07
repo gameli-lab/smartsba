@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { supabase, createServerComponentClient, createAdminSupabaseClient } from './supabase'
 import { UserRole, UserProfile, Teacher, TeacherAssignment, Student } from '@/types'
-import type { User } from '@supabase/supabase-js'
+
+type User = NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']>
 
 export interface LoginCredentials {
   identifier: string // Email, Staff ID, Admission Number, or Parent Name/Email
@@ -618,8 +619,8 @@ export async function requireParent(): Promise<ParentGuardResult> {
       .select('*')
       .in('id', studentIds)
 
-    ;(studentRows || []).forEach((studentRow) => {
-      studentsById.set((studentRow as Student).id, studentRow as Student)
+    ;(studentRows || []).forEach((studentRow: Student) => {
+      studentsById.set(studentRow.id, studentRow)
     })
   }
 

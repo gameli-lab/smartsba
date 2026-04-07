@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Checkbox } from '@/components/ui/checkbox'
 import { createParentAndLink } from './actions'
 
+type CheckedState = boolean | 'indeterminate'
+
 interface StudentOption {
   id: string
   name: string
@@ -194,7 +196,7 @@ export function CreateParentDialog({ students }: Props) {
                     <label className="flex items-center gap-2 text-xs text-blue-700">
                       <Checkbox
                         checked={manualOverride}
-                        onCheckedChange={(checked) => setManualOverride(Boolean(checked))}
+                        onCheckedChange={(checked: CheckedState) => setManualOverride(Boolean(checked))}
                       />
                       Manual override
                     </label>
