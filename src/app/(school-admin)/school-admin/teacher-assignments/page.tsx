@@ -29,9 +29,6 @@ interface AssignmentRow {
   subject_id: string
   teacher_id: string
   academic_year: string
-  classes?: { name?: string; level?: number; stream?: string | null } | null
-  subjects?: { name?: string; code?: string | null } | null
-  teachers?: { staff_id?: string; user_profile?: { full_name?: string } | null } | null
 }
 
 export default async function TeacherAssignmentsPage() {
@@ -93,33 +90,35 @@ export default async function TeacherAssignmentsPage() {
 
   const { data: assignmentsData } = await supabase
     .from('teacher_assignments')
-    .select(`
-      id,
-      class_id,
-      subject_id,
-      teacher_id,
-      academic_year,
-      classes(id, name, level, stream),
-      subjects(id, name, code),
-      teachers(id, staff_id, user_profile:user_profiles!inner(id, full_name))
-    `)
+    .select('id, class_id, subject_id, teacher_id, academic_year')
     .in('class_id', classIds.length ? classIds : ['00000000-0000-0000-0000-000000000000'])
     .order('created_at', { ascending: false })
 
-  const assignments = ((assignmentsData || []) as AssignmentRow[]).map((row) => ({
+  const classMap = new Map(classes.map((c) => [c.id, c]))
+  const subjectMap = new Map(subjects.map((s) => [s.id, s]))
+  const teacherByIdMap = new Map(teachers.map((t) => [t.id, t]))
+  const teacherByUserIdMap = new Map(teachers.map((t) => [t.user_id, t]))
+
+  const assignments = ((assignmentsData || []) as AssignmentRow[]).map((row) => {
+    const cls = classMap.get(row.class_id)
+    const subj = subjectMap.get(row.subject_id)
+    const teacher = teacherByIdMap.get(row.teacher_id) || teacherByUserIdMap.get(row.teacher_id)
+
+    return {
     id: row.id,
     class_id: row.class_id,
     subject_id: row.subject_id,
     teacher_id: row.teacher_id,
     academic_year: row.academic_year,
-    class_name: row.classes?.name || '',
-    class_level: row.classes?.level || 0,
-    class_stream: row.classes?.stream || null,
-    subject_name: row.subjects?.name || '',
-    subject_code: row.subjects?.code || null,
-    teacher_name: row.teachers?.user_profile?.full_name || 'Unknown',
-    teacher_staff_id: row.teachers?.staff_id || '',
-  }))
+    class_name: cls?.name || '',
+    class_level: cls?.level || 0,
+    class_stream: cls?.stream || null,
+    subject_name: subj?.name || '',
+    subject_code: subj?.code || null,
+    teacher_name: teacher?.user_profile?.full_name || 'Unknown',
+    teacher_staff_id: teacher?.staff_id || '',
+  }
+  })
 
   const clientClasses = classes.map((c) => ({
     id: c.id,
@@ -145,6 +144,7 @@ export default async function TeacherAssignmentsPage() {
 
   const clientTeachers = teachers.map((t) => ({
     id: t.id,
+    user_id: t.user_id,
     full_name: t.user_profile.full_name,
     staff_id: t.staff_id,
     email: t.user_profile.email,

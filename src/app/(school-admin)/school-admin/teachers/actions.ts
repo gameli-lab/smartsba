@@ -44,6 +44,13 @@ interface ImportFailure {
 interface ImportResult {
   imported: number
   failed: ImportFailure[]
+  credentials: Array<{
+    row: number
+    full_name: string
+    email: string
+    staff_id: string
+    temp_password: string
+  }>
 }
 
 /**
@@ -465,6 +472,7 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
     const inFileEmails = new Set<string>()
 
     const failures: ImportFailure[] = []
+    const credentials: ImportResult['credentials'] = []
     let successCount = 0
 
     // Start from row 2 (row 1 is header)
@@ -583,6 +591,13 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
       }
 
       successCount += 1
+      credentials.push({
+        row: rowIndex,
+        full_name: teacherPayload.full_name,
+        email: teacherPayload.email,
+        staff_id: teacherPayload.staff_id,
+        temp_password: tempPassword,
+      })
     }
 
     if (successCount > 0) {
@@ -594,6 +609,7 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
       result: {
         imported: successCount,
         failed: failures,
+        credentials,
       },
     }
   } catch (error) {

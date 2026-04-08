@@ -23,6 +23,7 @@ import { createAssignment, updateAssignment, deleteAssignment, setClassTeacher }
 
 interface TeacherOption {
   id: string
+  user_id?: string
   full_name: string
   staff_id: string
   email: string
@@ -82,7 +83,7 @@ export function AssignmentsClient({ classes, subjects, teachers, assignments }: 
     const map: Record<string, TeacherOption | undefined> = {}
     classes.forEach((cls) => {
       if (cls.class_teacher_id) {
-        const teacher = teachers.find((t) => t.id === cls.class_teacher_id)
+        const teacher = teachers.find((t) => t.id === cls.class_teacher_id || t.user_id === cls.class_teacher_id)
         if (teacher) map[cls.id] = teacher
       }
     })
