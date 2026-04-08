@@ -76,7 +76,7 @@ export async function createAcademicSession(input: CreateAcademicSessionInput) {
 
       if (unsetError) {
         console.error('Error unsetting current sessions:', unsetError)
-        return { success: false, error: 'Failed to unset previous current session' }
+        return { success: false, error: `Failed to unset previous current session: ${unsetError.message}` }
       }
     }
 
@@ -213,7 +213,7 @@ export async function setCurrentSession(sessionId: string) {
 
     if (unsetError) {
       console.error('Error unsetting current sessions:', unsetError)
-      return { success: false, error: 'Failed to unset previous current session' }
+      return { success: false, error: `Failed to unset previous current session: ${unsetError.message}` }
     }
 
     // Set the selected session as current
