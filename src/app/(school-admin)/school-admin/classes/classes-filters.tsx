@@ -100,7 +100,7 @@ export function ClassesFilters() {
           <Button
             variant="ghost"
             onClick={handleClear}
-            className="w-full sm:w-auto text-gray-600"
+            className="w-full sm:w-auto text-gray-600 dark:text-gray-300"
           >
             <X className="h-4 w-4 mr-1" />
             Clear

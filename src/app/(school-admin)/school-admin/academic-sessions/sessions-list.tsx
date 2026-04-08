@@ -86,10 +86,10 @@ export function SessionsList({ sessions }: SessionsListProps) {
               </TableCell>
               <TableCell>{formatDate(session.start_date)}</TableCell>
               <TableCell>{formatDate(session.end_date)}</TableCell>
-              <TableCell className="text-sm text-gray-600">
+              <TableCell className="text-sm text-gray-600 dark:text-gray-300">
                 {session.vacation_date ? formatDate(session.vacation_date) : '—'}
               </TableCell>
-              <TableCell className="text-sm text-gray-600">
+              <TableCell className="text-sm text-gray-600 dark:text-gray-300">
                 {session.reopening_date ? formatDate(session.reopening_date) : '—'}
               </TableCell>
               <TableCell>

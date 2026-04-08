@@ -37,16 +37,16 @@ export default async function SchoolAdminPage() {
   const currentTerm = currentSession.data?.term || 1
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Command Center Header */}
-      <div className="bg-white border-b">
-        <div className="px-8 py-6">
-          <div className="flex items-start justify-between">
+      <div className="bg-white dark:bg-gray-950 border-b dark:border-gray-800">
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">School Command Center</h1>
-              <p className="text-lg text-gray-600 mt-1">{schoolName}</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">School Command Center</h1>
+              <p className="text-lg text-gray-600 dark:text-gray-300 mt-1">{schoolName}</p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               {currentSession.data && (
                 <Badge variant="outline" className="px-4 py-2 text-sm">
                   {currentSession.data.academic_year} – Term {currentSession.data.term}
@@ -64,7 +64,7 @@ export default async function SchoolAdminPage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="space-y-8">
           {/* STAGE 2: Operational KPIs */}
           <Suspense fallback={<KPISkeleton />}>
@@ -164,7 +164,7 @@ async function OperationalKPIs({ schoolId, currentTerm }: { schoolId: string; cu
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Operational Overview</h2>
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Operational Overview</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {/* Total Students */}
         <KPICard
@@ -248,12 +248,12 @@ function KPICard({
   subtitle?: string
 }) {
   const colorClasses = {
-    blue: 'text-blue-600 bg-blue-50 hover:bg-blue-100',
-    green: 'text-green-600 bg-green-50 hover:bg-green-100',
-    purple: 'text-purple-600 bg-purple-50 hover:bg-purple-100',
-    orange: 'text-orange-600 bg-orange-50 hover:bg-orange-100',
-    indigo: 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100',
-    rose: 'text-rose-600 bg-rose-50 hover:bg-rose-100',
+    blue: 'text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-950/60',
+    green: 'text-green-600 dark:text-green-300 bg-green-50 dark:bg-green-950/40 hover:bg-green-100 dark:hover:bg-green-950/60',
+    purple: 'text-purple-600 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-950/60',
+    orange: 'text-orange-600 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/40 hover:bg-orange-100 dark:hover:bg-orange-950/60',
+    indigo: 'text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-950/60',
+    rose: 'text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-950/60',
   }
 
   return (
@@ -261,14 +261,14 @@ function KPICard({
       <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
-            <p className="text-sm font-medium text-gray-600">{title}</p>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{title}</p>
             <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
               {icon}
             </div>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{typeof value === 'number' ? value.toLocaleString() : value}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{typeof value === 'number' ? value.toLocaleString() : value}</p>
           {subtitle && (
-            <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
           )}
         </CardContent>
       </Card>
@@ -566,13 +566,13 @@ function OperationCard({
   }
 }) {
   const colorClasses = {
-    blue: 'border-blue-200 hover:bg-blue-50 text-blue-600',
-    green: 'border-green-200 hover:bg-green-50 text-green-600',
-    purple: 'border-purple-200 hover:bg-purple-50 text-purple-600',
-    orange: 'border-orange-200 hover:bg-orange-50 text-orange-600',
-    cyan: 'border-cyan-200 hover:bg-cyan-50 text-cyan-600',
-    teal: 'border-teal-200 hover:bg-teal-50 text-teal-600',
-    indigo: 'border-indigo-200 hover:bg-indigo-50 text-indigo-600',
+    blue: 'border-blue-200 dark:border-blue-900 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-blue-600 dark:text-blue-300',
+    green: 'border-green-200 dark:border-green-900 hover:bg-green-50 dark:hover:bg-green-950/30 text-green-600 dark:text-green-300',
+    purple: 'border-purple-200 dark:border-purple-900 hover:bg-purple-50 dark:hover:bg-purple-950/30 text-purple-600 dark:text-purple-300',
+    orange: 'border-orange-200 dark:border-orange-900 hover:bg-orange-50 dark:hover:bg-orange-950/30 text-orange-600 dark:text-orange-300',
+    cyan: 'border-cyan-200 dark:border-cyan-900 hover:bg-cyan-50 dark:hover:bg-cyan-950/30 text-cyan-600 dark:text-cyan-300',
+    teal: 'border-teal-200 dark:border-teal-900 hover:bg-teal-50 dark:hover:bg-teal-950/30 text-teal-600 dark:text-teal-300',
+    indigo: 'border-indigo-200 dark:border-indigo-900 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-indigo-600 dark:text-indigo-300',
   }
 
   const color = colorClasses[operation.color as keyof typeof colorClasses] || colorClasses.blue
@@ -587,13 +587,13 @@ function OperationCard({
             </div>
             {operation.count !== null && (
               <div className="text-right">
-                <p className="text-2xl font-bold text-gray-900">{operation.count}</p>
-                <p className="text-xs text-gray-500">Active</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{operation.count}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Active</p>
               </div>
             )}
           </div>
-          <h3 className="font-semibold text-gray-900 mb-1">{operation.title}</h3>
-          <p className="text-sm text-gray-600 leading-snug">{operation.description}</p>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{operation.title}</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-300 leading-snug">{operation.description}</p>
           <div className="mt-3 flex items-center text-sm opacity-50 hover:opacity-100 transition-opacity">
             <span>Go to {operation.title.split(' ')[0].toLowerCase()}</span>
             <ChevronRight className="h-4 w-4 ml-1" />
@@ -670,9 +670,9 @@ async function ResultsControlPanel({ schoolId }: { schoolId: string }) {
         <Card>
           <CardContent className="p-6">
             <div className="text-center py-8">
-              <BarChart3 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-600 font-medium">No results data available</p>
-              <p className="text-sm text-gray-500 mt-1">
+              <BarChart3 className="h-12 w-12 text-gray-400 dark:text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-600 dark:text-gray-300 font-medium">No results data available</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Results will appear here once marks are entered and submitted by teachers
               </p>
               <Link 
@@ -731,8 +731,8 @@ function ResultsStatusCard({
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="font-semibold text-gray-900">{item.className}</h3>
-            <p className="text-sm text-gray-600 mt-1">{config.description}</p>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{item.className}</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{config.description}</p>
           </div>
           <Badge className={`border ${config.color}`}>{config.label}</Badge>
         </div>
@@ -740,10 +740,10 @@ function ResultsStatusCard({
         {/* Completion Progress */}
         <div className="mb-4">
           <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-600">Entry Completion</span>
-            <span className="text-sm font-medium text-gray-900">{item.completionPercentage}%</span>
+            <span className="text-sm text-gray-600 dark:text-gray-300">Entry Completion</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.completionPercentage}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
             <div
               className="bg-blue-600 h-2 rounded-full transition-all"
               style={{ width: `${item.completionPercentage}%` }}
@@ -752,8 +752,8 @@ function ResultsStatusCard({
         </div>
 
         {/* Last Updated & Actions */}
-        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-          <p className="text-xs text-gray-500">
+        <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             Last updated: {new Date(item.lastUpdated).toLocaleDateString()}
           </p>
           <div className="flex gap-2">
@@ -808,8 +808,8 @@ function ResultsActionButton({
   disabled?: boolean
 }) {
   const variantClasses = {
-    outline: 'border border-gray-300 text-gray-700 hover:bg-gray-50',
-    secondary: 'border border-gray-300 text-gray-700 bg-gray-50 hover:bg-gray-100',
+    outline: 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800',
+    secondary: 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700',
   }
 
   return (
@@ -833,8 +833,8 @@ function ResultsControlSkeleton() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <div className="h-6 w-64 bg-gray-200 rounded animate-pulse" />
-        <div className="h-5 w-32 bg-gray-200 rounded animate-pulse" />
+        <div className="h-6 w-64 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        <div className="h-5 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
       </div>
       <div className="space-y-3">
         {[...Array(3)].map((_, i) => (
@@ -842,12 +842,12 @@ function ResultsControlSkeleton() {
             <CardContent className="p-4">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <div className="h-5 w-32 bg-gray-200 rounded animate-pulse mb-2" />
-                  <div className="h-4 w-48 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-5 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2" />
+                  <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                 </div>
-                <div className="h-6 w-16 bg-gray-200 rounded animate-pulse" />
+                <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
               </div>
-              <div className="h-2 w-full bg-gray-200 rounded-full animate-pulse mb-4" />
+              <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse mb-4" />
               <div className="flex gap-2 justify-end pt-3 border-t border-gray-100">
                 <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
                 <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
@@ -903,9 +903,9 @@ async function CommunicationCenter({ schoolId }: { schoolId: string }) {
         <Card>
           <CardContent className="p-6">
             <div className="text-center py-8">
-              <Megaphone className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-600 font-medium">No announcements yet</p>
-              <p className="text-sm text-gray-500 mt-1">
+              <Megaphone className="h-12 w-12 text-gray-400 dark:text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-600 dark:text-gray-300 font-medium">No announcements yet</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Send announcements to keep your school community informed
               </p>
               <Link 
@@ -969,24 +969,24 @@ function AnnouncementCard({
 
   return (
     <Link href="/school-admin/announcements">
-      <Card className="border border-gray-200 hover:shadow-md transition-shadow cursor-pointer">
+      <Card className="border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow cursor-pointer">
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-4 mb-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <Megaphone className="h-5 w-5 text-blue-600 flex-shrink-0" />
-                <h3 className="font-semibold text-gray-900 truncate">{announcement.title}</h3>
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">{announcement.title}</h3>
               </div>
-              <p className="text-sm text-gray-600 line-clamp-2">{announcement.content}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{announcement.content}</p>
             </div>
             <Badge className={`border ${statusInfo.color} flex-shrink-0`}>{statusInfo.label}</Badge>
           </div>
 
           {/* Target & Delivery Info */}
-          <div className="flex items-center justify-between pt-3 border-t border-gray-100 text-xs text-gray-500">
+          <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
             <div className="flex items-center gap-3">
               <span>{targetLabel[announcement.targetType as keyof typeof targetLabel]}</span>
-              <span className="text-gray-300">•</span>
+              <span className="text-gray-300 dark:text-gray-600">•</span>
               <span>
                 {announcement.sentAt
                   ? `Sent ${new Date(announcement.sentAt).toLocaleDateString()}`

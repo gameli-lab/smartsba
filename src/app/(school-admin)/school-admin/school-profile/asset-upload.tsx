@@ -125,10 +125,10 @@ export function AssetUpload({ school, type, title, description, currentAssetUrl 
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="flex items-center justify-center w-full h-48 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+            <div className="flex items-center justify-center w-full h-48 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
               <div className="text-center">
-                <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-sm text-gray-500">No {title.toLowerCase()} uploaded</p>
+                <ImageIcon className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">No {title.toLowerCase()} uploaded</p>
               </div>
             </div>
             <Label htmlFor={`${type}-upload`}>
@@ -168,7 +168,7 @@ export function AssetUpload({ school, type, title, description, currentAssetUrl 
         )}
 
         {/* File Requirements */}
-        <div className="text-xs text-gray-500 space-y-1">
+        <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
           <p>• Accepted formats: PNG, JPG, JPEG, GIF, WebP</p>
           <p>• Maximum file size: 5MB</p>
           <p>• Recommended size: 500x500 pixels</p>

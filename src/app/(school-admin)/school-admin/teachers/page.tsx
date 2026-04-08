@@ -198,8 +198,8 @@ function renderTeachersPage(
       {/* Page Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Teacher Management</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Teacher Management</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">
             Manage teachers, their information, and status
           </p>
           {currentSession && (
@@ -222,12 +222,12 @@ function renderTeachersPage(
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Teachers</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Teachers</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">
                   {teachers.length}
                 </p>
               </div>
-              <div className="bg-blue-50 p-3 rounded-lg">
+              <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg">
                 <div className="h-8 w-8 text-blue-600">👥</div>
               </div>
             </div>
@@ -238,12 +238,12 @@ function renderTeachersPage(
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Active Teachers</p>
-                <p className="text-3xl font-bold text-green-700 mt-2">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Active Teachers</p>
+                <p className="text-3xl font-bold text-green-700 dark:text-green-400 mt-2">
                   {teachers.filter(t => t.is_active).length}
                 </p>
               </div>
-              <div className="bg-green-50 p-3 rounded-lg">
+              <div className="bg-green-50 dark:bg-green-950/30 p-3 rounded-lg">
                 <div className="h-8 w-8 text-green-600">✓</div>
               </div>
             </div>
@@ -254,13 +254,13 @@ function renderTeachersPage(
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Inactive Teachers</p>
-                <p className="text-3xl font-bold text-gray-500 mt-2">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Inactive Teachers</p>
+                <p className="text-3xl font-bold text-gray-500 dark:text-gray-400 mt-2">
                   {teachers.filter(t => !t.is_active).length}
                 </p>
               </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="h-8 w-8 text-gray-600">⏸</div>
+              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                <div className="h-8 w-8 text-gray-600 dark:text-gray-400">⏸</div>
               </div>
             </div>
           </CardContent>
@@ -281,7 +281,7 @@ function renderTeachersPage(
             <TeachersList teachers={teachers} />
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">No teachers found</p>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">No teachers found</p>
               <CreateTeacherDialog />
             </div>
           )}

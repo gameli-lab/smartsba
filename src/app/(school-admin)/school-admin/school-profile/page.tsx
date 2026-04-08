@@ -53,8 +53,8 @@ export default async function SchoolProfilePage() {
     <div className="p-8 space-y-8">
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">School Profile</h1>
-        <p className="text-gray-600 mt-1">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">School Profile</h1>
+        <p className="text-gray-600 dark:text-gray-300 mt-1">
           Manage your school&apos;s information and assets
         </p>
       </div>
@@ -105,9 +105,9 @@ export default async function SchoolProfilePage() {
               </p>
             </CardHeader>
             <CardContent>
-              <div className="bg-white border-2 border-gray-300 rounded-lg p-6 space-y-6">
+              <div className="bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-700 rounded-lg p-6 space-y-6">
                 {/* Report Header Section */}
-                <div className="text-center space-y-4 border-b pb-6">
+                <div className="text-center space-y-4 border-b dark:border-gray-700 pb-6">
                   {/* School Logo */}
                   {logoUrl ? (
                     <div className="relative w-24 h-24 mx-auto">
@@ -119,25 +119,25 @@ export default async function SchoolProfilePage() {
                       />
                     </div>
                   ) : (
-                    <div className="w-24 h-24 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
-                      <span className="text-xs text-gray-400">No Logo</span>
+                    <div className="w-24 h-24 mx-auto bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">No Logo</span>
                     </div>
                   )}
 
                   {/* School Name */}
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900 uppercase">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 uppercase">
                       {typedSchool.name}
                     </h2>
                     {typedSchool.motto && (
-                      <p className="text-sm italic text-gray-600 mt-1">
+                      <p className="text-sm italic text-gray-600 dark:text-gray-300 mt-1">
                         &ldquo;{typedSchool.motto}&rdquo;
                       </p>
                     )}
                   </div>
 
                   {/* Contact Info */}
-                  <div className="text-sm text-gray-700 space-y-1">
+                  <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
                     {typedSchool.address && (
                       <p className="font-medium">{typedSchool.address}</p>
                     )}
@@ -154,21 +154,21 @@ export default async function SchoolProfilePage() {
                 {/* Report Content Sample */}
                 <div className="space-y-4">
                   <div className="text-center">
-                    <h3 className="text-lg font-bold text-gray-900">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
                       STUDENT TERMINAL REPORT
                     </h3>
-                    <p className="text-sm text-gray-600">Academic Year 2024/2025 - Term 1</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Academic Year 2024/2025 - Term 1</p>
                   </div>
 
-                  <div className="bg-gray-50 rounded p-4 text-sm space-y-2">
-                    <p className="text-gray-600">Student Name: <span className="font-medium text-gray-900">Sample Student</span></p>
-                    <p className="text-gray-600">Class: <span className="font-medium text-gray-900">JHS 2A</span></p>
-                    <p className="text-gray-600 text-xs italic">... (Report content)</p>
+                  <div className="bg-gray-50 dark:bg-gray-700/40 rounded p-4 text-sm space-y-2">
+                    <p className="text-gray-600 dark:text-gray-300">Student Name: <span className="font-medium text-gray-900 dark:text-gray-100">Sample Student</span></p>
+                    <p className="text-gray-600 dark:text-gray-300">Class: <span className="font-medium text-gray-900 dark:text-gray-100">JHS 2A</span></p>
+                    <p className="text-gray-600 dark:text-gray-300 text-xs italic">... (Report content)</p>
                   </div>
                 </div>
 
                 {/* Signature Section */}
-                <div className="border-t pt-4 grid grid-cols-2 gap-4">
+                <div className="border-t dark:border-gray-700 pt-4 grid grid-cols-2 gap-4">
                   <div className="text-center">
                     <div className="h-16 flex items-end justify-center mb-2">
                       {signatureUrl ? (

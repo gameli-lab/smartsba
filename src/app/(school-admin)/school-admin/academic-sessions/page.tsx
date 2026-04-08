@@ -55,8 +55,8 @@ export default async function AcademicSessionsPage(props: {
       {/* Page Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Academic Sessions & Terms</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Academic Sessions & Terms</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">
             Manage academic years, terms, and important dates
           </p>
         </div>
@@ -91,7 +91,7 @@ export default async function AcademicSessionsPage(props: {
             <SessionsList sessions={typedSessions} />
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">No academic sessions found</p>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">No academic sessions found</p>
               <CreateSessionDialog />
             </div>
           )}
@@ -99,11 +99,11 @@ export default async function AcademicSessionsPage(props: {
       </Card>
 
       {/* Information */}
-      <Card className="border-gray-200 bg-gray-50">
+      <Card className="border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
         <CardHeader>
           <CardTitle className="text-base">Important Notes</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm text-gray-700">
+        <CardContent className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
           <p>• Each academic year can have up to 3 terms</p>
           <p>• Only one session can be marked as &ldquo;current&rdquo; at any time</p>
           <p>• The current session determines which term&apos;s data is displayed by default</p>

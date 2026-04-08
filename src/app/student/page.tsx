@@ -110,10 +110,10 @@ export default async function StudentDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Student Dashboard</h1>
-          <p className="text-sm text-gray-600">Overview of your current term performance and announcements.</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Student Dashboard</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Overview of your current term performance and announcements.</p>
         </div>
         {session ? (
           <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
@@ -126,10 +126,10 @@ export default async function StudentDashboardPage() {
         {summaryCards.map((card) => (
           <Card key={card.label}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">{card.label}</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">{card.label}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-semibold text-gray-900">{card.value ?? '—'}</div>
+              <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{card.value ?? '—'}</div>
             </CardContent>
           </Card>
         ))}
@@ -142,28 +142,28 @@ export default async function StudentDashboardPage() {
             <CardDescription>Your academic progress this term.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="rounded-lg border bg-gray-50 p-4">
+            <div className="rounded-lg border bg-gray-50 dark:bg-gray-800 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">Class</span>
-                <span className="text-sm text-gray-900">{currentClass}</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Class</span>
+                <span className="text-sm text-gray-900 dark:text-gray-100">{currentClass}</span>
               </div>
             </div>
-            <div className="rounded-lg border bg-gray-50 p-4">
+            <div className="rounded-lg border bg-gray-50 dark:bg-gray-800 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">Term Average</span>
-                <span className="text-lg font-semibold text-gray-900">{termAverage !== null ? `${termAverage}%` : 'N/A'}</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Term Average</span>
+                <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{termAverage !== null ? `${termAverage}%` : 'N/A'}</span>
               </div>
             </div>
-            <div className="rounded-lg border bg-gray-50 p-4">
+            <div className="rounded-lg border bg-gray-50 dark:bg-gray-800 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">Class Position</span>
-                <span className="text-lg font-semibold text-gray-900">{classPosition !== null ? `${classPosition}` : 'N/A'}</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Class Position</span>
+                <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{classPosition !== null ? `${classPosition}` : 'N/A'}</span>
               </div>
             </div>
-            <div className="rounded-lg border bg-gray-50 p-4">
+            <div className="rounded-lg border bg-gray-50 dark:bg-gray-800 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">Total Subjects</span>
-                <span className="text-lg font-semibold text-gray-900">{totalSubjects !== null ? `${totalSubjects}` : 'N/A'}</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Subjects</span>
+                <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">{totalSubjects !== null ? `${totalSubjects}` : 'N/A'}</span>
               </div>
             </div>
           </CardContent>
@@ -176,18 +176,18 @@ export default async function StudentDashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {announcements.length === 0 ? (
-              <p className="text-sm text-gray-500">No announcements yet.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">No announcements yet.</p>
             ) : (
               announcements.map((ann) => (
                 <div key={ann.id} className="rounded-lg border p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium text-gray-900">{ann.title}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{ann.title}</p>
                     {ann.is_urgent ? (
                       <Badge variant="destructive" className="text-xs">Urgent</Badge>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">{new Date(ann.created_at).toLocaleString()}</p>
-                  {ann.content ? <p className="mt-2 text-sm text-gray-700 line-clamp-2">{ann.content}</p> : null}
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{new Date(ann.created_at).toLocaleString()}</p>
+                  {ann.content ? <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 line-clamp-2">{ann.content}</p> : null}
                 </div>
               ))
             )}

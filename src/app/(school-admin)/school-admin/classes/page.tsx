@@ -189,7 +189,7 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Pro
             )}
             {!currentSession && <Badge variant="outline">Session not set</Badge>}
           </div>
-          <p className="text-gray-600">Manage classes and streams</p>
+          <p className="text-gray-600 dark:text-gray-300">Manage classes and streams</p>
         </div>
         <div className="flex items-center gap-2">
           <CreateClassDialog teachers={teachers} />
@@ -201,10 +201,10 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Pro
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Classes</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{total}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Classes</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">{total}</p>
               </div>
-              <div className="bg-blue-50 p-3 rounded-lg">
+              <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg">
                 <div className="h-8 w-8 text-blue-600">📚</div>
               </div>
             </div>
@@ -214,10 +214,10 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Pro
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">With Teachers</p>
-                <p className="text-3xl font-bold text-green-700 mt-2">{withTeachers}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">With Teachers</p>
+                <p className="text-3xl font-bold text-green-700 dark:text-green-400 mt-2">{withTeachers}</p>
               </div>
-              <div className="bg-green-50 p-3 rounded-lg">
+              <div className="bg-green-50 dark:bg-green-950/30 p-3 rounded-lg">
                 <div className="h-8 w-8 text-green-600">👨‍🏫</div>
               </div>
             </div>
@@ -227,11 +227,11 @@ export default async function ClassesPage({ searchParams }: { searchParams?: Pro
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Without Teachers</p>
-                <p className="text-3xl font-bold text-gray-500 mt-2">{total - withTeachers}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Without Teachers</p>
+                <p className="text-3xl font-bold text-gray-500 dark:text-gray-400 mt-2">{total - withTeachers}</p>
               </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <div className="h-8 w-8 text-gray-600">⚠️</div>
+              <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                <div className="h-8 w-8 text-gray-600 dark:text-gray-400">⚠️</div>
               </div>
             </div>
           </CardContent>

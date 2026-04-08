@@ -127,8 +127,8 @@ export default async function TeacherPage({ searchParams }: { searchParams: Reco
     <div className="space-y-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Teacher Dashboard</h1>
-          <p className="text-sm text-gray-600">Daily teaching overview, pending actions, and class insights.</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Teacher Dashboard</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Daily teaching overview, pending actions, and class insights.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
@@ -146,11 +146,11 @@ export default async function TeacherPage({ searchParams }: { searchParams: Reco
         {summaryCards.map((card) => (
           <Card key={card.label}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">{card.label}</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">{card.label}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-semibold text-gray-900">{card.value}</div>
-              <p className="mt-1 text-xs text-gray-500">{card.hint}</p>
+              <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{card.value}</div>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{card.hint}</p>
             </CardContent>
           </Card>
         ))}
@@ -172,7 +172,7 @@ export default async function TeacherPage({ searchParams }: { searchParams: Reco
               Publish/Lock Term Scores {canPublishScores ? '' : '(Blocked)'}
             </Button>
             {!canPublishScores && (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {isClassTeacher
                   ? 'Complete all required score entries before publishing.'
                   : 'Publish/Lock is class-teacher only.'}
@@ -189,24 +189,24 @@ export default async function TeacherPage({ searchParams }: { searchParams: Reco
           <CardContent className="space-y-3">
             <form method="get" className="grid gap-3 md:grid-cols-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-600">Class</label>
-                <select name="classId" defaultValue={selectedClassId || ''} className="w-full rounded-md border px-3 py-2 text-sm">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Class</label>
+                <select name="classId" defaultValue={selectedClassId || ''} className="w-full rounded-md border px-3 py-2 text-sm bg-white dark:bg-gray-900">
                   {assignedClasses.map((klass) => (
                     <option key={klass.id} value={klass.id}>{classLabel(klass)}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-600">Subject</label>
-                <select name="subjectId" defaultValue={selectedSubjectId || ''} className="w-full rounded-md border px-3 py-2 text-sm">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Subject</label>
+                <select name="subjectId" defaultValue={selectedSubjectId || ''} className="w-full rounded-md border px-3 py-2 text-sm bg-white dark:bg-gray-900">
                   {subjectsForSelectedClass.map((subject) => (
                     <option key={subject.id} value={subject.id}>{subject.name}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-600">Session</label>
-                <select name="sessionId" defaultValue={selectedSessionId || ''} className="w-full rounded-md border px-3 py-2 text-sm">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-300">Session</label>
+                <select name="sessionId" defaultValue={selectedSessionId || ''} className="w-full rounded-md border px-3 py-2 text-sm bg-white dark:bg-gray-900">
                   {sessions.map((session) => (
                     <option key={session.id} value={session.id}>
                       {session.academic_year} • Term {session.term}{session.is_current ? ' (Current)' : ''}
@@ -219,13 +219,13 @@ export default async function TeacherPage({ searchParams }: { searchParams: Reco
               </div>
             </form>
 
-            <div className="rounded-lg border bg-gray-50 p-3 text-sm">
-              <p className="font-medium text-gray-800">Next upcoming lesson/class</p>
-              <p className="text-gray-600">Timetable module not configured yet. Connect timetable to show live next class.</p>
+            <div className="rounded-lg border bg-gray-50 dark:bg-gray-800 p-3 text-sm">
+              <p className="font-medium text-gray-800 dark:text-gray-100">Next upcoming lesson/class</p>
+              <p className="text-gray-600 dark:text-gray-300">Timetable module not configured yet. Connect timetable to show live next class.</p>
             </div>
 
             {assignedClasses.length === 0 ? (
-              <div className="rounded-lg border bg-gray-50 p-4 text-sm text-gray-600">
+              <div className="rounded-lg border bg-gray-50 dark:bg-gray-800 p-4 text-sm text-gray-600 dark:text-gray-300">
                 No class assigned yet.
                 <div className="mt-2">
                   <Button asChild size="sm" variant="outline">
@@ -238,8 +238,8 @@ export default async function TeacherPage({ searchParams }: { searchParams: Reco
                 <div key={klass.id} className="rounded-lg border p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-900">{classLabel(klass)}</p>
-                      <p className="text-xs text-gray-500">Students: {classStudentCount.get(klass.id) || 0}</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{classLabel(klass)}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Students: {classStudentCount.get(klass.id) || 0}</p>
                     </div>
                     <Badge variant="secondary">
                       {(classSubjectMap.get(klass.id) || []).length} subject(s)
@@ -247,7 +247,7 @@ export default async function TeacherPage({ searchParams }: { searchParams: Reco
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {(classSubjectMap.get(klass.id) || []).length === 0 ? (
-                      <span className="text-xs text-gray-500">No subjects found for this class.</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">No subjects found for this class.</span>
                     ) : (
                       (classSubjectMap.get(klass.id) || []).map((subject) => (
                         <Badge key={subject.id} variant="outline" className="text-xs">

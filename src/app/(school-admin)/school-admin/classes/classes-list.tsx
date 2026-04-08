@@ -82,21 +82,21 @@ export function ClassesList({ classes, teachers }: Props) {
                 <TableCell>
                   <Badge variant="outline">{klass.level}</Badge>
                 </TableCell>
-                <TableCell className="text-sm text-gray-600">{klass.stream || '—'}</TableCell>
+                <TableCell className="text-sm text-gray-600 dark:text-gray-300">{klass.stream || '—'}</TableCell>
                 <TableCell className="text-sm">
                   {klass.class_teacher ? (
                     <div>
                       <div className="font-medium">{klass.class_teacher.full_name}</div>
-                      <div className="text-xs text-gray-500">{klass.class_teacher.staff_id}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{klass.class_teacher.staff_id}</div>
                     </div>
                   ) : (
                     <span className="text-gray-400">Not assigned</span>
                   )}
                 </TableCell>
-                <TableCell className="text-sm text-gray-600">
+                <TableCell className="text-sm text-gray-600 dark:text-gray-300">
                   {klass.students_count ?? '—'}
                 </TableCell>
-                <TableCell className="text-sm text-gray-600">
+                <TableCell className="text-sm text-gray-600 dark:text-gray-300">
                   {klass.subjects_count ?? '—'}
                 </TableCell>
                 <TableCell>
