@@ -12,6 +12,7 @@ interface CreateAcademicSessionInput {
   end_date: string
   vacation_date?: string
   reopening_date?: string
+  isCurrent?: boolean
 }
 
 interface UpdateAcademicSessionInput extends CreateAcademicSessionInput {
@@ -65,6 +66,20 @@ export async function createAcademicSession(input: CreateAcademicSessionInput) {
       return { success: false, error: `Session for ${input.academic_year} Term ${input.term} already exists` }
     }
 
+    // If setting as current, first unset all other current sessions
+    if (input.isCurrent) {
+      const { error: unsetError } = await supabase
+        .from('academic_sessions')
+        .update({ is_current: false })
+        .eq('school_id', schoolId)
+        .eq('is_current', true)
+
+      if (unsetError) {
+        console.error('Error unsetting current sessions:', unsetError)
+        return { success: false, error: 'Failed to unset previous current session' }
+      }
+    }
+
     // Create session
     const { error } = await supabase
       .from('academic_sessions')
@@ -76,7 +91,7 @@ export async function createAcademicSession(input: CreateAcademicSessionInput) {
         end_date: input.end_date,
         vacation_date: input.vacation_date || null,
         reopening_date: input.reopening_date || null,
-        is_current: false, // New sessions start as non-current
+        is_current: input.isCurrent ?? false,
       })
 
     if (error) {
@@ -171,32 +186,44 @@ export async function setCurrentSession(sessionId: string) {
     const supabase = await createServerComponentClient()
 
     // Verify ownership
+    // Verify ownership
     const { data: session } = await supabase
       .from('academic_sessions')
-      .select('id, school_id')
+      .select('id, school_id, is_current')
       .eq('id', sessionId)
       .single()
 
-    const typedSession = session as Pick<AcademicSession, 'id' | 'school_id'> | null
+    const typedSession = session as Pick<AcademicSession, 'id' | 'school_id'> & { is_current: boolean } | null
 
     if (!typedSession || typedSession.school_id !== schoolId) {
       return { success: false, error: 'Session not found' }
     }
 
+    // If already current, no need to update
+    if (typedSession.is_current) {
+      return { success: true }
+    }
+
     // Unset all current sessions for this school
-    await supabase
+    const { error: unsetError } = await supabase
       .from('academic_sessions')
       .update({ is_current: false })
       .eq('school_id', schoolId)
+      .eq('is_current', true)
+
+    if (unsetError) {
+      console.error('Error unsetting current sessions:', unsetError)
+      return { success: false, error: 'Failed to unset previous current session' }
+    }
 
     // Set the selected session as current
-    const { error } = await supabase
+    const { error: setError } = await supabase
       .from('academic_sessions')
-      .update({ is_current: true })
+      .update({ is_current: true, updated_at: new Date().toISOString() })
       .eq('id', sessionId)
 
-    if (error) {
-      console.error('Error setting current session:', error)
+    if (setError) {
+      console.error('Error setting current session:', setError)
       return { success: false, error: 'Failed to set current session' }
     }
 

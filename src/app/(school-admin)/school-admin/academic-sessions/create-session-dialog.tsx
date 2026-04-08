@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ export function CreateSessionDialog() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [term, setTerm] = useState<AcademicTerm>(1)
+  const [isCurrent, setIsCurrent] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -45,6 +47,7 @@ export function CreateSessionDialog() {
       end_date: formData.get('end_date') as string,
       vacation_date: (formData.get('vacation_date') as string) || undefined,
       reopening_date: (formData.get('reopening_date') as string) || undefined,
+      isCurrent,
     })
 
     if (result.success) {
@@ -52,6 +55,7 @@ export function CreateSessionDialog() {
       router.refresh()
       // Reset form
       setTerm(1)
+      setIsCurrent(false)
     } else {
       setError(result.error || 'Failed to create session')
     }
@@ -159,6 +163,18 @@ export function CreateSessionDialog() {
               />
               <p className="text-xs text-gray-500">Optional</p>
             </div>
+          </div>
+
+          {/* Set as Current Session */}
+          <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <Checkbox
+              id="is_current"
+              checked={isCurrent}
+              onCheckedChange={(checked) => setIsCurrent(checked as boolean)}
+            />
+            <Label htmlFor="is_current" className="text-sm font-medium cursor-pointer">
+              Set this as the current active session (unsets any other current session)
+            </Label>
           </div>
 
           {error && (
