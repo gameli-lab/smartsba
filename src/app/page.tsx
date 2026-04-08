@@ -1,7 +1,4 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,61 +8,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem("theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const shouldUseDark = stored ? stored === "dark" : false;
-
-    setIsDark(shouldUseDark);
-    document.documentElement.classList.toggle("dark", shouldUseDark);
-
-    if (!stored && prefersDark) {
-      // keep default as light unless user explicitly changes
-      document.documentElement.classList.remove("dark");
-      setIsDark(false);
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const next = !isDark;
-    setIsDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    window.localStorage.setItem("theme", next ? "dark" : "light");
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={toggleTheme}
-      className="rounded-full border border-gray-300 bg-white/90 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm backdrop-blur transition hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800/90 dark:text-gray-100 dark:hover:bg-gray-700"
-      aria-label="Toggle dark mode"
-    >
-      {isDark ? "☀️ Light" : "🌙 Dark"}
-    </button>
-  );
-}
-
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-950 dark:to-gray-900">
-      <div className="sticky top-0 z-40 border-b border-transparent bg-white/80 backdrop-blur dark:bg-gray-950/80">
-        <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <p className="truncate text-sm font-semibold text-blue-700 dark:text-blue-300">SmartSBA</p>
-          <ThemeToggle />
-        </div>
-      </div>
-
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       {/* Hero Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
             Modern School Assessment
-            <span className="text-blue-600 dark:text-blue-400 block">Made Simple</span>
+            <span className="text-blue-600 block">Made Simple</span>
           </h1>
-          <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
+          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
             Streamline your school&apos;s assessment process with our
             comprehensive School-Based Assessment system. Track student
             progress, manage grades, and generate insightful reports
@@ -87,13 +40,13 @@ export default function HomePage() {
       </section>
 
       {/* About Section */}
-      <section id="about" className="py-16 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-900">
+      <section id="about" className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
               About SmartSBA
             </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
               SmartSBA is a comprehensive School-Based Assessment system
               designed to modernize how educational institutions manage student
               assessments, track academic progress, and maintain educational
@@ -154,10 +107,10 @@ export default function HomePage() {
       <section id="features" className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
               Key Features
             </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
+            <p className="text-lg text-gray-600">
               Everything you need for modern school assessment
             </p>
           </div>
@@ -167,10 +120,10 @@ export default function HomePage() {
               <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">📊</span>
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              <h3 className="font-semibold text-gray-900 mb-2">
                 Grade Management
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">
+              <p className="text-gray-600 text-sm">
                 Comprehensive grade tracking with CA and exam scores
               </p>
             </div>
@@ -179,10 +132,10 @@ export default function HomePage() {
               <div className="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">👥</span>
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              <h3 className="font-semibold text-gray-900 mb-2">
                 Multi-User Support
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">
+              <p className="text-gray-600 text-sm">
                 Role-based access for all stakeholders
               </p>
             </div>
@@ -191,10 +144,10 @@ export default function HomePage() {
               <div className="bg-purple-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">🏆</span>
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              <h3 className="font-semibold text-gray-900 mb-2">
                 Student Rankings
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">
+              <p className="text-gray-600 text-sm">
                 Automated ranking based on performance
               </p>
             </div>
@@ -203,10 +156,10 @@ export default function HomePage() {
               <div className="bg-orange-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">📱</span>
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              <h3 className="font-semibold text-gray-900 mb-2">
                 Mobile Friendly
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">
+              <p className="text-gray-600 text-sm">
                 Access from any device, anywhere
               </p>
             </div>
@@ -217,14 +170,14 @@ export default function HomePage() {
       {/* Announcements Section */}
       <section
         id="announcements"
-        className="py-16 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-950"
+        className="py-16 px-4 sm:px-6 lg:px-8 bg-gray-50"
       >
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
               Latest Announcements
             </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
+            <p className="text-lg text-gray-600">
               Stay updated with the latest news and updates
             </p>
           </div>
@@ -276,28 +229,28 @@ export default function HomePage() {
       <section id="events" className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
               Upcoming Events
             </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
+            <p className="text-lg text-gray-600">
               Don&apos;t miss these important dates
             </p>
           </div>
 
           <div className="space-y-6">
             <Card>
-              <CardContent className="flex flex-col items-start gap-4 sm:flex-row sm:items-center p-6">
-                <div className="bg-blue-100 rounded-lg p-4 sm:mr-6">
+              <CardContent className="flex items-center p-6">
+                <div className="bg-blue-100 rounded-lg p-4 mr-6">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-blue-600">25</div>
                     <div className="text-sm text-blue-600">SEP</div>
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                  <h3 className="font-semibold text-gray-900 mb-1">
                     End of Term Assessment Deadline
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-300 mb-2">
+                  <p className="text-gray-600 mb-2">
                     Final date for submitting end-of-term scores and assessments
                   </p>
                   <span className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
@@ -308,18 +261,18 @@ export default function HomePage() {
             </Card>
 
             <Card>
-              <CardContent className="flex flex-col items-start gap-4 sm:flex-row sm:items-center p-6">
-                <div className="bg-green-100 rounded-lg p-4 sm:mr-6">
+              <CardContent className="flex items-center p-6">
+                <div className="bg-green-100 rounded-lg p-4 mr-6">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-600">30</div>
                     <div className="text-sm text-green-600">SEP</div>
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                  <h3 className="font-semibold text-gray-900 mb-1">
                     Report Card Generation
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-300 mb-2">
+                  <p className="text-gray-600 mb-2">
                     Automated report card generation and distribution
                   </p>
                   <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
@@ -330,18 +283,18 @@ export default function HomePage() {
             </Card>
 
             <Card>
-              <CardContent className="flex flex-col items-start gap-4 sm:flex-row sm:items-center p-6">
-                <div className="bg-purple-100 rounded-lg p-4 sm:mr-6">
+              <CardContent className="flex items-center p-6">
+                <div className="bg-purple-100 rounded-lg p-4 mr-6">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-purple-600">05</div>
                     <div className="text-sm text-purple-600">OCT</div>
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                  <h3 className="font-semibold text-gray-900 mb-1">
                     New Academic Term Setup
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-300 mb-2">
+                  <p className="text-gray-600 mb-2">
                     System preparation for the upcoming academic term
                   </p>
                   <span className="inline-block bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">
