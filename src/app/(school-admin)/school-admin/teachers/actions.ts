@@ -423,6 +423,7 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const supabase = await createServerComponentClient()
+    const adminSupabase = createAdminSupabaseClient()
 
     const file = formData.get('file') as File | null
     if (!file) {
@@ -524,7 +525,7 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
       // Process creation similar to createTeacher with rollback on failure
       const tempPassword = `Teacher@${Math.random().toString(36).slice(-8)}`
 
-      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+      const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
         email: teacherPayload.email,
         password: tempPassword,
         email_confirm: true,
@@ -538,7 +539,7 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
       const userId = authUser.user.id
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: profileError } = await (supabase as any)
+      const { error: profileError } = await (adminSupabase as any)
         .from('user_profiles')
         .insert({
           user_id: userId,
@@ -556,13 +557,13 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
 
       if (profileError) {
         console.error('Rollback: deleting auth user after profile error', profileError)
-        await supabase.auth.admin.deleteUser(userId)
+        await adminSupabase.auth.admin.deleteUser(userId)
         failures.push({ row: rowIndex, reason: profileError.message })
         continue
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: teacherError } = await (supabase as any)
+      const { error: teacherError } = await (adminSupabase as any)
         .from('teachers')
         .insert({
           user_id: userId,
@@ -576,7 +577,7 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
 
       if (teacherError) {
         console.error('Rollback: deleting auth user after teacher error', teacherError)
-        await supabase.auth.admin.deleteUser(userId)
+        await adminSupabase.auth.admin.deleteUser(userId)
         failures.push({ row: rowIndex, reason: teacherError.message })
         continue
       }
