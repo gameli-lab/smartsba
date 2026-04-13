@@ -74,6 +74,11 @@ const roleConfig = {
         href: "/dashboard/super-admin/audit-logs",
       },
       {
+        icon: FileText,
+        label: "AI Findings",
+        href: "/dashboard/super-admin/security-findings",
+      },
+      {
         icon: Mail,
         label: "Email Logs",
         href: "/dashboard/super-admin/email-logs",
@@ -125,6 +130,11 @@ const roleConfig = {
         icon: Bell,
         label: "Announcements",
         href: "/school-admin/announcements",
+      },
+      {
+        icon: FileText,
+        label: "Security",
+        href: "/school-admin/security",
       },
       {
         icon: Settings,

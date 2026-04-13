@@ -1,6 +1,7 @@
 import { requireSchoolAdmin } from '@/lib/auth'
 import { createServerComponentClient } from '@/lib/supabase'
 import { SecurityClient } from './security-client'
+import { AIFindingsBoard } from '@/components/ai/ai-findings-board'
 import { UserProfile } from '@/types'
 import { fetchLoginActivity } from './actions'
 
@@ -27,6 +28,7 @@ export default async function SecurityPage() {
       </div>
 
       <SecurityClient users={users} loginActivity={loginActivity} />
+      <AIFindingsBoard title="AI Security Findings (School Scope)" />
     </div>
   )
 }
