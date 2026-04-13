@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AlertCircle, CheckCircle2, Loader2, Settings as SettingsIcon } from 'lucide-react'
+import { AlertCircle, CheckCircle2, KeyRound, Loader2, Settings as SettingsIcon } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { getSystemSettings, updateSystemSetting } from './actions'
 
@@ -82,6 +82,24 @@ export default function SettingsPage() {
   })
   const [emailDirty, setEmailDirty] = useState(false)
   const [savingEmail, setSavingEmail] = useState(false)
+
+  // AI provider state
+  const [aiValues, setAIValues] = useState({
+    default_provider: 'anthropic' as 'anthropic' | 'openai' | 'gemini',
+    anthropic_api_key: '',
+    anthropic_model: 'claude-3-5-sonnet-20241022',
+    openai_api_key: '',
+    openai_model: 'gpt-4o-mini',
+    gemini_api_key: '',
+    gemini_model: 'gemini-1.5-pro',
+  })
+  const [aiConfigured, setAIConfigured] = useState({
+    anthropic: false,
+    openai: false,
+    gemini: false,
+  })
+  const [aiDirty, setAIDirty] = useState(false)
+  const [savingAI, setSavingAI] = useState(false)
 
   // Maintenance mode state
   const [maintenanceValues, setMaintenanceValues] = useState({
@@ -206,6 +224,31 @@ export default function SettingsPage() {
         session_timeout_minutes: typeof session_timeout_minutes === 'string' ? parseInt(session_timeout_minutes) : session_timeout_minutes,
       })
       setSecurityDirty(false)
+
+      // Initialize AI provider configuration from settings
+      const ai_default_provider = result.settings.find(s => s.setting_key === 'ai.default_provider')?.setting_value || 'anthropic'
+      const anthropic_api_key = result.settings.find(s => s.setting_key === 'ai.anthropic_api_key')?.setting_value
+      const anthropic_model = result.settings.find(s => s.setting_key === 'ai.anthropic_model')?.setting_value || 'claude-3-5-sonnet-20241022'
+      const openai_api_key = result.settings.find(s => s.setting_key === 'ai.openai_api_key')?.setting_value
+      const openai_model = result.settings.find(s => s.setting_key === 'ai.openai_model')?.setting_value || 'gpt-4o-mini'
+      const gemini_api_key = result.settings.find(s => s.setting_key === 'ai.gemini_api_key')?.setting_value
+      const gemini_model = result.settings.find(s => s.setting_key === 'ai.gemini_model')?.setting_value || 'gemini-1.5-pro'
+
+      setAIValues({
+        default_provider: ai_default_provider === 'openai' || ai_default_provider === 'gemini' ? ai_default_provider : 'anthropic',
+        anthropic_api_key: '',
+        anthropic_model: typeof anthropic_model === 'string' ? anthropic_model : 'claude-3-5-sonnet-20241022',
+        openai_api_key: '',
+        openai_model: typeof openai_model === 'string' ? openai_model : 'gpt-4o-mini',
+        gemini_api_key: '',
+        gemini_model: typeof gemini_model === 'string' ? gemini_model : 'gemini-1.5-pro',
+      })
+      setAIConfigured({
+        anthropic: Boolean(anthropic_api_key),
+        openai: Boolean(openai_api_key),
+        gemini: Boolean(gemini_api_key),
+      })
+      setAIDirty(false)
     }
 
     setLoading(false)
@@ -460,6 +503,50 @@ export default function SettingsPage() {
     }
   }
 
+  async function saveAISettings() {
+    if (!userId || !userRole) {
+      setError('Not authenticated')
+      return
+    }
+
+    setSavingAI(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      await updateSystemSetting('ai.default_provider', aiValues.default_provider, userId, userRole)
+      await updateSystemSetting('ai.anthropic_model', aiValues.anthropic_model, userId, userRole)
+      await updateSystemSetting('ai.openai_model', aiValues.openai_model, userId, userRole)
+      await updateSystemSetting('ai.gemini_model', aiValues.gemini_model, userId, userRole)
+
+      if (aiValues.anthropic_api_key.trim()) {
+        await updateSystemSetting('ai.anthropic_api_key', aiValues.anthropic_api_key.trim(), userId, userRole)
+      }
+
+      if (aiValues.openai_api_key.trim()) {
+        await updateSystemSetting('ai.openai_api_key', aiValues.openai_api_key.trim(), userId, userRole)
+      }
+
+      if (aiValues.gemini_api_key.trim()) {
+        await updateSystemSetting('ai.gemini_api_key', aiValues.gemini_api_key.trim(), userId, userRole)
+      }
+
+      setSuccess('AI settings saved successfully')
+      setAIDirty(false)
+
+      setTimeout(async () => {
+        await loadSettings()
+      }, 500)
+
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError('Failed to save AI settings')
+      console.error('Error saving AI settings:', err)
+    } finally {
+      setSavingAI(false)
+    }
+  }
+
   async function saveMaintenanceSettings() {
     if (!userId || !userRole) {
       setError('Not authenticated')
@@ -580,6 +667,7 @@ export default function SettingsPage() {
           <TabsTrigger value="results">Results</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="ai">AI</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           <TabsTrigger value="advanced">Advanced</TabsTrigger>
         </TabsList>
@@ -1122,6 +1210,110 @@ export default function SettingsPage() {
                 className="w-full"
               >
                 {savingEmail ? 'Saving...' : 'Save Email Settings'}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* AI Provider Tab */}
+        <TabsContent value="ai" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5" />
+                AI Provider Configuration
+              </CardTitle>
+              <CardDescription>
+                Configure multi-AI support. This section is restricted to super admins and is protected by the super-admin route.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Alert>
+                <SettingsIcon className="h-4 w-4" />
+                <AlertDescription>
+                  Leave an API key field blank to keep the current stored key. The active provider is used first, with fallback to the remaining configured providers.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-2">
+                <Label htmlFor="ai_provider">Default AI Provider</Label>
+                <select
+                  id="ai_provider"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  value={aiValues.default_provider}
+                  onChange={(e) => {
+                    setAIValues({ ...aiValues, default_provider: e.target.value as 'anthropic' | 'openai' | 'gemini' })
+                    setAIDirty(true)
+                  }}
+                  disabled={savingAI}
+                >
+                  <option value="anthropic">Anthropic (Claude)</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                {[
+                  { key: 'anthropic', label: 'Anthropic', keyField: 'anthropic_api_key', modelField: 'anthropic_model', modelPlaceholder: 'claude-3-5-sonnet-20241022' },
+                  { key: 'openai', label: 'OpenAI', keyField: 'openai_api_key', modelField: 'openai_model', modelPlaceholder: 'gpt-4o-mini' },
+                  { key: 'gemini', label: 'Gemini', keyField: 'gemini_api_key', modelField: 'gemini_model', modelPlaceholder: 'gemini-1.5-pro' },
+                ].map((provider) => {
+                  const isConfigured = aiConfigured[provider.key as keyof typeof aiConfigured]
+
+                  return (
+                    <Card key={provider.key} className="border-dashed">
+                      <CardHeader>
+                        <CardTitle className="text-base">{provider.label}</CardTitle>
+                        <CardDescription>{isConfigured ? 'API key stored securely' : 'API key not configured yet'}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor={provider.keyField}>API Key</Label>
+                          <Input
+                            id={provider.keyField}
+                            type="password"
+                            placeholder={isConfigured ? '••••••••••••••••' : 'Enter API key'}
+                            value={aiValues[provider.keyField as keyof typeof aiValues] as string}
+                            onChange={(e) => {
+                              setAIValues({ ...aiValues, [provider.keyField]: e.target.value })
+                              setAIDirty(true)
+                            }}
+                            disabled={savingAI}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={provider.modelField}>Model</Label>
+                          <Input
+                            id={provider.modelField}
+                            type="text"
+                            placeholder={provider.modelPlaceholder}
+                            value={aiValues[provider.modelField as keyof typeof aiValues] as string}
+                            onChange={(e) => {
+                              setAIValues({ ...aiValues, [provider.modelField]: e.target.value })
+                              setAIDirty(true)
+                            }}
+                            disabled={savingAI}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+
+              {aiDirty && (
+                <Alert>
+                  <AlertDescription>You have unsaved AI configuration changes</AlertDescription>
+                </Alert>
+              )}
+
+              <Button
+                onClick={saveAISettings}
+                disabled={!aiDirty || savingAI}
+                className="w-full"
+              >
+                {savingAI ? 'Saving...' : 'Save AI Settings'}
               </Button>
             </CardContent>
           </Card>

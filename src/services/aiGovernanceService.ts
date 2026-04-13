@@ -48,6 +48,7 @@ export interface AICommandOutput {
   security_findings?: SecurityFinding[]
   test_cases?: TestCaseItem[]
   next_steps: string[]
+  ai_powered?: boolean
 }
 
 const ROLE_HOME: Record<UserRole, string> = {

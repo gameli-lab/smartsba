@@ -3,6 +3,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase'
 import { revalidatePath } from 'next/cache'
 import { unstable_noStore as noStore } from 'next/cache'
+import { clearAIConfigCache } from '@/services/aiLLMService'
 
 // Lazy initialize server client
 let serverClient: ReturnType<typeof createServerSupabaseClient> | null = null
@@ -50,6 +51,22 @@ function getAuditRpcClient(): AuditRpcClient {
   return getSupabase() as unknown as AuditRpcClient
 }
 
+function isSensitiveSettingKey(settingKey: string): boolean {
+  return /api_key|password|secret|token/i.test(settingKey)
+}
+
+function redactSettingValue(settingKey: string, settingValue: unknown): unknown {
+  if (!isSensitiveSettingKey(settingKey)) {
+    return settingValue
+  }
+
+  if (settingValue === null || settingValue === undefined || settingValue === '') {
+    return settingValue
+  }
+
+  return '[REDACTED]'
+}
+
 export async function getSystemSettings(category?: string): Promise<{
   settings: SystemSetting[]
   error: string | null
@@ -86,7 +103,7 @@ export async function updateSystemSetting(
   try {
     console.log('=== updateSystemSetting called ===')
     console.log('settingKey:', settingKey)
-    console.log('settingValue:', settingValue)
+    console.log('settingValue:', redactSettingValue(settingKey, settingValue))
     console.log('userId:', userId)
     console.log('userRole:', userRole)
     
@@ -111,15 +128,20 @@ export async function updateSystemSetting(
 
     console.log('Current setting:', currentSetting)
 
-    // Update setting
+    // Update or create setting
     const { data: updateData, error: updateError } = await getSupabase()
       .from('system_settings')
-      .update({
-        setting_value: settingValue,
-        updated_by: userId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('setting_key', settingKey)
+      .upsert(
+        {
+          setting_key: settingKey,
+          setting_value: settingValue,
+          updated_by: userId,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'setting_key',
+        }
+      )
       .select()
 
     console.log('Update response - data:', updateData, 'error:', updateError)
@@ -145,8 +167,8 @@ export async function updateSystemSetting(
       p_entity_id: null,
       p_metadata: {
         setting_key: settingKey,
-        old_value: currentSetting?.setting_value,
-        new_value: settingValue,
+        old_value: redactSettingValue(settingKey, currentSetting?.setting_value),
+        new_value: redactSettingValue(settingKey, settingValue),
         category: currentSetting?.category,
       },
     })
@@ -157,6 +179,10 @@ export async function updateSystemSetting(
     }
 
     revalidatePath('/dashboard/super-admin/settings')
+
+    if (settingKey.startsWith('ai.')) {
+      clearAIConfigCache()
+    }
 
     console.log('=== updateSystemSetting completed successfully ===')
     return { success: true }

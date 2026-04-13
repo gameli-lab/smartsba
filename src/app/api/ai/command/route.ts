@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createAdminSupabaseClient } from '@/lib/supabase'
 import logAudit from '@/lib/audit'
 import { runAICommand, type AITaskType } from '@/services/aiGovernanceService'
+import { generateAITestCases, generateAISecurityFindings, generateAINextSteps } from '@/services/aiLLMService'
 import type { UserRole } from '@/types'
 
 interface AICommandBody {
@@ -161,6 +162,53 @@ export async function POST(request: NextRequest) {
       focus: parsed.focus,
     })
 
+    // Enhance with real AI for test plan and security audit
+    let enhancedResult = result
+    try {
+      if (parsed.task === 'test_plan' && result.test_cases) {
+        console.log('Generating AI-powered test cases...')
+        const aiTestCases = await generateAITestCases(
+          parsed.targetRole || typedProfile.role,
+          result.feature_checklist || []
+        )
+        enhancedResult = {
+          ...result,
+          test_cases: aiTestCases.length > 0 ? aiTestCases : result.test_cases,
+          ai_powered: aiTestCases.length > 0,
+        }
+      } else if (parsed.task === 'security_audit' && result.security_findings) {
+        console.log('Generating AI-powered security findings...')
+        const aiFindings = await generateAISecurityFindings(
+          parsed.targetRole || typedProfile.role,
+          parsed.focus
+        )
+        enhancedResult = {
+          ...result,
+          security_findings: aiFindings.length > 0 ? aiFindings : result.security_findings,
+          ai_powered: aiFindings.length > 0,
+        }
+      }
+
+      // Generate AI-powered next steps for all tasks
+      if (parsed.task !== 'switch_role') {
+        console.log('Generating AI-powered next steps...')
+        const aiNextSteps = await generateAINextSteps(
+          parsed.task,
+          typedProfile.role,
+          parsed.targetRole,
+          enhancedResult.security_findings?.length,
+          enhancedResult.test_cases?.length
+        )
+        enhancedResult = {
+          ...enhancedResult,
+          next_steps: aiNextSteps.length > 0 ? aiNextSteps : result.next_steps,
+        }
+      }
+    } catch (llmError) {
+      console.warn('LLM enhancement failed, using rule-based results:', llmError)
+      // Fall back to rule-based results on LLM error
+    }
+
     const { data: aiSession, error: sessionError } = await (adminClient as any)
       .from('ai_sessions')
       .insert({
@@ -197,7 +245,7 @@ export async function POST(request: NextRequest) {
         {
           session_id: sessionId,
           role: 'assistant',
-          content: result,
+          content: enhancedResult,
         },
       ])
 
@@ -207,13 +255,14 @@ export async function POST(request: NextRequest) {
       action_payload: {
         task: parsed.task,
         target_role: parsed.targetRole || null,
+        ai_powered: enhancedResult.ai_powered || false,
       },
       outcome: 'success',
     })
 
-    if (result.security_findings?.length) {
+    if (enhancedResult.security_findings?.length) {
       await (adminClient as any).from('ai_findings').insert(
-        result.security_findings.map((finding) => ({
+        enhancedResult.security_findings.map((finding) => ({
           session_id: sessionId,
           severity: finding.severity,
           area: finding.area,
@@ -224,9 +273,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (result.test_cases?.length) {
-      await (adminClient as any).from('ai_test_cases').insert(
-        result.test_cases.map((testCase) => ({
+    let testCaseIdMap: Record<string, string> = {}
+
+    if (enhancedResult.test_cases?.length) {
+      const { data: insertedTestCases } = await (adminClient as any).from('ai_test_cases').insert(
+        enhancedResult.test_cases.map((testCase) => ({
           session_id: sessionId,
           case_id: testCase.id,
           title: testCase.title,
@@ -238,6 +289,10 @@ export async function POST(request: NextRequest) {
           expected_result: testCase.expected_result,
           priority: testCase.priority,
         }))
+      ).select('id, case_id')
+
+      testCaseIdMap = Object.fromEntries(
+        ((insertedTestCases || []) as Array<{ id: string; case_id: string }>).map((t) => [t.case_id, t.id])
       )
     }
 
@@ -256,7 +311,7 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    return NextResponse.json({ success: true, session_id: sessionId, result }, { status: 200 })
+    return NextResponse.json({ success: true, session_id: sessionId, test_case_id_map: testCaseIdMap, result: enhancedResult }, { status: 200 })
   } catch (error) {
     console.error('Error in AI command route:', error)
     return NextResponse.json({ error: 'Failed to process AI command' }, { status: 500 })
