@@ -305,30 +305,46 @@ export async function toggleTeacherStatus(teacherId: string, isActive: boolean) 
 }
 
 /**
- * Delete a teacher (soft delete by deactivating)
+ * Delete a teacher permanently
  */
 export async function deleteTeacher(teacherId: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const supabase = await createServerComponentClient()
+    const adminSupabase = createAdminSupabaseClient()
 
     // Verify ownership
     const { data: teacher } = await supabase
       .from('teachers')
-      .select('id, school_id')
+      .select('id, school_id, user_id')
       .eq('id', teacherId)
       .single()
 
-    const typedTeacher = teacher as Pick<Teacher, 'id' | 'school_id'> | null
+    const typedTeacher = teacher as Pick<Teacher, 'id' | 'school_id' | 'user_id'> | null
 
     if (!typedTeacher || typedTeacher.school_id !== schoolId) {
       return { success: false, error: 'Teacher not found' }
     }
 
-    // TODO: Check if teacher has assignments or scores before deleting
-    // For now, we'll just deactivate instead of hard delete
-    return await toggleTeacherStatus(teacherId, false)
+    // Deleting the auth user cascades to user_profiles and teachers.
+    // teacher_assignments cascade via teacher FK and class_teacher_id is set null.
+    const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(typedTeacher.user_id)
+
+    if (deleteError) {
+      console.error('Error deleting teacher auth user:', deleteError)
+      return { success: false, error: deleteError.message || 'Failed to delete teacher' }
+    }
+
+    try {
+      revalidatePath('/school-admin/teachers')
+      revalidatePath('/school-admin/teacher-assignments')
+      revalidatePath('/school-admin')
+    } catch (revalidateError) {
+      console.warn('Warning: revalidatePath failed:', revalidateError)
+    }
+
+    return { success: true, message: 'Teacher deleted successfully' }
   } catch (error) {
     console.error('Error in deleteTeacher:', error)
     return { success: false, error: 'An unexpected error occurred' }

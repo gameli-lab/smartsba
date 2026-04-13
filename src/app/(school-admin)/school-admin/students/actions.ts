@@ -617,8 +617,46 @@ export async function toggleStudentStatus(studentId: string, isActive: boolean) 
 }
 
 export async function deleteStudent(studentId: string) {
-  // Soft delete via deactivation
-  return toggleStudentStatus(studentId, false)
+  try {
+    const { profile } = await requireSchoolAdmin()
+    const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
+    const adminSupabase = createAdminSupabaseClient()
+
+    const { data: studentRow } = await supabase
+      .from('students')
+      .select('id, school_id, user_id')
+      .eq('id', studentId)
+      .single()
+
+    const student = studentRow as Pick<Student, 'id' | 'school_id' | 'user_id'> | null
+
+    if (!student || student.school_id !== schoolId) {
+      return { success: false, error: 'Student not found' }
+    }
+
+    const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(student.user_id)
+
+    if (deleteError) {
+      console.error('Error deleting student auth user:', deleteError)
+      return { success: false, error: deleteError.message || 'Failed to delete student' }
+    }
+
+    try {
+      revalidatePath('/school-admin/students')
+      revalidatePath('/school-admin/parents')
+      revalidatePath('/school-admin/grading-promotion')
+      revalidatePath('/school-admin/reports')
+      revalidatePath('/school-admin')
+    } catch (revalidateError) {
+      console.warn('Warning: revalidatePath failed:', revalidateError)
+    }
+
+    return { success: true, message: 'Student deleted successfully' }
+  } catch (error) {
+    console.error('Error in deleteStudent:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
 }
 
 export async function importStudents(formData: FormData): Promise<{ success: boolean; result?: ImportResult; error?: string }> {

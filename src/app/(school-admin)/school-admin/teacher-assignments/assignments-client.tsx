@@ -209,8 +209,8 @@ export function AssignmentsClient({ classes, subjects, teachers, assignments }: 
     <div className="space-y-8">
       <div className="flex flex-wrap gap-3 justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Teacher Assignments</h1>
-          <p className="text-gray-600">Assign teachers to subjects and classes</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Teacher Assignments</h1>
+          <p className="text-gray-600 dark:text-gray-300">Assign teachers to subjects and classes</p>
         </div>
         <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); setError(null) }}>
           <DialogTrigger asChild>
@@ -306,11 +306,11 @@ export function AssignmentsClient({ classes, subjects, teachers, assignments }: 
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           {classes.map((cls) => (
-            <div key={cls.id} className="border rounded-lg p-4 flex flex-col gap-2 bg-white">
+            <div key={cls.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex flex-col gap-2 bg-white dark:bg-gray-900/50">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-semibold">{formatClassName(cls)}</p>
-                  <p className="text-sm text-gray-600">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{formatClassName(cls)}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
                     {classTeacherMap[cls.id]?.full_name ? `Class Teacher: ${classTeacherMap[cls.id]?.full_name}` : 'No class teacher assigned'}
                   </p>
                 </div>
@@ -367,7 +367,7 @@ export function AssignmentsClient({ classes, subjects, teachers, assignments }: 
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50">
         <CardHeader>
           <CardTitle>Subject Assignments</CardTitle>
         </CardHeader>
@@ -388,15 +388,15 @@ export function AssignmentsClient({ classes, subjects, teachers, assignments }: 
                   <TableRow key={row.id}>
                     <TableCell>
                       <div className="font-medium">{row.class_name}</div>
-                      <div className="text-xs text-gray-500">Level {row.class_level}{row.class_stream ? ` • ${row.class_stream}` : ''}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Level {row.class_level}{row.class_stream ? ` • ${row.class_stream}` : ''}</div>
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">{row.subject_name}</div>
-                      <div className="text-xs text-gray-500">{row.subject_code || '—'}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{row.subject_code || '—'}</div>
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">{row.teacher_name}</div>
-                      <div className="text-xs text-gray-500">{row.teacher_staff_id}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{row.teacher_staff_id}</div>
                     </TableCell>
                     <TableCell>{row.academic_year}</TableCell>
                     <TableCell className="text-right">
@@ -464,7 +464,7 @@ export function AssignmentsClient({ classes, subjects, teachers, assignments }: 
             </Table>
           </div>
           {assignments.length === 0 && (
-            <p className="text-center text-gray-500 py-6">No assignments yet. Create one to get started.</p>
+            <p className="text-center text-gray-500 dark:text-gray-400 py-6">No assignments yet. Create one to get started.</p>
           )}
         </CardContent>
       </Card>

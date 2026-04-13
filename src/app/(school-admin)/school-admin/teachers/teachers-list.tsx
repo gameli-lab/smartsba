@@ -47,7 +47,7 @@ export function TeachersList({ teachers }: TeachersListProps) {
   }
 
   const handleDelete = async (teacherId: string, teacherName: string) => {
-    if (!confirm(`Delete ${teacherName}? This will deactivate the teacher account.`)) return
+    if (!confirm(`Permanently delete ${teacherName}? This will remove the teacher from the database and cannot be undone.`)) return
 
     setLoadingId(teacherId)
     const result = await deleteTeacher(teacherId)

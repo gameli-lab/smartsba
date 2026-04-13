@@ -47,7 +47,7 @@ export function StudentsList({ students, classes }: Props) {
   }
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Deactivate ${name}? This will disable login access.`)) return
+    if (!confirm(`Permanently delete ${name}? This will remove the student from the database and cannot be undone.`)) return
     setLoadingId(id)
     const result = await deleteStudent(id)
     setLoadingId(null)
