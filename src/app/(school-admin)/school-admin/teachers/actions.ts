@@ -311,6 +311,7 @@ export async function deleteTeacher(teacherId: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const supabase = await createServerComponentClient()
 
     // Verify ownership
     const { data: teacher } = await supabase
