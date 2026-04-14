@@ -120,3 +120,95 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .dark .super-admin-scope .text-gray-900,
+  .dark .teacher-scope .text-gray-900,
+  .dark .student-scope .text-gray-900,
+  .dark .parent-scope .text-gray-900 {
+    @apply text-gray-100;
+  }
+
+  .dark .super-admin-scope .text-gray-800,
+  .dark .teacher-scope .text-gray-800,
+  .dark .student-scope .text-gray-800,
+  .dark .parent-scope .text-gray-800 {
+    @apply text-gray-200;
+  }
+
+  .dark .super-admin-scope .text-gray-700,
+  .dark .teacher-scope .text-gray-700,
+  .dark .student-scope .text-gray-700,
+  .dark .parent-scope .text-gray-700 {
+    @apply text-gray-300;
+  }
+
+  .dark .super-admin-scope .text-gray-600,
+  .dark .teacher-scope .text-gray-600,
+  .dark .student-scope .text-gray-600,
+  .dark .parent-scope .text-gray-600 {
+    @apply text-gray-400;
+  }
+
+  .dark .super-admin-scope .text-gray-500,
+  .dark .teacher-scope .text-gray-500,
+  .dark .student-scope .text-gray-500,
+  .dark .parent-scope .text-gray-500 {
+    @apply text-gray-500;
+  }
+
+  .dark .super-admin-scope .bg-white,
+  .dark .teacher-scope .bg-white,
+  .dark .student-scope .bg-white,
+  .dark .parent-scope .bg-white {
+    @apply bg-gray-950;
+  }
+
+  .dark .super-admin-scope .bg-gray-50,
+  .dark .teacher-scope .bg-gray-50,
+  .dark .student-scope .bg-gray-50,
+  .dark .parent-scope .bg-gray-50 {
+    @apply bg-gray-900;
+  }
+
+  .dark .super-admin-scope .border-gray-200,
+  .dark .teacher-scope .border-gray-200,
+  .dark .student-scope .border-gray-200,
+  .dark .parent-scope .border-gray-200 {
+    @apply border-gray-800;
+  }
+
+  .dark .super-admin-scope .hover\:bg-gray-50:hover,
+  .dark .teacher-scope .hover\:bg-gray-50:hover,
+  .dark .student-scope .hover\:bg-gray-50:hover,
+  .dark .parent-scope .hover\:bg-gray-50:hover {
+    @apply bg-gray-800;
+  }
+
+  .dark .super-admin-scope .bg-blue-50,
+  .dark .teacher-scope .bg-blue-50,
+  .dark .student-scope .bg-blue-50,
+  .dark .parent-scope .bg-blue-50,
+  .dark .super-admin-scope .bg-green-50,
+  .dark .teacher-scope .bg-green-50,
+  .dark .student-scope .bg-green-50,
+  .dark .parent-scope .bg-green-50,
+  .dark .super-admin-scope .bg-purple-50,
+  .dark .teacher-scope .bg-purple-50,
+  .dark .student-scope .bg-purple-50,
+  .dark .parent-scope .bg-purple-50,
+  .dark .super-admin-scope .bg-yellow-50,
+  .dark .teacher-scope .bg-yellow-50,
+  .dark .student-scope .bg-yellow-50,
+  .dark .parent-scope .bg-yellow-50,
+  .dark .super-admin-scope .bg-amber-50,
+  .dark .teacher-scope .bg-amber-50,
+  .dark .student-scope .bg-amber-50,
+  .dark .parent-scope .bg-amber-50,
+  .dark .super-admin-scope .bg-red-50,
+  .dark .teacher-scope .bg-red-50,
+  .dark .student-scope .bg-red-50,
+  .dark .parent-scope .bg-red-50 {
+    @apply bg-gray-900;
+  }
+}

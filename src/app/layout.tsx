@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { GlobalHeader } from "@/components/layout/global-header";
 import { GlobalFooter } from "@/components/layout/global-footer";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 
 export const dynamic = 'force-dynamic'
 
@@ -28,13 +29,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex min-h-screen flex-col overflow-x-hidden bg-background text-foreground`}
+        suppressHydrationWarning
       >
-        <GlobalHeader />
-        <main className="flex-1">{children}</main>
-        <GlobalFooter />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(() => {
+              try {
+                const saved = localStorage.getItem('theme');
+                const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const shouldUseDark = saved ? saved === 'dark' : systemDark;
+                document.documentElement.classList.toggle('dark', shouldUseDark);
+              } catch {}
+            })();`,
+          }}
+        />
+        <ThemeProvider>
+          <GlobalHeader />
+          <main className="flex-1">{children}</main>
+          <GlobalFooter />
+        </ThemeProvider>
       </body>
     </html>
   );

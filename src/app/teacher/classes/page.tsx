@@ -60,20 +60,20 @@ export default async function TeacherClassesPage() {
   })
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 text-gray-900 dark:text-gray-100">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">My Classes</h1>
-          <p className="text-sm text-gray-600">Classes where you are assigned as class teacher or subject teacher</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">My Classes</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Classes where you are assigned as class teacher or subject teacher</p>
         </div>
-        <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+        <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
           {effectiveRole === 'class_teacher' ? 'Class Teacher' : 'Subject Teacher'}
         </Badge>
       </div>
 
       {classes.length === 0 ? (
         <Card>
-          <CardContent className="py-10 text-center text-gray-500">
+          <CardContent className="py-10 text-center text-gray-500 dark:text-gray-400">
             No class assignments yet.
           </CardContent>
         </Card>
@@ -87,8 +87,8 @@ export default async function TeacherClassesPage() {
             return (
               <Card key={klass.id}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-lg text-gray-900">{klass.name}</CardTitle>
-                  <CardDescription className="text-gray-600">
+                  <CardTitle className="text-lg text-gray-900 dark:text-gray-100">{klass.name}</CardTitle>
+                  <CardDescription className="text-gray-600 dark:text-gray-300">
                     Level {klass.level ?? '—'}{klass.stream ? ` • ${klass.stream}` : ''}
                   </CardDescription>
                 </CardHeader>
@@ -101,9 +101,9 @@ export default async function TeacherClassesPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-gray-700">Subjects</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Subjects</p>
                     {subjectsForClass.length === 0 ? (
-                      <p className="text-sm text-gray-500">No subjects found.</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No subjects found.</p>
                     ) : (
                       <div className="flex flex-wrap gap-2">
                         {subjectsForClass.map((subj) => (
@@ -115,11 +115,11 @@ export default async function TeacherClassesPage() {
                     )}
                   </div>
 
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-gray-600 dark:text-gray-300">
                     Student count reflects total students in the class.
                   </div>
 
-                  <div className="pt-1 text-sm text-gray-500">Action: View details (read-only) — TODO link when detail page is added.</div>
+                  <div className="pt-1 text-sm text-gray-500 dark:text-gray-400">Action: View details (read-only) — TODO link when detail page is added.</div>
                 </CardContent>
               </Card>
             )

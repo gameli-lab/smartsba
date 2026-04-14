@@ -487,11 +487,11 @@ export default function SuperAdminAnalyticsPage() {
       : 0
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-4 text-gray-900 dark:text-gray-100 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Platform Analytics</h1>
-          <p className="mt-2 text-sm text-gray-600">System-wide metrics across all schools</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 sm:text-3xl">Platform Analytics</h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">System-wide metrics across all schools</p>
         </div>
         <ExportButton
           onExportCSV={handleExportCSV}
@@ -649,9 +649,9 @@ export default function SuperAdminAnalyticsPage() {
           </CardHeader>
           <CardContent>
             {chartsLoading ? (
-              <div className="h-80 bg-gray-100 rounded animate-pulse" />
+              <div className="h-80 rounded bg-gray-100 animate-pulse dark:bg-gray-800" />
             ) : activityPattern.length === 0 ? (
-              <div className="h-80 flex items-center justify-center text-gray-500">
+                <div className="flex h-80 items-center justify-center text-gray-500 dark:text-gray-400">
                 No activity data available
               </div>
             ) : (
@@ -686,16 +686,16 @@ export default function SuperAdminAnalyticsPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Schools</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Schools</CardTitle>
             <School className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{data.totalSchools}</div>
             <div className="mt-2 flex items-center gap-2 text-xs">
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
                 {data.activeSchools} Active
               </Badge>
-              <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
+              <Badge variant="outline" className="border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
                 {data.inactiveSchools} Inactive
               </Badge>
             </div>
@@ -704,7 +704,7 @@ export default function SuperAdminAnalyticsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Schools Created</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Schools Created</CardTitle>
             <School className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
@@ -715,7 +715,7 @@ export default function SuperAdminAnalyticsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Teachers</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Teachers</CardTitle>
             <GraduationCap className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
@@ -726,7 +726,7 @@ export default function SuperAdminAnalyticsPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Students</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Students</CardTitle>
             <Users className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>

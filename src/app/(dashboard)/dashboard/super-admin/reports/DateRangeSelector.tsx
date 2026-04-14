@@ -43,7 +43,7 @@ export default function DateRangeSelector() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 dark:text-gray-100">
           <Calendar className="h-5 w-5" />
           Date Range Filter
         </CardTitle>

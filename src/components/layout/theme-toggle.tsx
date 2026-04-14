@@ -1,32 +1,17 @@
 "use client"
 
-import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { useTheme } from '@/components/providers/theme-provider'
 
 export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false)
-
-  useEffect(() => {
-    const saved = localStorage.getItem('theme')
-    const shouldUseDark = saved === 'dark'
-
-    document.documentElement.classList.toggle('dark', shouldUseDark)
-    setIsDark(shouldUseDark)
-  }, [])
-
-  const onToggle = () => {
-    const next = !isDark
-    setIsDark(next)
-    document.documentElement.classList.toggle('dark', next)
-    localStorage.setItem('theme', next ? 'dark' : 'light')
-  }
+  const { isDark, toggleTheme } = useTheme()
 
   return (
     <Button
       type="button"
       variant="outline"
       size="sm"
-      onClick={onToggle}
+      onClick={toggleTheme}
       className="h-8 px-2 text-xs"
       aria-label="Toggle light and dark mode"
       title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}

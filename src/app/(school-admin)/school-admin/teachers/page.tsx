@@ -194,11 +194,11 @@ function renderTeachersPage(
   currentSession: CurrentSessionBadge | null
 ) {
   return (
-    <div className="p-8 space-y-8">
+    <div className="space-y-6 overflow-x-clip p-3 sm:space-y-8 sm:p-4 lg:p-6">
       {/* Page Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Teacher Management</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl dark:text-gray-100">Teacher Management</h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">
             Manage teachers, their information, and status
           </p>
@@ -210,7 +210,7 @@ function renderTeachersPage(
             </div>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
           <ImportTeachersDialog />
           <CreateTeacherDialog />
         </div>

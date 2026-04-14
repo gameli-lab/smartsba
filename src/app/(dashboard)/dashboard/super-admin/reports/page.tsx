@@ -34,11 +34,11 @@ export default async function ReportsPage({
   ])
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 p-4 text-gray-900 dark:text-gray-100 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Advanced Reports</h1>
-          <p className="text-muted-foreground mt-2">
+          <h1 className="text-2xl font-bold sm:text-3xl">Advanced Reports</h1>
+          <p className="mt-2 text-muted-foreground dark:text-gray-300">
             Platform analytics, performance metrics, and insights
           </p>
         </div>

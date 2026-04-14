@@ -114,15 +114,15 @@ export default async function ParentPerformancePage({ searchParams }: PageProps)
   ).sort((a, b) => b.localeCompare(a))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-gray-900 dark:text-gray-100">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Performance History</h1>
-        <p className="text-sm text-gray-600">Historical performance records for {studentName}.</p>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Performance History</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-300">Historical performance records for {studentName}.</p>
       </div>
 
       {records.length === 0 ? (
-        <div className="rounded-lg border bg-gray-50 p-6">
-          <p className="text-sm text-gray-500">No performance history available yet.</p>
+        <div className="rounded-lg border bg-gray-50 p-6 dark:border-gray-800 dark:bg-gray-900">
+          <p className="text-sm text-gray-500 dark:text-gray-400">No performance history available yet.</p>
         </div>
       ) : (
         <PerformanceClient

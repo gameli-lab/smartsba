@@ -74,10 +74,10 @@ export default async function ParentAnnouncementsPage({ searchParams }: PageProp
   const className = (classData as { name: string } | null)?.name || null
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-gray-900 dark:text-gray-100">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Announcements</h1>
-        <p className="text-sm text-gray-600">School announcements and updates for {studentName}.</p>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Announcements</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-300">School announcements and updates for {studentName}.</p>
       </div>
 
       <AnnouncementsClient

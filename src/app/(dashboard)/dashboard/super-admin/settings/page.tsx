@@ -1327,10 +1327,10 @@ export default function SettingsPage() {
               <CardDescription>Put the system in maintenance mode to prevent user access</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between rounded-lg border p-4 bg-yellow-50">
+              <div className="flex items-center justify-between rounded-lg border bg-yellow-50 p-4 dark:border-yellow-900 dark:bg-yellow-950/20">
                 <div className="space-y-1">
                   <Label className="text-base font-medium">Enable Maintenance Mode</Label>
-                  <p className="text-sm text-gray-600">Users will see a maintenance message and cannot access the system</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Users will see a maintenance message and cannot access the system</p>
                 </div>
                 <Switch
                   checked={maintenanceValues.maintenance_mode_enabled}
@@ -1389,7 +1389,7 @@ export default function SettingsPage() {
                   <div key={feature.key} className="flex items-center justify-between rounded-lg border p-4">
                     <div className="space-y-1">
                       <Label className="text-base font-medium">{feature.label}</Label>
-                      <p className="text-sm text-gray-600">{feature.description}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">{feature.description}</p>
                     </div>
                     <Switch
                       checked={featureValues[feature.key as keyof typeof featureValues]}

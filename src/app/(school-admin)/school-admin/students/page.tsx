@@ -140,20 +140,20 @@ export default async function StudentsPage(props: {
   const inactive = total - active
 
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex justify-between items-start">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-gray-900">Student Management</h1>
+    <div className="space-y-6 overflow-x-clip p-3 sm:space-y-8 sm:p-4 lg:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="mb-2 flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl dark:text-gray-100">Student Management</h1>
             {currentSession && (
               <Badge variant="secondary">
                 Term {currentSession.term} • {currentSession.academic_year}
               </Badge>
             )}
           </div>
-          <p className="text-gray-600 mt-1">Manage students, their classes, and status</p>
+          <p className="mt-1 text-sm text-gray-600 sm:text-base dark:text-gray-300">Manage students, their classes, and status</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
           <ImportStudentsDialog classes={classes} />
           <CreateStudentDialog
             classes={classes}

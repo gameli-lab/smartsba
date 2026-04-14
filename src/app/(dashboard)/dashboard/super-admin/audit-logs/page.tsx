@@ -221,11 +221,11 @@ export default function AuditLogsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-4 text-gray-900 dark:text-gray-100 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Activity Logs</h1>
-          <p className="mt-2 text-sm text-gray-600">Complete audit trail of critical system actions</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 sm:text-3xl">Activity Logs</h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">Complete audit trail of critical system actions</p>
         </div>
         <ExportButton
           onExportCSV={handleExportCSV}
@@ -238,7 +238,7 @@ export default function AuditLogsPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center gap-2">
               <Activity className="w-4 h-4 text-blue-600" />
               Total Events
             </CardTitle>
@@ -251,7 +251,7 @@ export default function AuditLogsPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-orange-600" />
               Critical Actions
             </CardTitle>
@@ -266,7 +266,7 @@ export default function AuditLogsPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center gap-2">
               <FileText className="w-4 h-4 text-gray-600" />
               Page Results
             </CardTitle>
@@ -390,10 +390,10 @@ export default function AuditLogsPage() {
               <p className="text-sm">{error}</p>
             </div>
           ) : logs.length === 0 ? (
-            <div className="rounded-lg border bg-gray-50 p-12 text-center">
-              <FileText className="mx-auto h-12 w-12 text-gray-400" />
-              <p className="mt-4 text-sm text-gray-600">No audit logs found</p>
-              <p className="mt-1 text-xs text-gray-500">
+            <div className="rounded-lg border bg-gray-50 p-12 text-center dark:border-gray-800 dark:bg-gray-900">
+              <FileText className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
+              <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">No audit logs found</p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Activity logs will appear here once actions are performed
               </p>
             </div>
@@ -401,22 +401,22 @@ export default function AuditLogsPage() {
             <>
               <div className="space-y-3">
                 {logs.map((log) => (
-                  <div key={log.id} className="rounded-lg border p-4 hover:bg-gray-50 transition-colors">
+                  <div key={log.id} className="rounded-lg border p-4 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <Badge variant="outline" className={getActionBadgeColor(log.action_type)}>
                             {formatActionType(log.action_type)}
                           </Badge>
-                          <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-200">
+                          <Badge variant="outline" className="border-gray-200 bg-gray-100 text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
                             {log.entity_type}
                           </Badge>
                         </div>
 
                         <div className="grid gap-2 text-sm">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-700">Actor:</span>
-                            <span className="text-gray-900">{log.actor_name}</span>
+                            <span className="font-medium text-gray-700 dark:text-gray-300">Actor:</span>
+                            <span className="text-gray-900 dark:text-gray-100">{log.actor_name}</span>
                             {log.actor_email && (
                               <span className="text-gray-500">({log.actor_email})</span>
                             )}
@@ -427,8 +427,8 @@ export default function AuditLogsPage() {
 
                           {log.entity_id && (
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-gray-700">Entity ID:</span>
-                              <code className="text-xs bg-gray-100 px-2 py-0.5 rounded">
+                              <span className="font-medium text-gray-700 dark:text-gray-300">Entity ID:</span>
+                              <code className="rounded bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-800">
                                 {log.entity_id}
                               </code>
                             </div>
@@ -436,10 +436,10 @@ export default function AuditLogsPage() {
 
                           {log.metadata && Object.keys(log.metadata).length > 0 && (
                             <details className="mt-2">
-                              <summary className="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900">
+                              <summary className="cursor-pointer text-xs font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100">
                                 View Metadata
                               </summary>
-                              <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-x-auto">
+                              <pre className="mt-2 overflow-x-auto rounded bg-gray-100 p-2 text-xs dark:bg-gray-800">
                                 {JSON.stringify(log.metadata, null, 2)}
                               </pre>
                             </details>
@@ -472,7 +472,7 @@ export default function AuditLogsPage() {
                   Previous
                 </Button>
 
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-gray-600 dark:text-gray-300">
                   Page {cursorStack.length + 1}
                 </span>
 

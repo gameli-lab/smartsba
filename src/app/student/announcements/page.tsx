@@ -60,8 +60,8 @@ export default async function StudentAnnouncementsPage() {
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
-            <CardTitle className="text-lg">{announcement.title}</CardTitle>
-            <CardDescription className="mt-1">
+            <CardTitle className="text-lg text-gray-900 dark:text-gray-100">{announcement.title}</CardTitle>
+            <CardDescription className="mt-1 dark:text-gray-300">
               {new Date(announcement.created_at).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
@@ -91,9 +91,9 @@ export default async function StudentAnnouncementsPage() {
       </CardHeader>
       {announcement.content && (
         <CardContent>
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{announcement.content}</p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap dark:text-gray-300">{announcement.content}</p>
           {announcement.expires_at && (
-            <p className="mt-4 text-xs text-gray-500">
+            <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
               Expires: {new Date(announcement.expires_at).toLocaleDateString('en-US', {
                 year: 'numeric',
                 month: 'long',
@@ -107,16 +107,16 @@ export default async function StudentAnnouncementsPage() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-gray-900 dark:text-gray-100">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Announcements</h1>
-        <p className="text-sm text-gray-600">Stay updated with school-wide and class-specific announcements.</p>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Announcements</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-300">Stay updated with school-wide and class-specific announcements.</p>
       </div>
 
       {activeAnnouncements.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-gray-500">No announcements available at the moment.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No announcements available at the moment.</p>
           </CardContent>
         </Card>
       ) : (
@@ -125,7 +125,7 @@ export default async function StudentAnnouncementsPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Badge variant="destructive">Urgent</Badge>
-                <h2 className="text-lg font-semibold text-gray-900">Urgent Announcements</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Urgent Announcements</h2>
               </div>
               <div className="space-y-4">
                 {urgentAnnouncements.map((announcement) => (
@@ -138,7 +138,7 @@ export default async function StudentAnnouncementsPage() {
           {regularAnnouncements.length > 0 && (
             <div className="space-y-4">
               {urgentAnnouncements.length > 0 && (
-                <h2 className="text-lg font-semibold text-gray-900">General Announcements</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">General Announcements</h2>
               )}
               <div className="space-y-4">
                 {regularAnnouncements.map((announcement) => (

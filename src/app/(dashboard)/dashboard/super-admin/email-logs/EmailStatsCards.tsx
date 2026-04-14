@@ -26,12 +26,12 @@ export default function EmailStatsCards({ stats }: EmailStatsCardsProps) {
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Emails</CardTitle>
+          <CardTitle className="text-sm font-medium dark:text-gray-100">Total Emails</CardTitle>
           <Mail className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.total.toLocaleString()}</div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="mt-1 text-xs text-muted-foreground dark:text-gray-400">
             {stats.todayCount} today, {stats.weekCount} this week
           </p>
         </CardContent>
@@ -39,14 +39,14 @@ export default function EmailStatsCards({ stats }: EmailStatsCardsProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Successfully Sent</CardTitle>
+          <CardTitle className="text-sm font-medium dark:text-gray-100">Successfully Sent</CardTitle>
           <CheckCircle2 className="h-4 w-4 text-green-600" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-green-600">
             {stats.sent.toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="mt-1 text-xs text-muted-foreground dark:text-gray-400">
             {successRate}% success rate
           </p>
         </CardContent>
@@ -54,14 +54,14 @@ export default function EmailStatsCards({ stats }: EmailStatsCardsProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Pending</CardTitle>
+          <CardTitle className="text-sm font-medium dark:text-gray-100">Pending</CardTitle>
           <Clock className="h-4 w-4 text-yellow-600" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-yellow-600">
             {stats.pending.toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="mt-1 text-xs text-muted-foreground dark:text-gray-400">
             Awaiting delivery
           </p>
         </CardContent>
@@ -69,14 +69,14 @@ export default function EmailStatsCards({ stats }: EmailStatsCardsProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Failed</CardTitle>
+          <CardTitle className="text-sm font-medium dark:text-gray-100">Failed</CardTitle>
           <XCircle className="h-4 w-4 text-red-600" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-red-600">
             {(stats.failed + stats.bounced).toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="mt-1 text-xs text-muted-foreground dark:text-gray-400">
             {stats.failed} failed, {stats.bounced} bounced
           </p>
         </CardContent>

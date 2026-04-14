@@ -288,10 +288,10 @@ export default function BulkOperationsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 text-gray-900 dark:text-gray-100 sm:p-6">
       <div>
-        <h1 className="text-3xl font-semibold text-gray-900">Bulk Operations</h1>
-        <p className="mt-2 text-sm text-gray-600">Perform bulk actions on schools and users</p>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 sm:text-3xl">Bulk Operations</h1>
+        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">Perform bulk actions on schools and users</p>
       </div>
 
       {error && (
@@ -366,13 +366,13 @@ export default function BulkOperationsPage() {
               <div className="border rounded-lg">
                 <div className="max-h-96 overflow-y-auto">
                   {schools.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">No schools found</div>
+                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">No schools found</div>
                   ) : (
                     <div className="space-y-1">
                       {schools.map((school) => (
                         <div
                           key={school.id}
-                          className="flex items-center p-4 border-b hover:bg-gray-50 transition-colors cursor-pointer"
+                          className="flex items-center border-b p-4 transition-colors cursor-pointer hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900"
                           onClick={() => handleSchoolToggle(school.id)}
                         >
                           <input
@@ -382,8 +382,8 @@ export default function BulkOperationsPage() {
                             className="w-4 h-4 rounded"
                           />
                           <div className="ml-4 flex-1">
-                            <p className="font-medium text-gray-900">{school.name}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="font-medium text-gray-900 dark:text-gray-100">{school.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
                               Created {new Date(school.created_at).toLocaleDateString()}
                             </p>
                           </div>
@@ -456,13 +456,13 @@ export default function BulkOperationsPage() {
               <div className="border rounded-lg">
                 <div className="max-h-96 overflow-y-auto">
                   {users.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">No users found</div>
+                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">No users found</div>
                   ) : (
                     <div className="space-y-1">
                       {users.map((user) => (
                         <div
                           key={user.id}
-                          className="flex items-center p-4 border-b hover:bg-gray-50 transition-colors cursor-pointer"
+                          className="flex items-center border-b p-4 transition-colors cursor-pointer hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900"
                           onClick={() => handleUserToggle(user.id)}
                         >
                           <input
@@ -472,8 +472,8 @@ export default function BulkOperationsPage() {
                             className="w-4 h-4 rounded"
                           />
                           <div className="ml-4 flex-1">
-                            <p className="font-medium text-gray-900">{user.email}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="font-medium text-gray-900 dark:text-gray-100">{user.email}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
                               {user.role} • Created {new Date(user.created_at).toLocaleDateString()}
                             </p>
                           </div>

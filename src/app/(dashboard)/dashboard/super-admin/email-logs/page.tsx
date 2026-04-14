@@ -25,10 +25,10 @@ export default async function EmailLogsPage({
   ])
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4 text-gray-900 dark:text-gray-100 sm:p-6">
       <div>
-        <h1 className="text-3xl font-bold">Email Logs</h1>
-        <p className="text-muted-foreground mt-2">
+        <h1 className="text-2xl font-bold sm:text-3xl">Email Logs</h1>
+        <p className="mt-2 text-muted-foreground dark:text-gray-300">
           Monitor email delivery status and troubleshoot issues
         </p>
       </div>

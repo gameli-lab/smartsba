@@ -51,18 +51,18 @@ export default async function TeacherAttendancePage({ searchParams }: { searchPa
 
   if (classIds.length === 0) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 text-gray-900 dark:text-gray-100">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Attendance</h1>
-            <p className="text-sm text-gray-600">You have no assigned classes yet.</p>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Attendance</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-300">You have no assigned classes yet.</p>
           </div>
-          <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+          <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
             {effectiveRole === 'class_teacher' ? 'Class Teacher' : 'Subject Teacher'}
           </Badge>
         </div>
         <Card>
-          <CardContent className="py-10 text-center text-gray-500">No class assignments yet.</CardContent>
+          <CardContent className="py-10 text-center text-gray-500 dark:text-gray-400">No class assignments yet.</CardContent>
         </Card>
       </div>
     )
@@ -114,13 +114,13 @@ export default async function TeacherAttendancePage({ searchParams }: { searchPa
   })
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 text-gray-900 dark:text-gray-100">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Attendance</h1>
-          <p className="text-sm text-gray-600">Capture attendance totals per student for report generation.</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Attendance</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Capture attendance totals per student for report generation.</p>
         </div>
-        <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+        <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
           {effectiveRole === 'class_teacher' ? 'Class Teacher' : 'Subject Teacher'}
         </Badge>
       </div>
@@ -133,8 +133,8 @@ export default async function TeacherAttendancePage({ searchParams }: { searchPa
         <CardContent>
           <form method="get" className="grid gap-4 md:grid-cols-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Class</label>
-              <select name="classId" defaultValue={selectedClassId} className="w-full rounded-md border px-3 py-2 text-sm">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Class</label>
+              <select name="classId" defaultValue={selectedClassId} className="w-full rounded-md border px-3 py-2 text-sm bg-white dark:bg-gray-900 dark:text-gray-100">
                 {classes.map((klass) => (
                   <option key={klass.id} value={klass.id}>
                     {classLabel(klass)}
@@ -143,8 +143,8 @@ export default async function TeacherAttendancePage({ searchParams }: { searchPa
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Session / Term</label>
-              <select name="sessionId" defaultValue={selectedSessionId} className="w-full rounded-md border px-3 py-2 text-sm">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Session / Term</label>
+              <select name="sessionId" defaultValue={selectedSessionId} className="w-full rounded-md border px-3 py-2 text-sm bg-white dark:bg-gray-900 dark:text-gray-100">
                 {sessions.map((session) => (
                   <option key={session.id} value={session.id}>
                     {session.academic_year} • Term {session.term}{session.is_current ? ' (Current)' : ''}
@@ -180,16 +180,16 @@ export default async function TeacherAttendancePage({ searchParams }: { searchPa
                     <div key={student.id} className="rounded-lg border p-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900">{student.user_profile.full_name}</p>
-                          <p className="text-xs text-gray-500">{student.admission_number}</p>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">{student.user_profile.full_name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{student.admission_number}</p>
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
                           Saved: {existing ? `${existing.percentage}%` : 'N/A'}
                         </div>
                       </div>
                       <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
                         <div>
-                          <label className="text-xs text-gray-600">Present Days</label>
+                          <label className="text-xs text-gray-600 dark:text-gray-300">Present Days</label>
                           <Input
                             type="number"
                             min={0}
@@ -199,7 +199,7 @@ export default async function TeacherAttendancePage({ searchParams }: { searchPa
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-600">Total Days</label>
+                          <label className="text-xs text-gray-600 dark:text-gray-300">Total Days</label>
                           <Input
                             type="number"
                             min={0}
@@ -208,7 +208,7 @@ export default async function TeacherAttendancePage({ searchParams }: { searchPa
                             defaultValue={existing?.total_days ?? ''}
                           />
                         </div>
-                        <div className="md:col-span-2 text-xs text-gray-500">
+                        <div className="md:col-span-2 text-xs text-gray-500 dark:text-gray-400">
                           If present days exceed total days, values are auto-adjusted on save.
                         </div>
                       </div>

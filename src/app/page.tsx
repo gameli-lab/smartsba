@@ -10,15 +10,15 @@ import {
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-950 dark:to-gray-900">
       {/* Hero Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+          <h1 className="mb-6 text-4xl font-bold text-gray-900 md:text-6xl dark:text-gray-100">
             Modern School Assessment
-            <span className="text-blue-600 block">Made Simple</span>
+            <span className="block text-blue-600 dark:text-blue-400">Made Simple</span>
           </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+          <p className="mx-auto mb-8 max-w-3xl text-xl text-gray-600 dark:text-gray-300">
             Streamline your school&apos;s assessment process with our
             comprehensive School-Based Assessment system. Track student
             progress, manage grades, and generate insightful reports
@@ -40,13 +40,13 @@ export default function HomePage() {
       </section>
 
       {/* About Section */}
-      <section id="about" className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
+      <section id="about" className="bg-white px-4 py-16 sm:px-6 lg:px-8 dark:bg-gray-900">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="mb-4 text-3xl font-bold text-gray-900 dark:text-gray-100">
               About SmartSBA
             </h2>
-            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+            <p className="mx-auto max-w-3xl text-lg text-gray-600 dark:text-gray-300">
               SmartSBA is a comprehensive School-Based Assessment system
               designed to modernize how educational institutions manage student
               assessments, track academic progress, and maintain educational
@@ -107,10 +107,10 @@ export default function HomePage() {
       <section id="features" className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="mb-4 text-3xl font-bold text-gray-900 dark:text-gray-100">
               Key Features
             </h2>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-gray-600 dark:text-gray-300">
               Everything you need for modern school assessment
             </p>
           </div>
@@ -120,10 +120,10 @@ export default function HomePage() {
               <div className="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">📊</span>
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">
+              <h3 className="mb-2 font-semibold text-gray-900 dark:text-gray-100">
                 Grade Management
               </h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
                 Comprehensive grade tracking with CA and exam scores
               </p>
             </div>
@@ -132,10 +132,10 @@ export default function HomePage() {
               <div className="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">👥</span>
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">
+              <h3 className="mb-2 font-semibold text-gray-900 dark:text-gray-100">
                 Multi-User Support
               </h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
                 Role-based access for all stakeholders
               </p>
             </div>
@@ -144,10 +144,10 @@ export default function HomePage() {
               <div className="bg-purple-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">🏆</span>
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">
+              <h3 className="mb-2 font-semibold text-gray-900 dark:text-gray-100">
                 Student Rankings
               </h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
                 Automated ranking based on performance
               </p>
             </div>
@@ -156,10 +156,10 @@ export default function HomePage() {
               <div className="bg-orange-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">📱</span>
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">
+              <h3 className="mb-2 font-semibold text-gray-900 dark:text-gray-100">
                 Mobile Friendly
               </h3>
-              <p className="text-gray-600 text-sm">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
                 Access from any device, anywhere
               </p>
             </div>
@@ -170,14 +170,14 @@ export default function HomePage() {
       {/* Announcements Section */}
       <section
         id="announcements"
-        className="py-16 px-4 sm:px-6 lg:px-8 bg-gray-50"
+        className="bg-gray-50 px-4 py-16 sm:px-6 lg:px-8 dark:bg-gray-950"
       >
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="mb-4 text-3xl font-bold text-gray-900 dark:text-gray-100">
               Latest Announcements
             </h2>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-gray-600 dark:text-gray-300">
               Stay updated with the latest news and updates
             </p>
           </div>
@@ -189,7 +189,7 @@ export default function HomePage() {
                 <CardDescription>September 20, 2025</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">
+                <p className="text-gray-600 dark:text-gray-300">
                   New features include automated aggregate calculations and
                   improved performance analytics for better student tracking.
                 </p>
@@ -202,7 +202,7 @@ export default function HomePage() {
                 <CardDescription>September 18, 2025</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">
+                <p className="text-gray-600 dark:text-gray-300">
                   Simplified onboarding process for new schools with
                   step-by-step setup guides and dedicated support.
                 </p>
@@ -215,7 +215,7 @@ export default function HomePage() {
                 <CardDescription>September 15, 2025</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600">
+                <p className="text-gray-600 dark:text-gray-300">
                   Free training sessions for teachers and administrators on
                   effective use of the SmartSBA platform.
                 </p>
@@ -229,10 +229,10 @@ export default function HomePage() {
       <section id="events" className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            <h2 className="mb-4 text-3xl font-bold text-gray-900 dark:text-gray-100">
               Upcoming Events
             </h2>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-gray-600 dark:text-gray-300">
               Don&apos;t miss these important dates
             </p>
           </div>
@@ -247,10 +247,10 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-1">
+                  <h3 className="mb-1 font-semibold text-gray-900 dark:text-gray-100">
                     End of Term Assessment Deadline
                   </h3>
-                  <p className="text-gray-600 mb-2">
+                  <p className="mb-2 text-gray-600 dark:text-gray-300">
                     Final date for submitting end-of-term scores and assessments
                   </p>
                   <span className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
@@ -269,10 +269,10 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-1">
+                  <h3 className="mb-1 font-semibold text-gray-900 dark:text-gray-100">
                     Report Card Generation
                   </h3>
-                  <p className="text-gray-600 mb-2">
+                  <p className="mb-2 text-gray-600 dark:text-gray-300">
                     Automated report card generation and distribution
                   </p>
                   <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
@@ -291,10 +291,10 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-1">
+                  <h3 className="mb-1 font-semibold text-gray-900 dark:text-gray-100">
                     New Academic Term Setup
                   </h3>
-                  <p className="text-gray-600 mb-2">
+                  <p className="mb-2 text-gray-600 dark:text-gray-300">
                     System preparation for the upcoming academic term
                   </p>
                   <span className="inline-block bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">

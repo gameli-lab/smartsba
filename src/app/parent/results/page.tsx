@@ -121,13 +121,13 @@ export default async function ParentResultsPage({ searchParams }: PageProps) {
   const studentName = (profileData as { full_name: string } | null)?.full_name || 'Ward'
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 text-gray-900 dark:text-gray-100">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Ward Results</h1>
-          <p className="text-sm text-gray-600">Current term results for {studentName}.</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Ward Results</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Current term results for {studentName}.</p>
         </div>
-        <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700">
+        <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-900 dark:bg-purple-950/30 dark:text-purple-300">
           {session.academic_year} • Term {session.term}
         </Badge>
       </div>
@@ -136,30 +136,30 @@ export default async function ParentResultsPage({ searchParams }: PageProps) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Term Average</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Term Average</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold text-gray-900">
+            <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
               {aggregate?.aggregate_score !== null && aggregate?.aggregate_score !== undefined ? `${aggregate.aggregate_score}%` : 'N/A'}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Class Position</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Class Position</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold text-gray-900">
+            <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
               {aggregate?.class_position !== null && aggregate?.class_position !== undefined ? `${aggregate.class_position}` : 'N/A'}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Subjects</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Subjects</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold text-gray-900">
+            <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
               {aggregate?.total_subjects !== null && aggregate?.total_subjects !== undefined ? `${aggregate.total_subjects}` : 'N/A'}
             </div>
           </CardContent>
@@ -167,10 +167,10 @@ export default async function ParentResultsPage({ searchParams }: PageProps) {
         {session.term === 3 && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Promotion Status</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Promotion Status</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-semibold text-gray-900">
+              <div className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
                 {promotionStatus || 'Pending'}
               </div>
             </CardContent>
@@ -186,7 +186,7 @@ export default async function ParentResultsPage({ searchParams }: PageProps) {
         </CardHeader>
         <CardContent>
           {scores.length === 0 ? (
-            <p className="text-sm text-gray-500">No results available for this term yet.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No results available for this term yet.</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -202,11 +202,11 @@ export default async function ParentResultsPage({ searchParams }: PageProps) {
                 </TableHeader>
                 <TableBody>
                   {scores.map((score) => (
-                    <TableRow key={score.id} className="hover:bg-gray-50">
+                    <TableRow key={score.id} className="hover:bg-gray-50 dark:hover:bg-gray-900">
                       <TableCell className="font-medium">
                         <Link
                           href={`/parent/results/${score.id}${params.ward ? `?ward=${params.ward}` : ''}`}
-                          className="text-purple-600 hover:text-purple-700 hover:underline"
+                          className="text-purple-600 hover:text-purple-700 hover:underline dark:text-purple-300 dark:hover:text-purple-200"
                         >
                           {score.subjects?.name || 'Unknown Subject'}
                         </Link>
@@ -227,7 +227,7 @@ export default async function ParentResultsPage({ searchParams }: PageProps) {
                           '-'
                         )}
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600">
+                      <TableCell className="text-sm text-gray-600 dark:text-gray-300">
                         {score.remark || '-'}
                       </TableCell>
                     </TableRow>

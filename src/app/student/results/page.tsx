@@ -97,13 +97,13 @@ export default async function StudentResultsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="space-y-6 text-gray-900 dark:text-gray-100">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Results</h1>
-          <p className="text-sm text-gray-600">View your current term scores and performance.</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Results</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-300">View your current term scores and performance.</p>
         </div>
-        <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
+        <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">
           {session.academic_year} • Term {session.term}
         </Badge>
       </div>
@@ -111,26 +111,26 @@ export default async function StudentResultsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Term Average</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Term Average</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">{termAverage !== null ? `${termAverage}%` : 'N/A'}</div>
+            <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">{termAverage !== null ? `${termAverage}%` : 'N/A'}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Class Position</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Class Position</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">{classPosition !== null ? classPosition : 'N/A'}</div>
+            <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">{classPosition !== null ? classPosition : 'N/A'}</div>
           </CardContent>
         </Card>
 
         {session.term === 3 && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Promotion Status</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Promotion Status</CardTitle>
             </CardHeader>
             <CardContent>
               {promotionStatus ? (
@@ -141,7 +141,7 @@ export default async function StudentResultsPage() {
                   {promotionStatus.charAt(0).toUpperCase() + promotionStatus.slice(1)}
                 </Badge>
               ) : (
-                <div className="text-sm text-gray-500">Pending</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Pending</div>
               )}
             </CardContent>
           </Card>
@@ -155,7 +155,7 @@ export default async function StudentResultsPage() {
         </CardHeader>
         <CardContent>
           {scores.length === 0 ? (
-            <p className="text-sm text-gray-500">No scores recorded for this term yet.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No scores recorded for this term yet.</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -171,12 +171,12 @@ export default async function StudentResultsPage() {
                 </TableHeader>
                 <TableBody>
                   {scores.map((score) => (
-                    <TableRow key={score.id} className="cursor-pointer hover:bg-gray-50">
+                    <TableRow key={score.id} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900">
                       <TableCell className="font-medium">
                         <Link href={`/student/results/${score.id}`} className="block">
                           {score.subject?.name || 'Unknown Subject'}
                           {score.subject?.code && (
-                            <span className="ml-2 text-xs text-gray-500">({score.subject.code})</span>
+                            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">({score.subject.code})</span>
                           )}
                         </Link>
                       </TableCell>
@@ -206,7 +206,7 @@ export default async function StudentResultsPage() {
                       </TableCell>
                       <TableCell className="max-w-xs">
                         <Link href={`/student/results/${score.id}`} className="block">
-                          <span className="text-sm text-gray-700 line-clamp-1">
+                          <span className="text-sm text-gray-700 line-clamp-1 dark:text-gray-300">
                             {score.subject_remark || '—'}
                           </span>
                         </Link>

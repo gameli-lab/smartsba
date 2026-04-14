@@ -85,7 +85,7 @@ export default function ReportsExport({
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="dark:border-gray-800 dark:bg-gray-950">
         <DropdownMenuLabel>Export as PDF</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => handleExport('performance')}>

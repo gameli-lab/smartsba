@@ -51,10 +51,10 @@ export default async function ParentProfilePage() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-gray-900 dark:text-gray-100">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Profile</h1>
-        <p className="text-sm text-gray-600">View and manage your profile information.</p>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Profile</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-300">View and manage your profile information.</p>
       </div>
 
       <ProfileClient

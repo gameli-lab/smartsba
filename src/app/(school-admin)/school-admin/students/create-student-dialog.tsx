@@ -197,9 +197,9 @@ export function CreateStudentDialog({ classes, guardianSuggestions, parentAccoun
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Student
+        <Button className="w-full sm:w-auto">
+          <Plus className="h-4 w-4 sm:mr-2" />
+          <span className="ml-2 sm:ml-0">Add Student</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">

@@ -60,15 +60,15 @@ export default async function PerformanceHistoryPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-gray-900 dark:text-gray-100">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Performance History</h1>
-        <p className="text-sm text-gray-600">View your academic performance across different terms and years.</p>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Performance History</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-300">View your academic performance across different terms and years.</p>
       </div>
 
       {sessions.length === 0 ? (
-        <div className="rounded-lg border bg-gray-50 p-6">
-          <p className="text-sm text-gray-500">No academic sessions available yet.</p>
+        <div className="rounded-lg border bg-gray-50 p-6 dark:border-gray-800 dark:bg-gray-900">
+          <p className="text-sm text-gray-500 dark:text-gray-400">No academic sessions available yet.</p>
         </div>
       ) : (
         <PerformanceClient

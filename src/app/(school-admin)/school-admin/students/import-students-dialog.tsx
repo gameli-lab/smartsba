@@ -179,9 +179,9 @@ export function ImportStudentsDialog({}: Props) {
   return (
     <Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) reset() }}>
       <DialogTrigger asChild>
-        <Button variant="outline">
-          <Upload className="mr-2 h-4 w-4" />
-          Import Students
+        <Button variant="outline" className="w-full sm:w-auto">
+          <Upload className="h-4 w-4 sm:mr-2" />
+          <span className="ml-2 sm:ml-0">Import Students</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl">

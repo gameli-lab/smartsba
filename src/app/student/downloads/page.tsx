@@ -62,14 +62,14 @@ export default async function StudentDownloadsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-gray-900 dark:text-gray-100">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Downloads</h1>
-        <p className="text-sm text-gray-600">Download your term reports in PDF format.</p>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Downloads</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-300">Download your term reports in PDF format.</p>
       </div>
 
       {currentSession && (
-        <Card className="border-blue-200 bg-blue-50">
+        <Card className="border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -103,7 +103,7 @@ export default async function StudentDownloadsPage() {
         </CardHeader>
         <CardContent>
           {availableSessions.length === 0 ? (
-            <p className="text-sm text-gray-500">No past reports available yet.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No past reports available yet.</p>
           ) : (
             <div className="space-y-3">
               {availableSessions
@@ -111,15 +111,15 @@ export default async function StudentDownloadsPage() {
                 .map((session) => (
                   <div
                     key={session.id}
-                    className="flex items-center justify-between rounded-lg border p-4 hover:bg-gray-50"
+                    className="flex items-center justify-between rounded-lg border p-4 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900"
                   >
                     <div className="flex items-center gap-3">
-                      <FileText className="h-5 w-5 text-gray-500" />
+                      <FileText className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                       <div>
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-gray-900 dark:text-gray-100">
                           {session.academic_year} • Term {session.term}
                         </p>
-                        <p className="text-xs text-gray-500">Term Report Card</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Term Report Card</p>
                       </div>
                     </div>
                     <Button
@@ -137,9 +137,9 @@ export default async function StudentDownloadsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-amber-200 bg-amber-50">
+      <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20">
         <CardContent className="pt-6">
-          <p className="text-sm text-amber-800">
+          <p className="text-sm text-amber-800 dark:text-amber-200">
             <strong>Note:</strong> Reports are only available for published results. If you cannot download a report,
             it may not have been published yet. Contact your school administrator for more information.
           </p>

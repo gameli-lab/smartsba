@@ -210,14 +210,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-2xl">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-8 sm:px-6 sm:py-10 lg:px-8 dark:from-gray-950 dark:to-gray-900">
+      <div className="w-full max-w-xl">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
+        <div className="mb-6 text-center sm:mb-8">
+          <h1 className="mb-2 text-3xl font-extrabold text-gray-900 sm:text-4xl dark:text-gray-100">
             Smart SBA System
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-base text-gray-600 sm:text-lg dark:text-gray-300">
             School-Based Assessment Platform
           </p>
         </div>
@@ -228,7 +228,7 @@ export default function LoginPage() {
           onValueChange={(v) => setSelectedTab(v as "auth" | "admin")}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsList className="mb-5 grid w-full grid-cols-2">
             <TabsTrigger value="auth" className="text-base">
               User Login
             </TabsTrigger>
@@ -239,7 +239,7 @@ export default function LoginPage() {
 
           {/* User Login Tab */}
           <TabsContent value="auth" className="space-y-6">
-            <Card className="border-0 shadow-lg">
+            <Card className="border shadow-md dark:border-gray-800 dark:bg-gray-900">
               <CardHeader className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
                 <CardTitle>Select Your Role</CardTitle>
                 <CardDescription className="text-blue-100">
@@ -270,8 +270,8 @@ export default function LoginPage() {
                       }}
                       className={`p-4 rounded-lg border-2 transition-all font-medium text-center ${
                         authRole === option.role
-                          ? "border-blue-600 bg-blue-50 text-blue-900"
-                          : "border-gray-200 bg-white text-gray-700 hover:border-blue-300"
+                          ? "border-blue-600 bg-blue-50 text-blue-900 dark:bg-blue-950/40 dark:text-blue-200"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-blue-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
                       }`}
                     >
                       {option.label}
@@ -280,8 +280,8 @@ export default function LoginPage() {
                 </div>
 
                 {/* Role Description */}
-                <div className="mb-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm font-medium text-blue-900">
+                <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/30">
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
                     {getAuthRoleDescription(authRole)}
                   </p>
                 </div>
@@ -307,7 +307,7 @@ export default function LoginPage() {
                       onChange={(e) =>
                         setSelectedSchool(e.target.value.trim())
                       }
-                      className="border-gray-300"
+                      className="border-gray-300 dark:border-gray-700 dark:bg-gray-900"
                     />
                     <p className="text-xs text-gray-500">
                       Leave blank to auto-detect your school, or provide your school name/code for faster login.
@@ -325,7 +325,7 @@ export default function LoginPage() {
                       placeholder={getIdentifierPlaceholder(authRole)}
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      className="border-gray-300"
+                      className="border-gray-300 dark:border-gray-700 dark:bg-gray-900"
                       required
                     />
                   </div>
@@ -347,7 +347,7 @@ export default function LoginPage() {
                         onChange={(e) =>
                           setWardAdmissionNumber(e.target.value)
                         }
-                        className="border-gray-300"
+                        className="border-gray-300 dark:border-gray-700 dark:bg-gray-900"
                         required
                       />
                     </div>
@@ -364,7 +364,7 @@ export default function LoginPage() {
                       placeholder="Enter your password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="border-gray-300"
+                      className="border-gray-300 dark:border-gray-700 dark:bg-gray-900"
                       required
                     />
                   </div>
@@ -403,7 +403,7 @@ export default function LoginPage() {
 
           {/* Super Admin Tab */}
           <TabsContent value="admin" className="space-y-6">
-            <Card className="border-0 shadow-lg">
+            <Card className="border shadow-md dark:border-gray-800 dark:bg-gray-900">
               <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-600 text-white">
                 <CardTitle>Super Admin Login</CardTitle>
                 <CardDescription className="text-purple-100">
@@ -429,7 +429,7 @@ export default function LoginPage() {
                       placeholder="admin@smartsba.com"
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
-                      className="border-gray-300"
+                      className="border-gray-300 dark:border-gray-700 dark:bg-gray-900"
                       required
                     />
                   </div>
@@ -445,7 +445,7 @@ export default function LoginPage() {
                       placeholder="Enter your password"
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
-                      className="border-gray-300"
+                      className="border-gray-300 dark:border-gray-700 dark:bg-gray-900"
                       required
                     />
                   </div>
@@ -461,11 +461,11 @@ export default function LoginPage() {
                 </form>
 
                 {/* Super Admin Help */}
-                <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <p className="text-sm text-purple-900 font-medium mb-2">
+                <div className="mt-6 rounded-lg border border-purple-200 bg-purple-50 p-4 dark:border-purple-900 dark:bg-purple-950/30">
+                  <p className="mb-2 text-sm font-medium text-purple-900 dark:text-purple-200">
                     Need to reset your password?
                   </p>
-                  <p className="text-sm text-purple-800">
+                  <p className="text-sm text-purple-800 dark:text-purple-300">
                     Super Admins must reset their password via the{" "}
                     <a
                       href="https://app.supabase.com/"

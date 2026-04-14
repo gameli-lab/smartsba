@@ -87,10 +87,10 @@ export default async function ParentDownloadsPage({ searchParams }: PageProps) {
   const pastSessions = uniqueSessions.filter((session) => session.session_id !== currentSession?.id)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-gray-900 dark:text-gray-100">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Downloads</h1>
-        <p className="text-sm text-gray-600">Download term reports for {studentName}.</p>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Downloads</h1>
+        <p className="text-sm text-gray-600 dark:text-gray-300">Download term reports for {studentName}.</p>
       </div>
 
       {/* Current Term Report */}
@@ -99,25 +99,25 @@ export default async function ParentDownloadsPage({ searchParams }: PageProps) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Current Term Report</CardTitle>
-                <CardDescription>
+                <CardTitle className="dark:text-gray-100">Current Term Report</CardTitle>
+                <CardDescription className="dark:text-gray-300">
                   {currentSession.academic_year} • Term {currentSession.term}
                 </CardDescription>
               </div>
-              <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700">
+                <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-900 dark:bg-purple-950/30 dark:text-purple-300">
                 Current
               </Badge>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-center justify-between rounded-lg border p-4 dark:border-gray-800">
               <div className="flex items-center gap-3">
-                <FileText className="h-8 w-8 text-purple-600" />
+                <FileText className="h-8 w-8 text-purple-600 dark:text-purple-300" />
                 <div>
-                  <p className="font-medium text-gray-900">
+                  <p className="font-medium text-gray-900 dark:text-gray-100">
                     {studentName} - {currentSession.academic_year} Term {currentSession.term}
                   </p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     {currentReportReady ? 'Term Report Card is ready' : 'Report not generated yet for this term'}
                   </p>
                 </div>
@@ -151,18 +151,18 @@ export default async function ParentDownloadsPage({ searchParams }: PageProps) {
         </CardHeader>
         <CardContent>
           {pastSessions.length === 0 ? (
-            <p className="text-sm text-gray-500">No past reports available.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No past reports available.</p>
           ) : (
             <div className="space-y-3">
               {pastSessions.map((session) => (
-                <div key={session.session_id} className="flex items-center justify-between rounded-lg border p-4">
+                <div key={session.session_id} className="flex items-center justify-between rounded-lg border p-4 dark:border-gray-800">
                   <div className="flex items-center gap-3">
-                    <FileText className="h-8 w-8 text-gray-400" />
+                    <FileText className="h-8 w-8 text-gray-400 dark:text-gray-500" />
                     <div>
-                      <p className="font-medium text-gray-900">
+                      <p className="font-medium text-gray-900 dark:text-gray-100">
                         {studentName} - {session.academic_year} Term {session.term}
                       </p>
-                      <p className="text-sm text-gray-500">Term Report Card</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Term Report Card</p>
                     </div>
                   </div>
                   <Link
@@ -185,9 +185,9 @@ export default async function ParentDownloadsPage({ searchParams }: PageProps) {
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
-            <FileText className="h-5 w-5 text-purple-600 mt-0.5" />
-            <div className="flex-1 text-sm text-gray-600">
-              <p className="font-medium text-gray-900 mb-1">About Reports</p>
+            <FileText className="h-5 w-5 text-purple-600 mt-0.5 dark:text-purple-300" />
+            <div className="flex-1 text-sm text-gray-600 dark:text-gray-300">
+              <p className="font-medium text-gray-900 mb-1 dark:text-gray-100">About Reports</p>
               <p>
                 Reports are generated as PDF documents containing the ward&apos;s performance summary, subject scores,
                 attendance, and teacher remarks for each term. Click &quot;Download PDF&quot; to view or save the report.

@@ -15,13 +15,13 @@ export default async function TeacherProfilePage() {
   const { profile, effectiveRole } = await requireTeacher()
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 text-gray-900 dark:text-gray-100">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Profile</h1>
-          <p className="text-sm text-gray-600">View your information and request updates.</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Profile</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-300">View your information and request updates.</p>
         </div>
-        <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+        <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
           {effectiveRole === 'class_teacher' ? 'Class Teacher' : 'Subject Teacher'}
         </Badge>
       </div>

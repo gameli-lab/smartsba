@@ -8,7 +8,7 @@ interface StudentShellProps {
 
 export function StudentShell({ children }: StudentShellProps) {
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
+    <div className="student-scope min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100">
       <StudentSidebar />
       <StudentLayoutWrapper>
         <main className="p-3 sm:p-4 lg:p-6">{children}</main>

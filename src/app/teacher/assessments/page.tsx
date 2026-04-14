@@ -58,18 +58,18 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
   const classIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean)))
   if (classIds.length === 0) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 text-gray-900 dark:text-gray-100">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Assessments & Scores</h1>
-            <p className="text-sm text-gray-600">You have no assigned classes yet.</p>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Assessments & Scores</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-300">You have no assigned classes yet.</p>
           </div>
-          <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+          <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
             {effectiveRole === 'class_teacher' ? 'Class Teacher' : 'Subject Teacher'}
           </Badge>
         </div>
         <Card>
-          <CardContent className="py-10 text-center text-gray-500">No classes assigned.</CardContent>
+          <CardContent className="py-10 text-center text-gray-500 dark:text-gray-400">No classes assigned.</CardContent>
         </Card>
       </div>
     )
@@ -100,15 +100,15 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
 
   if (!selectedSubjectId || !selectedSessionId) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 text-gray-900 dark:text-gray-100">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Assessments & Scores</h1>
-            <p className="text-sm text-gray-600">Select a class, subject, and session to manage scores.</p>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Assessments & Scores</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Select a class, subject, and session to manage scores.</p>
           </div>
         </div>
         <Card>
-          <CardContent className="py-10 text-center text-gray-500">No subjects or sessions available.</CardContent>
+          <CardContent className="py-10 text-center text-gray-500 dark:text-gray-400">No subjects or sessions available.</CardContent>
         </Card>
       </div>
     )
@@ -137,15 +137,15 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
 
   if (!subject || subject.class_id !== selectedClassId) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 text-gray-900 dark:text-gray-100">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Assessments & Scores</h1>
-            <p className="text-sm text-gray-600">Selected subject is not valid for this class.</p>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Assessments & Scores</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Selected subject is not valid for this class.</p>
           </div>
         </div>
         <Card>
-          <CardContent className="py-10 text-center text-gray-500">Choose another class/subject.</CardContent>
+          <CardContent className="py-10 text-center text-gray-500 dark:text-gray-400">Choose another class/subject.</CardContent>
         </Card>
       </div>
     )
@@ -159,13 +159,13 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
   const readOnly = false // TODO: wire to term lock when available
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 text-gray-900 dark:text-gray-100">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Assessments & Scores</h1>
-          <p className="text-sm text-gray-600">Enter scores for your assigned subjects only.</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Assessments & Scores</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Enter scores for your assigned subjects only.</p>
         </div>
-        <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+        <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
           {effectiveRole === 'class_teacher' ? 'Class Teacher' : 'Subject Teacher'}
         </Badge>
       </div>
@@ -178,8 +178,8 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
         <CardContent>
           <form method="get" className="grid gap-4 md:grid-cols-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Class</label>
-              <select name="classId" defaultValue={selectedClassId} className="w-full rounded-md border px-3 py-2 text-sm">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Class</label>
+              <select name="classId" defaultValue={selectedClassId} className="w-full rounded-md border px-3 py-2 text-sm bg-white dark:bg-gray-900 dark:text-gray-100">
                 {classes.map((c) => (
                   <option key={c.id} value={c.id}>
                     {formatClassName(c)}
@@ -188,8 +188,8 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Subject</label>
-              <select name="subjectId" defaultValue={selectedSubjectId} className="w-full rounded-md border px-3 py-2 text-sm">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Subject</label>
+              <select name="subjectId" defaultValue={selectedSubjectId} className="w-full rounded-md border px-3 py-2 text-sm bg-white dark:bg-gray-900 dark:text-gray-100">
                 {subjects.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -198,8 +198,8 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Session / Term</label>
-              <select name="sessionId" defaultValue={selectedSessionId} className="w-full rounded-md border px-3 py-2 text-sm">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Session / Term</label>
+              <select name="sessionId" defaultValue={selectedSessionId} className="w-full rounded-md border px-3 py-2 text-sm bg-white dark:bg-gray-900 dark:text-gray-100">
                 {sessions.map((sess) => (
                   <option key={sess.id} value={sess.id}>
                     {sess.academic_year} • Term {sess.term}{sess.is_current ? ' (Current)' : ''}
@@ -219,9 +219,9 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
           <CardTitle>Scores</CardTitle>
           <CardDescription>CA is 0-40, Exam is 0-60. Totals and grades auto-compute on save.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+          <CardContent className="space-y-4">
           {students.length === 0 ? (
-            <p className="text-sm text-gray-500">No students found for this class.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No students found for this class.</p>
           ) : (
             <form action={saveScoresAction} className="space-y-4">
               <input type="hidden" name="classId" value={selectedClassId} />
@@ -235,17 +235,17 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
                   const total = score?.total_score ?? ''
                   const grade = score?.grade ?? ''
                   return (
-                    <div key={student.id} className="rounded-lg border p-3">
+                    <div key={student.id} className="rounded-lg border p-3 dark:border-gray-800">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900">{student.user_profile.full_name}</p>
-                          <p className="text-xs text-gray-500">{student.admission_number}</p>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">{student.user_profile.full_name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{student.admission_number}</p>
                         </div>
                         <div className="text-xs text-gray-500">{student.gender || '—'}</div>
                       </div>
                       <div className="mt-3 grid grid-cols-4 gap-2 items-center text-sm">
                         <div>
-                          <label className="text-xs text-gray-600">CA (0-40)</label>
+                          <label className="text-xs text-gray-600 dark:text-gray-300">CA (0-40)</label>
                           <Input
                             type="number"
                             name={`ca_${student.id}`}
@@ -257,7 +257,7 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-600">Exam (0-60)</label>
+                          <label className="text-xs text-gray-600 dark:text-gray-300">Exam (0-60)</label>
                           <Input
                             type="number"
                             name={`exam_${student.id}`}
@@ -269,11 +269,11 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-600">Total</label>
+                          <label className="text-xs text-gray-600 dark:text-gray-300">Total</label>
                           <Input value={total} readOnly disabled />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-600">Grade</label>
+                          <label className="text-xs text-gray-600 dark:text-gray-300">Grade</label>
                           <Input value={grade} readOnly disabled />
                         </div>
                       </div>

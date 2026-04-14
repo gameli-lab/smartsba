@@ -25,18 +25,18 @@ export default async function TeacherReportsPage({ searchParams }: { searchParam
   const classIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean)))
   if (classIds.length === 0) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 text-gray-900 dark:text-gray-100">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Reports</h1>
-            <p className="text-sm text-gray-600">You have no class assignments yet.</p>
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Reports</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-300">You have no class assignments yet.</p>
           </div>
-          <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+          <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
             {effectiveRole === 'class_teacher' ? 'Class Teacher' : 'Subject Teacher'}
           </Badge>
         </div>
         <Card>
-          <CardContent className="py-10 text-center text-gray-500">No classes assigned.</CardContent>
+          <CardContent className="py-10 text-center text-gray-500 dark:text-gray-400">No classes assigned.</CardContent>
         </Card>
       </div>
     )
@@ -75,13 +75,13 @@ export default async function TeacherReportsPage({ searchParams }: { searchParam
   })
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="space-y-8 text-gray-900 dark:text-gray-100">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Reports</h1>
-          <p className="text-sm text-gray-600">View student performance for your assigned classes/subjects.</p>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Reports</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-300">View student performance for your assigned classes/subjects.</p>
         </div>
-        <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
+        <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-300">
           {effectiveRole === 'class_teacher' ? 'Class Teacher' : 'Subject Teacher'}
         </Badge>
       </div>
@@ -94,8 +94,8 @@ export default async function TeacherReportsPage({ searchParams }: { searchParam
         <CardContent>
           <form method="get" className="grid gap-4 md:grid-cols-3">
             <div className="space-y-1 md:col-span-2">
-              <label className="text-sm font-medium text-gray-700">Class</label>
-              <select name="classId" defaultValue={selectedClassId} className="w-full rounded-md border px-3 py-2 text-sm">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Class</label>
+              <select name="classId" defaultValue={selectedClassId} className="w-full rounded-md border px-3 py-2 text-sm bg-white dark:bg-gray-900 dark:text-gray-100">
                 {classIds.map((id) => (
                   <option key={id} value={id}>
                     {id}
@@ -127,17 +127,17 @@ export default async function TeacherReportsPage({ searchParams }: { searchParam
                   <div key={student.id} className="px-3 py-2 space-y-1">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-gray-900">{student.user_profile.full_name}</p>
-                        <p className="text-xs text-gray-500">{student.admission_number}</p>
+                        <p className="font-medium text-gray-900 dark:text-gray-100">{student.user_profile.full_name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{student.admission_number}</p>
                       </div>
                       <div className="text-right">
                         <Badge variant="outline">Aggregate: {totalAggregate}</Badge>
                       </div>
                     </div>
                     {isClassTeacher ? (
-                      <p className="text-xs text-gray-600">Full report access — TODO: link to student report preview/download.</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-300">Full report access — TODO: link to student report preview/download.</p>
                     ) : (
-                      <div className="text-xs text-gray-600">
+                      <div className="text-xs text-gray-600 dark:text-gray-300">
                         Subject scores:
                         <div className="mt-1 flex flex-wrap gap-2">
                           {studentScores.length === 0 ? (

@@ -737,17 +737,17 @@ export default function SuperAdminDashboard() {
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 text-gray-900 dark:text-gray-100">
       {/* Header Section */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900">Super Admin Command Center</h1>
-          <p className="text-lg text-gray-600 mt-2">Global Platform Oversight</p>
+          <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl dark:text-gray-100">Super Admin Command Center</h1>
+          <p className="mt-2 text-base text-gray-600 sm:text-lg dark:text-gray-300">Global Platform Oversight</p>
           <div className="flex items-center gap-3 mt-4">
             <Badge variant="outline" className="font-mono">
               {getEnvironment()}
             </Badge>
-            <span className="text-xs text-gray-500">Last refresh: {formatRefreshTime(lastRefresh)}</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">Last refresh: {formatRefreshTime(lastRefresh)}</span>
           </div>
         </div>
         <Button
@@ -821,7 +821,7 @@ export default function SuperAdminDashboard() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Authentication</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Authentication</p>
               {loading ? (
                 <KPISkeleton />
               ) : (
@@ -829,7 +829,7 @@ export default function SuperAdminDashboard() {
               )}
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">Database</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Database</p>
               {loading ? (
                 <KPISkeleton />
               ) : (
@@ -837,7 +837,7 @@ export default function SuperAdminDashboard() {
               )}
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium text-gray-700">API</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">API</p>
               {loading ? (
                 <KPISkeleton />
               ) : (

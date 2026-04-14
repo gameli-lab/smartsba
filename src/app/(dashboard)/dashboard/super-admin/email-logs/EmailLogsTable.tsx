@@ -116,9 +116,9 @@ export default function EmailLogsTable({ logs, count, nextCursor }: EmailLogsTab
   }
 
   return (
-    <Card>
+      <Card>
       <CardHeader>
-        <CardTitle>Email Delivery Logs</CardTitle>
+        <CardTitle className="dark:text-gray-100">Email Delivery Logs</CardTitle>
         <div className="flex flex-col sm:flex-row gap-4 mt-4">
           <form onSubmit={handleSearch} className="flex-1 flex gap-2">
             <div className="relative flex-1">
@@ -171,13 +171,13 @@ export default function EmailLogsTable({ logs, count, nextCursor }: EmailLogsTab
 
       <CardContent>
         {logs.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
+          <div className="py-12 text-center text-muted-foreground dark:text-gray-400">
             <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No email logs found</p>
           </div>
         ) : (
           <>
-            <div className="rounded-md border">
+            <div className="rounded-md border dark:border-gray-800">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -192,19 +192,19 @@ export default function EmailLogsTable({ logs, count, nextCursor }: EmailLogsTab
                 <TableBody>
                   {logs.map((log) => (
                     <TableRow key={log.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium dark:text-gray-100">
                         {log.recipient_email}
                       </TableCell>
                       <TableCell>
                         {getEmailTypeBadge(log.email_type)}
                       </TableCell>
-                      <TableCell className="max-w-[300px] truncate">
+                      <TableCell className="max-w-[300px] truncate dark:text-gray-100">
                         {log.subject}
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(log.status)}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-sm text-muted-foreground dark:text-gray-400">
                         {log.sent_at ? formatDate(log.sent_at) : formatDate(log.created_at)}
                       </TableCell>
                       <TableCell>
@@ -223,7 +223,7 @@ export default function EmailLogsTable({ logs, count, nextCursor }: EmailLogsTab
             </div>
 
             <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground dark:text-gray-400">
                 Showing {logs.length} of {count} email logs
               </p>
 

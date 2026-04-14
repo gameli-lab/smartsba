@@ -252,10 +252,10 @@ export function Sidebar({
     <>
       <div
         className={cn(
-          "group fixed left-0 top-0 z-40 hidden h-full w-20 flex-col border-r border-gray-200 bg-white transition-[width] duration-200 hover:w-64 md:flex"
+          "group fixed left-0 top-16 z-30 hidden h-[calc(100vh-4rem)] w-20 flex-col border-r border-gray-200 bg-white transition-[width] duration-200 hover:w-64 md:flex dark:border-gray-800 dark:bg-gray-950"
         )}
       >
-        <div className="border-b border-gray-200 p-3">
+        <div className="border-b border-gray-200 p-3 dark:border-gray-800">
           <div className="flex items-center justify-center gap-3 group-hover:justify-start">
             <Avatar className="h-10 w-10">
               <AvatarImage src="" />
@@ -268,7 +268,7 @@ export function Sidebar({
               </AvatarFallback>
             </Avatar>
             <div className="hidden min-w-0 flex-1 group-hover:block">
-              <p className="truncate text-sm font-medium text-gray-900">{userName}</p>
+              <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{userName}</p>
               <Badge variant="secondary" className="text-xs">
                 {config.title}
               </Badge>
@@ -287,8 +287,8 @@ export function Sidebar({
                   className={cn(
                     "flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors group-hover:justify-start",
                     isActive
-                      ? "bg-gray-100 text-gray-900"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-100"
                   )}
                   title={item.label}
                 >
@@ -300,10 +300,10 @@ export function Sidebar({
           </div>
         </nav>
 
-        <div className="border-t border-gray-200 p-2">
+        <div className="border-t border-gray-200 p-2 dark:border-gray-800">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="w-full justify-center px-2 group-hover:justify-start">
+              <Button variant="ghost" className="w-full justify-center px-2 group-hover:justify-start dark:text-gray-100">
                 <Settings className="h-4 w-4" />
                 <span className="ml-2 hidden group-hover:inline">Account</span>
               </Button>
@@ -325,7 +325,7 @@ export function Sidebar({
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur md:hidden dark:border-gray-800 dark:bg-gray-950/95">
         <div className="grid grid-cols-5 gap-1 px-2 py-2">
           {primaryMobileItems.map((item) => {
             const isActive = isActivePath(item.href);
@@ -335,7 +335,7 @@ export function Sidebar({
                 href={item.href}
                 className={cn(
                   "flex flex-col items-center justify-center rounded-md px-1 py-2 text-[11px] font-medium",
-                  isActive ? "text-gray-900" : "text-gray-600"
+                  isActive ? "text-gray-900 dark:text-gray-100" : "text-gray-600 dark:text-gray-400"
                 )}
               >
                 <item.icon className="h-5 w-5" />
@@ -345,7 +345,7 @@ export function Sidebar({
           })}
           <DropdownMenu open={isMoreOpen} onOpenChange={setIsMoreOpen}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-auto flex-col gap-1 rounded-md px-1 py-2 text-[11px] font-medium text-gray-600">
+              <Button variant="ghost" className="h-auto flex-col gap-1 rounded-md px-1 py-2 text-[11px] font-medium text-gray-600 dark:text-gray-400">
                 <Settings className="h-5 w-5" />
                 More
               </Button>
