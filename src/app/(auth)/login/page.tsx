@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PortalLoginShell } from "@/components/auth/portal-login-shell";
 import {
   Card,
   CardContent,
@@ -36,6 +37,8 @@ import { SchoolSelectionDialog } from "@/components/auth/SchoolSelectionDialog";
 type AuthRole = "student" | "teacher" | "school_admin" | "parent";
 
 export default function LoginPage() {
+  return <PortalLoginShell />;
+
   // Main role selection: Auth roles vs Super Admin
   const [selectedTab, setSelectedTab] = useState<"auth" | "admin">("auth");
   
