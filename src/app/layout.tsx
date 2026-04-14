@@ -4,6 +4,8 @@ import "./globals.css";
 import { GlobalHeader } from "@/components/layout/global-header";
 import { GlobalFooter } from "@/components/layout/global-footer";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { SessionTimeoutProvider } from "@/components/providers/session-timeout-provider";
+import { getSessionTimeoutMinutes } from "@/lib/session-timeout";
 
 export const dynamic = 'force-dynamic'
 
@@ -23,11 +25,13 @@ export const metadata: Metadata = {
     "Modern school assessment system for managing student grades, tracking progress, and generating comprehensive reports.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const sessionTimeoutMinutes = await getSessionTimeoutMinutes()
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
@@ -47,9 +51,11 @@ export default function RootLayout({
           }}
         />
         <ThemeProvider>
-          <GlobalHeader />
-          <main className="flex-1">{children}</main>
-          <GlobalFooter />
+          <SessionTimeoutProvider timeoutMinutes={sessionTimeoutMinutes}>
+            <GlobalHeader />
+            <main className="flex-1">{children}</main>
+            <GlobalFooter />
+          </SessionTimeoutProvider>
         </ThemeProvider>
       </body>
     </html>
