@@ -15,8 +15,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import {
-  Menu,
-  X,
   Home,
   Users,
   BookOpen,
@@ -34,7 +32,7 @@ import {
 } from "lucide-react";
 import { UserRole } from "@/types";
 import { AuthService } from "@/lib/auth";
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 
 interface SidebarProps {
   userRole: UserRole;
@@ -230,22 +228,12 @@ export function Sidebar({
   onClose,
 }: SidebarProps) {
   void schoolName;
+  void isOpen;
+  void onOpen;
+  void onClose;
   const pathname = usePathname();
   const config = roleConfig[userRole];
-  const sidebarRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
-        onClose?.();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isOpen, onClose]);
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -256,111 +244,129 @@ export function Sidebar({
     }
   };
 
+  const isActivePath = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const primaryMobileItems = config.items.slice(0, 4);
+  const overflowMobileItems = config.items.slice(4);
+
   return (
     <>
-      {/* Hamburger Button */}
-      {!isOpen && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onOpen}
-          className="fixed left-4 top-4 z-50"
-        >
-          <Menu className="h-6 w-6" />
-        </Button>
-      )}
-
-      {/* Overlay */}
-      {isOpen && (
-        <div className="fixed inset-0 z-30 bg-black/50" onClick={onClose} />
-      )}
-
-      {/* Sidebar */}
       <div
-        ref={sidebarRef}
         className={cn(
-          "fixed left-0 top-0 z-40 h-full w-64 bg-white border-r border-gray-200 transition-all duration-300 transform",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          "group fixed left-0 top-0 z-40 hidden h-full w-20 flex-col border-r border-gray-200 bg-white transition-[width] duration-200 hover:w-64 md:flex"
         )}
       >
-      {/* User Info Header */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src="" />
-            <AvatarFallback className={cn("text-white text-sm", config.color)}>
-              {userName
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">
-              {userName}
-            </p>
-            <Badge variant="secondary" className="text-xs">
-              {config.title}
-            </Badge>
+        <div className="border-b border-gray-200 p-3">
+          <div className="flex items-center justify-center gap-3 group-hover:justify-start">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src="" />
+              <AvatarFallback className={cn("text-white text-sm", config.color)}>
+                {userName
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="hidden min-w-0 flex-1 group-hover:block">
+              <p className="truncate text-sm font-medium text-gray-900">{userName}</p>
+              <Badge variant="secondary" className="text-xs">
+                {config.title}
+              </Badge>
+            </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="flex-shrink-0"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto p-2">
+          <div className="space-y-1">
+            {config.items.map((item) => {
+              const isActive = isActivePath(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center justify-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors group-hover:justify-start",
+                    isActive
+                      ? "bg-gray-100 text-gray-900"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  )}
+                  title={item.label}
+                >
+                  <item.icon className="h-4 w-4 flex-shrink-0" />
+                  <span className="hidden group-hover:inline">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+
+        <div className="border-t border-gray-200 p-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="w-full justify-center px-2 group-hover:justify-start">
+                <Settings className="h-4 w-4" />
+                <span className="ml-2 hidden group-hover:inline">Account</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
-        {config.items.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-gray-100 text-gray-900"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              )}
-            >
-              <item.icon className="h-4 w-4 flex-shrink-0" />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Footer */}
-      <div className="p-4 border-t border-gray-200">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="w-full justify-start">
-              <Settings className="h-4 w-4 mr-2" />
-              <span>Account</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut}>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur md:hidden">
+        <div className="grid grid-cols-5 gap-1 px-2 py-2">
+          {primaryMobileItems.map((item) => {
+            const isActive = isActivePath(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex flex-col items-center justify-center rounded-md px-1 py-2 text-[11px] font-medium",
+                  isActive ? "text-gray-900" : "text-gray-600"
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                <span className="mt-1 truncate">{item.label}</span>
+              </Link>
+            );
+          })}
+          <DropdownMenu open={isMoreOpen} onOpenChange={setIsMoreOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-auto flex-col gap-1 rounded-md px-1 py-2 text-[11px] font-medium text-gray-600">
+                <Settings className="h-5 w-5" />
+                More
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="mb-2 w-64">
+              {overflowMobileItems.map((item) => (
+                <DropdownMenuItem key={item.href} asChild onClick={() => setIsMoreOpen(false)}>
+                  <Link href={item.href} className="flex items-center gap-2">
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </>
   );

@@ -1,5 +1,22 @@
 # Real AI Deployment Checklist
 
+## Cross-Portal Navigation Rollout (Approved)
+
+- [ ] Super Admin: replace hamburger/toggle sidebar with always-visible desktop icon rail + hover-expand labels
+- [ ] School Admin: replace hamburger/toggle sidebar with always-visible desktop icon rail + hover-expand labels
+- [ ] Teacher: replace hamburger/toggle sidebar with always-visible desktop icon rail + hover-expand labels
+- [ ] Student: replace hamburger/toggle sidebar with always-visible desktop icon rail + hover-expand labels
+- [ ] Parent: replace hamburger/toggle sidebar with always-visible desktop icon rail + hover-expand labels
+- [ ] Ensure all desktop sidebars are scrollable when content exceeds viewport (`overflow-y-auto`)
+- [ ] Ensure temporary mobile overflow menus auto-close after tab selection
+- [ ] Add mobile bottom tabs (icons) for Super Admin with `More` overflow
+- [ ] Add mobile bottom tabs (icons) for School Admin with `More` overflow
+- [ ] Add mobile bottom tabs (icons) for Teacher with `More` overflow
+- [ ] Add mobile bottom tabs (icons) for Student with `More` overflow
+- [ ] Add mobile bottom tabs (icons) for Parent with `More` overflow and preserve `ward` query context
+- [ ] Verify active-route highlighting parity across desktop rail and mobile tabs for all portals
+- [ ] Validate content inset spacing: desktop rail offset + mobile bottom-tab safe area for all portal layouts
+
 ## Pre-Deployment (Developer Machine)
 
 - [x] Install @anthropic-ai/sdk dependency

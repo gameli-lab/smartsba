@@ -19,7 +19,6 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<{ profile: UserProfile } | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -60,21 +59,9 @@ export function DashboardLayout({
         userRole={user.profile.role}
         userName={user.profile.full_name}
         schoolName="Demo School" // This would come from user.profile.school
-        isOpen={sidebarOpen}
-        onOpen={() => setSidebarOpen(true)}
-        onClose={() => setSidebarOpen(false)}
       />
 
-      {/* Hamburger button container for showing menu */}
-      {!sidebarOpen && (
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="sr-only"
-          id="open-sidebar-btn"
-        />
-      )}
-
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex flex-1 flex-col overflow-hidden pb-20 md:pb-0 md:pl-20">
         {/* Header */}
         {(title || description) && (
           <div className="bg-white border-b border-gray-200 px-6 py-4">

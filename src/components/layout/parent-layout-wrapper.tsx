@@ -5,5 +5,5 @@ interface LayoutWrapperProps {
 }
 
 export function ParentLayoutWrapper({ children }: LayoutWrapperProps) {
-  return <div className="transition-all duration-300 pl-0">{children}</div>
+  return <div className="pb-20 transition-all duration-300 md:pb-0 md:pl-20">{children}</div>
 }
