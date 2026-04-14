@@ -35,6 +35,8 @@ export interface LLMSecurityFinding {
   suggested_fix: string
 }
 
+export type AIAssistantMode = 'school_admin' | 'general' | 'coding' | 'cyber' | 'auditor'
+
 let anthropic: Anthropic | null = null
 let cachedConfig: { loadedAt: number; config: AIServiceConfig } | null = null
 
@@ -57,6 +59,30 @@ const SCHOOL_DOMAIN_SYSTEM_PROMPT = `You are a helpful school administration ass
 - School operations and policy
 
 You ONLY provide assistance on school-related topics. If a question is outside school operations or administration, politely decline and redirect to school-related matters. Never provide advice on personal, political, religious, or system-level matters.`
+
+const SUPER_ADMIN_GENERAL_SYSTEM_PROMPT = `You are the SmartSBA Super Admin AI assistant. You can help with platform operations, architecture, governance, integrations, and automation planning. Keep responses practical, secure, and implementation-ready.`
+
+const SUPER_ADMIN_CODING_SYSTEM_PROMPT = `You are the SmartSBA coding assistant for super admins. Focus on production-safe code changes, migration safety, RBAC, audit trails, and deployment best practices. Return concise implementation guidance and code-oriented steps.`
+
+const SUPER_ADMIN_CYBER_SYSTEM_PROMPT = `You are the SmartSBA cyber expert assistant. Prioritize threat modeling, auth hardening, RLS/data isolation, secrets management, dependency risk, and incident response readiness. Recommend actionable mitigations.`
+
+const SUPER_ADMIN_AUDITOR_SYSTEM_PROMPT = `You are the SmartSBA external security auditor assistant. Provide objective risk findings with severity, impact, exploitability, and remediation guidance. Be specific and evidence-oriented.`
+
+function getAssistantSystemPrompt(mode: AIAssistantMode): string {
+  switch (mode) {
+    case 'school_admin':
+      return SCHOOL_DOMAIN_SYSTEM_PROMPT
+    case 'coding':
+      return SUPER_ADMIN_CODING_SYSTEM_PROMPT
+    case 'cyber':
+      return SUPER_ADMIN_CYBER_SYSTEM_PROMPT
+    case 'auditor':
+      return SUPER_ADMIN_AUDITOR_SYSTEM_PROMPT
+    case 'general':
+    default:
+      return SUPER_ADMIN_GENERAL_SYSTEM_PROMPT
+  }
+}
 function normalizeProvider(value: unknown): AIProvider {
   if (value === 'openai' || value === 'gemini') return value
   return 'anthropic'
@@ -174,12 +200,12 @@ function getClient(apiKey?: string): Anthropic {
   return anthropic
 }
 
-async function callAnthropic(prompt: string, maxTokens: number, model: string, apiKey?: string): Promise<string> {
+async function callAnthropic(prompt: string, maxTokens: number, model: string, systemPrompt: string, apiKey?: string): Promise<string> {
   const client = getClient(apiKey)
   const message = await client.messages.create({
     model,
     max_tokens: maxTokens,
-    system: SCHOOL_DOMAIN_SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: [{ role: 'user', content: prompt }],
   })
 
@@ -191,7 +217,7 @@ async function callAnthropic(prompt: string, maxTokens: number, model: string, a
   return content.text
 }
 
-async function callOpenAI(prompt: string, maxTokens: number, model: string, apiKey: string): Promise<string> {
+async function callOpenAI(prompt: string, maxTokens: number, model: string, systemPrompt: string, apiKey: string): Promise<string> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -202,16 +228,16 @@ async function callOpenAI(prompt: string, maxTokens: number, model: string, apiK
       model,
       temperature: 0.2,
       max_tokens: maxTokens,
-       messages: [
-         {
-           role: 'system',
-           content: SCHOOL_DOMAIN_SYSTEM_PROMPT,
-         },
-         {
-           role: 'user',
-           content: prompt,
-         },
-       ],
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
     }),
   })
 
@@ -228,7 +254,7 @@ async function callOpenAI(prompt: string, maxTokens: number, model: string, apiK
   return text
 }
 
-async function callGemini(prompt: string, maxTokens: number, model: string, apiKey: string): Promise<string> {
+async function callGemini(prompt: string, maxTokens: number, model: string, systemPrompt: string, apiKey: string): Promise<string> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
@@ -238,10 +264,10 @@ async function callGemini(prompt: string, maxTokens: number, model: string, apiK
       },
       body: JSON.stringify({
         contents: [
-                   {
-                     role: 'user',
-                     parts: [{ text: SCHOOL_DOMAIN_SYSTEM_PROMPT }],
-                   },
+          {
+            role: 'user',
+            parts: [{ text: systemPrompt }],
+          },
           {
             role: 'user',
             parts: [{ text: prompt }],
@@ -270,26 +296,32 @@ async function callGemini(prompt: string, maxTokens: number, model: string, apiK
   return text
 }
 
-async function generateWithFallback(prompt: string, maxTokens: number): Promise<string> {
-  const config = await getAIServiceConfig()
-  const providerErrors: Array<{ provider: AIProvider; error: unknown }> = []
-  // School-domain policy: Enforce topic restrictions
+function enforceSchoolDomainPolicy(prompt: string): void {
   const schoolDomainKeywords = ['students', 'teachers', 'parents', 'school', 'classes', 'subjects', 'assessments', 'grades', 'performance', 'attendance', 'assignments', 'curriculum']
   const restrictedTopics = ['politics', 'religion', 'personal', 'unauthorized', 'system admin', 'delete', 'modify database']
-  
+
   const lowerPrompt = prompt.toLowerCase()
-  const hasRestrictedTopic = restrictedTopics.some(topic => lowerPrompt.includes(topic))
-  
+  const hasRestrictedTopic = restrictedTopics.some((topic) => lowerPrompt.includes(topic))
+
   if (hasRestrictedTopic) {
     throw new Error('This question is outside the scope of school operations. I can only assist with students, teachers, parents, classes, grades, and assessments.')
   }
 
-  // Allow request if it contains school-domain keywords
-  const hasSchoolTopic = schoolDomainKeywords.some(keyword => lowerPrompt.includes(keyword))
+  const hasSchoolTopic = schoolDomainKeywords.some((keyword) => lowerPrompt.includes(keyword))
   if (!hasSchoolTopic && prompt.length > 20) {
-    // For very short queries, be more lenient; for longer queries, enforce stricter scope
     throw new Error('This question is outside the scope of school operations. Please ask about students, teachers, parents, classes, or assessments.')
   }
+}
+
+async function generateWithFallbackInternal(prompt: string, maxTokens: number, assistantMode: AIAssistantMode): Promise<string> {
+  const config = await getAIServiceConfig()
+  const providerErrors: Array<{ provider: AIProvider; error: unknown }> = []
+  const systemPrompt = getAssistantSystemPrompt(assistantMode)
+
+  if (assistantMode === 'school_admin') {
+    enforceSchoolDomainPolicy(prompt)
+  }
+
   for (const provider of config.providerOrder) {
     const providerConfig = config.providers[provider]
     if (!providerConfig.enabled || !providerConfig.apiKey) {
@@ -298,14 +330,14 @@ async function generateWithFallback(prompt: string, maxTokens: number): Promise<
 
     try {
       if (provider === 'anthropic') {
-        return await callAnthropic(prompt, maxTokens, providerConfig.model, providerConfig.apiKey)
+        return await callAnthropic(prompt, maxTokens, providerConfig.model, systemPrompt, providerConfig.apiKey)
       }
 
       if (provider === 'openai') {
-        return await callOpenAI(prompt, maxTokens, providerConfig.model, providerConfig.apiKey)
+        return await callOpenAI(prompt, maxTokens, providerConfig.model, systemPrompt, providerConfig.apiKey)
       }
 
-      return await callGemini(prompt, maxTokens, providerConfig.model, providerConfig.apiKey)
+      return await callGemini(prompt, maxTokens, providerConfig.model, systemPrompt, providerConfig.apiKey)
     } catch (error) {
       providerErrors.push({ provider, error })
       console.warn(`AI provider ${provider} failed, trying next configured provider`, error)
@@ -316,7 +348,21 @@ async function generateWithFallback(prompt: string, maxTokens: number): Promise<
   throw new Error(errorSummary ? `No configured AI providers succeeded: ${errorSummary}` : 'No AI provider is configured')
 }
 
-export { generateWithFallback }
+export async function generateWithFallback(
+  prompt: string,
+  maxTokens: number,
+  options?: { assistantMode?: AIAssistantMode }
+): Promise<string> {
+  return generateWithFallbackInternal(prompt, maxTokens, options?.assistantMode || 'general')
+}
+
+export async function generateSuperAdminResponse(
+  prompt: string,
+  maxTokens: number,
+  assistantMode: Extract<AIAssistantMode, 'general' | 'coding' | 'cyber' | 'auditor'> = 'general'
+): Promise<string> {
+  return generateWithFallbackInternal(prompt, maxTokens, assistantMode)
+}
 
 /**
  * Generate AI-powered test cases for a feature audit
@@ -511,16 +557,16 @@ export async function checkClaudeAvailability(): Promise<boolean> {
 
       try {
         if (provider === 'anthropic') {
-          await callAnthropic('ping', 10, providerConfig.model, providerConfig.apiKey)
+          await callAnthropic('ping', 10, providerConfig.model, getAssistantSystemPrompt('general'), providerConfig.apiKey)
           return true
         }
 
         if (provider === 'openai') {
-          await callOpenAI('ping', 10, providerConfig.model, providerConfig.apiKey)
+          await callOpenAI('ping', 10, providerConfig.model, getAssistantSystemPrompt('general'), providerConfig.apiKey)
           return true
         }
 
-        await callGemini('ping', 10, providerConfig.model, providerConfig.apiKey)
+        await callGemini('ping', 10, providerConfig.model, getAssistantSystemPrompt('general'), providerConfig.apiKey)
         return true
       } catch (error) {
         console.warn(`AI availability check failed for ${provider}`, error)

@@ -10,7 +10,7 @@ interface SchoolContext {
 }
 
 export function AIBubbleWrapper({ schoolId }: { schoolId: string }) {
-  const [context, setContext] = useState<SchoolContext | null>(null)
+  const [context, setContext] = useState<SchoolContext>({ schoolId })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export function AIBubbleWrapper({ schoolId }: { schoolId: string }) {
     loadSchoolContext()
   }, [schoolId])
 
-  if (loading || !context) {
+  if (loading) {
     return null
   }
 

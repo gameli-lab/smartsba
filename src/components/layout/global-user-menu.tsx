@@ -24,6 +24,17 @@ function getProfileLink(userRole?: string): string | null {
   }
 }
 
+function getAIAssistantLink(userRole?: string): string {
+  switch (userRole) {
+    case 'super_admin':
+      return '/dashboard/super-admin/ai'
+    case 'school_admin':
+      return '/school-admin'
+    default:
+      return '/ai'
+  }
+}
+
 interface GlobalUserMenuProps {
   userName: string
   userEmail: string
@@ -44,6 +55,7 @@ export function GlobalUserMenu({ userName, userEmail, userRole }: GlobalUserMenu
   }
 
   const profileLink = getProfileLink(userRole)
+  const aiAssistantLink = getAIAssistantLink(userRole)
 
   const initials = userName
     .split(' ')
@@ -87,7 +99,7 @@ export function GlobalUserMenu({ userName, userEmail, userRole }: GlobalUserMenu
             <span>Profile</span>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={() => router.push('/ai')} className="cursor-pointer">
+        <DropdownMenuItem onClick={() => router.push(aiAssistantLink)} className="cursor-pointer">
           <Bot className="mr-2 h-4 w-4" />
           <span>AI Assistant</span>
         </DropdownMenuItem>

@@ -1,0 +1,83 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { createAdminSupabaseClient } from '@/lib/supabase'
+
+interface ProfileRow {
+  role: string
+}
+
+async function requireSuperAdmin(request: NextRequest): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !anonKey) {
+    return { ok: false, error: 'Server configuration error', status: 500 }
+  }
+
+  const token = request.headers.get('authorization')?.replace('Bearer ', '')
+  if (!token) {
+    return { ok: false, error: 'Authorization header required', status: 401 }
+  }
+
+  const anonClient = createClient(supabaseUrl, anonKey)
+  const {
+    data: { user },
+    error: authError,
+  } = await anonClient.auth.getUser(token)
+
+  if (authError || !user) {
+    return { ok: false, error: 'Invalid or expired token', status: 401 }
+  }
+
+  const adminClient = createAdminSupabaseClient()
+  const { data: profile, error: profileError } = await adminClient
+    .from('user_profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single()
+
+  if (profileError || !profile) {
+    return { ok: false, error: 'Unable to verify user role', status: 403 }
+  }
+
+  if ((profile as ProfileRow).role !== 'super_admin') {
+    return { ok: false, error: 'Super admin privileges required', status: 403 }
+  }
+
+  return { ok: true }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const auth = await requireSuperAdmin(request)
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
+    const url = new URL(request.url)
+    const limitValue = Number(url.searchParams.get('limit') || '20')
+    const limit = Number.isFinite(limitValue) ? Math.min(Math.max(limitValue, 1), 100) : 20
+
+    const adminClient = createAdminSupabaseClient()
+    const { data, error } = await adminClient
+      .from('security_rule_check_runs')
+      .select('id, actor_user_id, target, summary, ai_advisory, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, runs: data || [] })
+  } catch (error) {
+    console.error('Security checks history fetch failed:', error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch history',
+      },
+      { status: 500 }
+    )
+  }
+}

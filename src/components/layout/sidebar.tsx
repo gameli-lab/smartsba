@@ -29,6 +29,7 @@ import {
   Bell,
   Mail,
   TrendingUp,
+  Bot,
 } from "lucide-react";
 import { UserRole } from "@/types";
 import { AuthService } from "@/lib/auth";
@@ -75,6 +76,11 @@ const roleConfig = {
         icon: FileText,
         label: "AI Findings",
         href: "/dashboard/super-admin/security-findings",
+      },
+      {
+        icon: Bot,
+        label: "AI Hub",
+        href: "/dashboard/super-admin/ai",
       },
       {
         icon: Mail,

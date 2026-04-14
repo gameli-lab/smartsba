@@ -78,12 +78,25 @@ export function AIFloatingBubble({ context }: { context: SchoolAdminContext }) {
     setError(null)
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      const token = session?.access_token
+      if (!token) {
+        throw new Error('You must be logged in to use AI assistant')
+      }
+
       const response = await fetch('/api/ai/command', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           prompt: inputValue,
           schoolId: context.schoolId,
+          assistantMode: 'school_admin',
           maxTokens: 500,
         }),
       })
@@ -131,7 +144,7 @@ export function AIFloatingBubble({ context }: { context: SchoolAdminContext }) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 z-40 hover:scale-110"
+        className="fixed bottom-24 right-4 md:bottom-6 md:right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 z-30 hover:scale-110"
         aria-label="Open AI assistant"
       >
         <MessageCircle className="w-6 h-6" />
@@ -140,7 +153,7 @@ export function AIFloatingBubble({ context }: { context: SchoolAdminContext }) {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-96 max-w-[calc(100vw-2rem)] h-[500px] bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col z-40">
+    <div className="fixed bottom-24 right-2 md:bottom-6 md:right-6 w-[calc(100vw-1rem)] md:w-96 max-w-[calc(100vw-1rem)] h-[70vh] md:h-[500px] bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col z-30">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-950/30 rounded-t-lg">
         <div className="flex items-center gap-2">

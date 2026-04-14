@@ -3,17 +3,18 @@ import { createClient } from '@supabase/supabase-js'
 import { createAdminSupabaseClient } from '@/lib/supabase'
 import logAudit from '@/lib/audit'
 import { runAICommand, type AITaskType } from '@/services/aiGovernanceService'
-import { generateAITestCases, generateAISecurityFindings, generateAINextSteps, generateWithFallback } from '@/services/aiLLMService'
+import { generateAITestCases, generateAISecurityFindings, generateAINextSteps, generateWithFallback, generateSuperAdminResponse, type AIAssistantMode } from '@/services/aiLLMService'
 import type { UserRole } from '@/types'
 
 interface AICommandBody {
   task?: AITaskType
   targetRole?: UserRole
   focus?: string
-  // New fields for school_admin chat
+  // chat fields
   prompt?: string
   schoolId?: string
   maxTokens?: number
+  assistantMode?: AIAssistantMode
 }
 
 interface ProfileRow {
@@ -156,16 +157,21 @@ export async function POST(request: NextRequest) {
     const parsed = (await request.json()) as AICommandBody
 
     // Handle school_admin chat mode (from floating bubble)
-    if (parsed.prompt && parsed.schoolId) {
+    if (parsed.prompt && typedProfile.role === 'school_admin') {
+      if (!parsed.schoolId) {
+        return NextResponse.json({ error: 'schoolId is required for school admin chat' }, { status: 400 })
+      }
+
       // Verify user is school_admin and owns the school
-      if (typedProfile.role !== 'school_admin' || typedProfile.school_id !== parsed.schoolId) {
+      if (typedProfile.school_id !== parsed.schoolId) {
         return NextResponse.json({ error: 'Unauthorized: Only school admins can use this feature' }, { status: 403 })
       }
 
       try {
         const response = await generateWithFallback(
           parsed.prompt,
-          parsed.maxTokens || 500
+          parsed.maxTokens || 500,
+          { assistantMode: 'school_admin' }
         )
 
         return NextResponse.json({
@@ -176,6 +182,35 @@ export async function POST(request: NextRequest) {
         }, { status: 200 })
       } catch (llmError) {
         console.error('AI generation failed:', llmError)
+        return NextResponse.json({
+          success: false,
+          message: 'I encountered an error processing your request. Please try again.',
+          error: 'AI generation failed',
+        }, { status: 500 })
+      }
+    }
+
+    // Handle super_admin chat mode (AI hub)
+    if (parsed.prompt && typedProfile.role === 'super_admin') {
+      const requestedMode = parsed.assistantMode
+      const assistantMode: Extract<AIAssistantMode, 'general' | 'coding' | 'cyber' | 'auditor'> =
+        requestedMode === 'coding' || requestedMode === 'cyber' || requestedMode === 'auditor' ? requestedMode : 'general'
+
+      try {
+        const response = await generateSuperAdminResponse(
+          parsed.prompt,
+          parsed.maxTokens || 900,
+          assistantMode
+        )
+
+        return NextResponse.json({
+          success: true,
+          message: response,
+          result: { next_steps: [response] },
+          session_id: undefined,
+        }, { status: 200 })
+      } catch (llmError) {
+        console.error('Super admin AI generation failed:', llmError)
         return NextResponse.json({
           success: false,
           message: 'I encountered an error processing your request. Please try again.',
