@@ -1,6 +1,6 @@
 'use server'
 
-import { supabase } from '@/lib/supabase'
+import { createAdminSupabaseClient, createServerComponentClient } from '@/lib/supabase'
 import { updateSchoolStatus as updateStatus } from '@/lib/school-operations'
 import { sendSchoolStatusChangedEmail } from '@/services/emailService'
 import logAction from '@/lib/audit'
@@ -35,7 +35,27 @@ interface SupabaseWithAdminLookup {
   }
 }
 
-const supabaseAdmin = supabase as unknown as SupabaseWithAdminLookup
+async function getSuperAdminContext() {
+  const serverSupabase = await createServerComponentClient()
+  const { data: { user } } = await serverSupabase.auth.getUser()
+
+  if (!user) {
+    return { error: 'Unauthorized', user: null, profile: null }
+  }
+
+  const { data: userProfileData } = await serverSupabase
+    .from('user_profiles')
+    .select('full_name, role')
+    .eq('user_id', user.id)
+    .single()
+
+  const profile = userProfileData as UserProfileRow | null
+  if (!profile || profile.role !== 'super_admin') {
+    return { error: 'Unauthorized: Super admin privileges required', user: null, profile: null }
+  }
+
+  return { error: null as string | null, user, profile }
+}
 
 export async function updateSchoolStatusWithEmail(
   schoolId: string,
@@ -43,27 +63,18 @@ export async function updateSchoolStatusWithEmail(
   reason?: string
 ) {
   try {
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return { error: 'Unauthorized', data: null }
+    const authContext = await getSuperAdminContext()
+    if (authContext.error || !authContext.user || !authContext.profile) {
+      return { error: authContext.error || 'Unauthorized', data: null }
     }
 
-    // Get user profile for audit
-    const { data: userProfileData } = await supabase
-      .from('user_profiles')
-      .select('full_name, role')
-      .eq('user_id', user.id)
-      .single()
-
-    const userProfile = userProfileData as UserProfileRow | null
-
-    if (!userProfile) {
-      return { error: 'User profile not found', data: null }
-    }
+    const { user, profile: userProfile } = authContext
+    const serverSupabase = await createServerComponentClient()
+    const adminSupabase = createAdminSupabaseClient()
+    const adminLookupClient = adminSupabase as unknown as SupabaseWithAdminLookup
 
     // Get school details
-    const { data: schoolData } = await supabase
+    const { data: schoolData } = await serverSupabase
       .from('schools')
       .select('name')
       .eq('id', schoolId)
@@ -84,7 +95,7 @@ export async function updateSchoolStatusWithEmail(
 
     // Get school admin email to notify
     // Type assertion needed until types are regenerated
-    const { data: adminProfileData } = await supabase
+    const { data: adminProfileData } = await serverSupabase
       .from('user_profiles')
       .select('user_id, full_name')
       .eq('school_id', schoolId)
@@ -96,7 +107,7 @@ export async function updateSchoolStatusWithEmail(
 
     if (adminProfile) {
       // Get admin email from auth.users
-      const adminLookup = await supabaseAdmin.auth.admin.getUserById(adminProfile.user_id)
+      const adminLookup = await adminLookupClient.auth.admin.getUserById(adminProfile.user_id)
       const adminUser = adminLookup.data
       
       if (adminUser?.user?.email) {
@@ -118,7 +129,7 @@ export async function updateSchoolStatusWithEmail(
 
     // Log the action
     await logAction(
-      supabase,
+      adminSupabase,
       user.id,
       newStatus === 'active' ? 'school_activated' : 'school_deactivated',
       'school',
@@ -144,27 +155,16 @@ export async function deleteSchool(
   schoolId: string
 ) {
   try {
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return { error: 'Unauthorized', success: false }
+    const authContext = await getSuperAdminContext()
+    if (authContext.error || !authContext.user) {
+      return { error: authContext.error || 'Unauthorized', success: false }
     }
 
-    // Verify user is super_admin
-    const { data: userProfileData } = await supabase
-      .from('user_profiles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
-
-    const userProfile = userProfileData as { role: string } | null
-
-    if (!userProfile || userProfile.role !== 'super_admin') {
-      return { error: 'Unauthorized: Super admin privileges required', success: false }
-    }
+    const { user } = authContext
+    const adminSupabase = createAdminSupabaseClient()
 
     // Get school details before deletion
-    const { data: schoolData } = await supabase
+    const { data: schoolData } = await adminSupabase
       .from('schools')
       .select('name, id')
       .eq('id', schoolId)
@@ -177,7 +177,7 @@ export async function deleteSchool(
     }
 
     // Delete the school (cascade handled by database)
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await adminSupabase
       .from('schools')
       .delete()
       .eq('id', schoolId)
@@ -192,7 +192,7 @@ export async function deleteSchool(
 
     // Log the action
     await logAction(
-      supabase,
+      adminSupabase,
       user.id,
       'school_deleted',
       'school',
