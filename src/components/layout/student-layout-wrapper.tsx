@@ -5,5 +5,5 @@ interface LayoutWrapperProps {
 }
 
 export function StudentLayoutWrapper({ children }: LayoutWrapperProps) {
-  return <div className="pb-20 transition-all duration-300 md:pb-0 md:pl-20">{children}</div>
+  return <div className="overflow-x-clip pb-20 transition-all duration-300 md:pb-0 md:pl-20">{children}</div>
 }

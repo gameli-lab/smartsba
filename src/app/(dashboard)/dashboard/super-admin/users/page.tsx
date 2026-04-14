@@ -208,19 +208,7 @@ export default function UsersPage() {
 	};
 
 	const handleExportPDF = async () => {
-		// Fetch all users with email for PDF
-		const usersWithEmail = await Promise.all(
-			users.map(async (u) => {
-				const { data: authUser } = await supabase.auth.admin.getUserById(u.user_id || '');
-				return {
-					...u,
-					email: authUser?.user?.email || '',
-					school: u.school || '',
-				};
-			})
-		);
-
-		const result = await exportUsersToPDF(usersWithEmail, { search: q });
+		const result = await exportUsersToPDF(users, { search: q });
 
 		if (!result.success) {
 			alert(result.error || 'Export failed');
@@ -228,10 +216,10 @@ export default function UsersPage() {
 	};
 
 	return (
-		<div className="p-6">
-			<div className="flex items-center justify-between mb-4">
+		<div className="overflow-x-clip p-3 sm:p-4 lg:p-6">
+			<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<h1 className="text-2xl font-semibold">Users</h1>
-				<div className="flex items-center gap-2">
+				<div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
 					<ExportButton
 						onExportCSV={handleExportCSV}
 						onExportPDF={handleExportPDF}
@@ -250,7 +238,7 @@ export default function UsersPage() {
 
 			{/* Bulk Actions Toolbar */}
 			{selectedUserIds.size > 0 && (
-				<div className="flex items-center gap-3 p-4 bg-muted rounded-lg border mb-4">
+				<div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted p-4">
 					<Badge variant="secondary" className="text-sm">
 						{selectedUserIds.size} selected
 					</Badge>
@@ -332,7 +320,7 @@ export default function UsersPage() {
 				</div>
 			)}
 
-			<div className="flex items-center justify-between mt-4">
+			<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div />
 				<div className="flex items-center gap-2">
 					<button

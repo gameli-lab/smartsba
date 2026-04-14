@@ -637,7 +637,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-clip">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Global Settings</h1>
         <p className="text-muted-foreground">
@@ -660,7 +660,7 @@ export default function SettingsPage() {
       )}
 
       <Tabs defaultValue="features" className="space-y-4">
-        <TabsList>
+        <TabsList className="w-full max-w-full">
           <TabsTrigger value="features">Features</TabsTrigger>
           <TabsTrigger value="grading">Grading</TabsTrigger>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>

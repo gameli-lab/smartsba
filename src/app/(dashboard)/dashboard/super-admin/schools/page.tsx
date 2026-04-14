@@ -251,9 +251,9 @@ export default function SchoolsManagementPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-clip">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             Schools Management
@@ -262,7 +262,7 @@ export default function SchoolsManagementPage() {
             Manage all schools in the system. Total: {schools.length} schools
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
           <ExportButton
             onExportCSV={handleExportCSV}
             onExportPDF={handleExportPDF}
@@ -277,7 +277,7 @@ export default function SchoolsManagementPage() {
 
       {/* Bulk Actions Toolbar */}
       {selectedSchoolIds.size > 0 && (
-        <div className="flex items-center gap-3 p-4 bg-muted rounded-lg border">
+        <div className="flex flex-wrap items-center gap-2 p-4 bg-muted rounded-lg border">
           <Badge variant="secondary" className="text-sm">
             {selectedSchoolIds.size} selected
           </Badge>
@@ -320,7 +320,7 @@ export default function SchoolsManagementPage() {
 
       {/* Select All Checkbox */}
       {filteredSchools.length > 0 && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"

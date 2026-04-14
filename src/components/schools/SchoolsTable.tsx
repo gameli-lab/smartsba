@@ -191,13 +191,13 @@ export function SchoolsTable({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             Showing {startIndex + 1} to{" "}
             {Math.min(startIndex + itemsPerPage, schools.length)} of{" "}
             {schools.length} schools
           </p>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"

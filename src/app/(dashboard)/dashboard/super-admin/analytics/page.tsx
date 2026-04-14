@@ -503,12 +503,12 @@ export default function SuperAdminAnalyticsPage() {
       {/* Date Range Selector */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Calendar className="w-5 h-5 text-gray-600" />
               <CardTitle>Date Range Selection</CardTitle>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <Button
                 variant={dateRange === '7' ? 'default' : 'outline'}
                 size="sm"

@@ -35,7 +35,7 @@ export function SchoolsFilters({ filters, onChange }: SchoolsFiltersProps) {
           onChange("status", value as SchoolFilters["status"])
         }
       >
-        <SelectTrigger className="w-[150px]">
+        <SelectTrigger className="w-full sm:w-[150px]">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -50,7 +50,7 @@ export function SchoolsFilters({ filters, onChange }: SchoolsFiltersProps) {
           onChange("dateRange", value as SchoolFilters["dateRange"])
         }
       >
-        <SelectTrigger className="w-[150px]">
+        <SelectTrigger className="w-full sm:w-[150px]">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
