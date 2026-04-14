@@ -332,6 +332,7 @@ export default function CreateSchoolForm({
   // Handle admin creation and show appropriate messages
   const handleAdminCreation = async (schoolId: string) => {
     const adminResults = await createSchoolAdmins(schoolId);
+    const emailFailures: string[] = [];
 
     if (adminResults.length > 0) {
       const successfulCreations = adminResults.filter(
@@ -345,7 +346,7 @@ export default function CreateSchoolForm({
         // Send email notifications to successfully created admins
         for (const admin of successfulCreations) {
           try {
-            await sendSchoolCreatedEmail({
+            const emailResult = await sendSchoolCreatedEmail({
               schoolName: formData.name,
               adminName: admin.name,
               adminEmail: admin.email,
@@ -353,9 +354,12 @@ export default function CreateSchoolForm({
               temporaryPassword: admin.password,
               schoolId,
             });
+            if (!emailResult.success) {
+              throw new Error(emailResult.error || 'Failed to send email')
+            }
           } catch (emailError) {
             console.error(`Failed to send email to ${admin.email}:`, emailError);
-            // Don't block the flow if email fails
+            emailFailures.push(admin.email)
           }
         }
 
@@ -382,7 +386,9 @@ export default function CreateSchoolForm({
           (pendingCreations.length > 0
             ? `Manual Creation Required:\n${pendingList}\n\n`
             : "") +
-          `📧 Email notifications sent to administrators with login credentials.\n` +
+          (emailFailures.length === 0
+            ? `📧 Email notifications sent to administrators with login credentials.\n`
+            : `⚠️  Email failed for: ${emailFailures.join(', ')}\n`) +
           `🔐 They should change their passwords on first login.`;
 
         alert(message);

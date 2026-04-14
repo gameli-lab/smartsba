@@ -1,6 +1,7 @@
 'use server'
 
-import { supabase } from '@/lib/supabase'
+import nodemailer from 'nodemailer'
+import { createAdminSupabaseClient } from '@/lib/supabase'
 import { emailTemplates } from '@/lib/email-templates'
 
 // Email service configuration
@@ -21,6 +22,87 @@ interface EmailResult {
   error?: string
 }
 
+interface EmailSettings {
+  smtp_host: string
+  smtp_port: number
+  smtp_user: string
+  smtp_password: string
+  sender_name: string
+  sender_email: string
+}
+
+interface EmailSettingRow {
+  setting_key: string
+  setting_value: unknown
+}
+
+const EMAIL_SETTINGS_CACHE_TTL_MS = 60_000
+const EMAIL_SETTING_KEYS = [
+  'email.smtp_host',
+  'email.smtp_port',
+  'email.smtp_user',
+  'email.smtp_password',
+  'email.sender_name',
+  'email.sender_email',
+] as const
+
+let cachedEmailSettings: { loadedAt: number; config: EmailSettings } | null = null
+
+function normalizeString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : fallback
+}
+
+function normalizePort(value: unknown, fallback = 587): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = parseInt(value, 10)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return fallback
+}
+
+async function getEmailSettings(): Promise<EmailSettings> {
+  const now = Date.now()
+  if (cachedEmailSettings && now - cachedEmailSettings.loadedAt < EMAIL_SETTINGS_CACHE_TTL_MS) {
+    return cachedEmailSettings.config
+  }
+
+  const adminSupabase = createAdminSupabaseClient()
+  const { data, error } = await adminSupabase
+    .from('system_settings')
+    .select('setting_key, setting_value')
+    .in('setting_key', [...EMAIL_SETTING_KEYS])
+
+  if (error) {
+    console.warn('Unable to load email settings from system_settings, falling back to environment variables:', error)
+  }
+
+  const rows = (data || []) as EmailSettingRow[]
+  const settingsMap = rows.reduce<Record<string, unknown>>((acc, row) => {
+    acc[row.setting_key] = row.setting_value
+    return acc
+  }, {})
+
+  const config: EmailSettings = {
+    smtp_host: normalizeString(settingsMap['email.smtp_host'], normalizeString(process.env.SMTP_HOST)),
+    smtp_port: normalizePort(settingsMap['email.smtp_port'], normalizePort(process.env.SMTP_PORT, 587)),
+    smtp_user: normalizeString(settingsMap['email.smtp_user'], normalizeString(process.env.SMTP_USER)),
+    smtp_password: normalizeString(settingsMap['email.smtp_password'], normalizeString(process.env.SMTP_PASSWORD)),
+    sender_name: normalizeString(settingsMap['email.sender_name'], normalizeString(process.env.SMTP_SENDER_NAME, 'SmartSBA System')),
+    sender_email: normalizeString(
+      settingsMap['email.sender_email'],
+      normalizeString(process.env.SMTP_SENDER_EMAIL, normalizeString(process.env.SMTP_USER, 'noreply@smartsba.local'))
+    ),
+  }
+
+  if (!config.smtp_host) {
+    throw new Error('Email SMTP host is not configured. Set email.smtp_host in system settings or SMTP_HOST in the environment.')
+  }
+
+  cachedEmailSettings = { loadedAt: now, config }
+  return config
+}
+
 /**
  * Send an email using the configured email service
  * This function logs the email attempt and tracks delivery status
@@ -31,7 +113,8 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
     const template = getEmailTemplate(options.type, options.data)
     
     // Log the email attempt in database
-    const { data: logData, error: logError } = await supabase
+    const adminSupabase = createAdminSupabaseClient()
+    const { data: logData, error: logError } = await adminSupabase
       .rpc('log_email_send', {
         p_recipient_email: options.to,
         p_recipient_user_id: options.userId || null,
@@ -50,19 +133,12 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
     const logId = logData as string
     
     // Send the email
-    // NOTE: This is a placeholder - you need to implement actual email sending
-    // Options:
-    // 1. Use Supabase Auth admin.generateLink() for authentication emails
-    // 2. Use Resend API for transactional emails
-    // 3. Use SendGrid, Mailgun, or other email service
-    
     try {
-      // PLACEHOLDER: Replace with actual email sending logic
       const emailSent = await sendEmailViaProvider(options.to, template)
       
       if (emailSent) {
         // Update email status to 'sent'
-        await supabase.rpc('update_email_status', {
+        await adminSupabase.rpc('update_email_status', {
           p_log_id: logId,
           p_status: 'sent',
           p_error_message: null
@@ -74,7 +150,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
       }
     } catch (sendError) {
       // Update email status to 'failed'
-      await supabase.rpc('update_email_status', {
+      await adminSupabase.rpc('update_email_status', {
         p_log_id: logId,
         p_status: 'failed',
         p_error_message: sendError instanceof Error ? sendError.message : 'Unknown error'
@@ -121,49 +197,26 @@ async function sendEmailViaProvider(
   to: string,
   template: { subject: string; html: string; text: string }
 ): Promise<boolean> {
-  // IMPLEMENTATION OPTIONS:
-  
-  // Option 1: Resend (Recommended for production)
-  // const { Resend } = require('resend')
-  // const resend = new Resend(process.env.RESEND_API_KEY)
-  // const { data, error } = await resend.emails.send({
-  //   from: 'SmartSBA <noreply@yourdomain.com>',
-  //   to: [to],
-  //   subject: template.subject,
-  //   html: template.html,
-  //   text: template.text,
-  // })
-  // return !error
-  
-  // Option 2: SendGrid
-  // const sgMail = require('@sendgrid/mail')
-  // sgMail.setApiKey(process.env.SENDGRID_API_KEY)
-  // await sgMail.send({
-  //   to,
-  //   from: 'noreply@yourdomain.com',
-  //   subject: template.subject,
-  //   html: template.html,
-  //   text: template.text,
-  // })
-  // return true
-  
-  // Option 3: Supabase Edge Function
-  // const supabase = await createClient()
-  // const { data, error } = await supabase.functions.invoke('send-email', {
-  //   body: { to, subject: template.subject, html: template.html, text: template.text }
-  // })
-  // return !error
-  
-  // For development: Just log and pretend it was sent
-  console.log('📧 Email would be sent to:', to)
-  console.log('Subject:', template.subject)
-  console.log('---')
-  
-  // Simulate async email sending
-  await new Promise(resolve => setTimeout(resolve, 100))
-  
-  // Return true to simulate successful send
-  // In production, this should be replaced with actual email provider logic
+  const settings = await getEmailSettings()
+
+  const transporter = nodemailer.createTransport({
+    host: settings.smtp_host,
+    port: settings.smtp_port,
+    secure: settings.smtp_port === 465,
+    auth: settings.smtp_user ? {
+      user: settings.smtp_user,
+      pass: settings.smtp_password,
+    } : undefined,
+  })
+
+  await transporter.sendMail({
+    from: `"${settings.sender_name}" <${settings.sender_email}>`,
+    to,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+  })
+
   return true
 }
 
