@@ -48,7 +48,15 @@ const AI_SETTING_KEYS = [
   'ai.gemini_api_key',
   'ai.gemini_model',
 ] as const
+const SCHOOL_DOMAIN_SYSTEM_PROMPT = `You are a helpful school administration assistant. You help school administrators and staff with questions about:
+- Student management and performance
+- Teacher assignments and evaluations
+- Parent communication and involvement
+- Class schedules and curriculum
+- Assessments and grading
+- School operations and policy
 
+You ONLY provide assistance on school-related topics. If a question is outside school operations or administration, politely decline and redirect to school-related matters. Never provide advice on personal, political, religious, or system-level matters.`
 function normalizeProvider(value: unknown): AIProvider {
   if (value === 'openai' || value === 'gemini') return value
   return 'anthropic'
@@ -171,6 +179,7 @@ async function callAnthropic(prompt: string, maxTokens: number, model: string, a
   const message = await client.messages.create({
     model,
     max_tokens: maxTokens,
+    system: SCHOOL_DOMAIN_SYSTEM_PROMPT,
     messages: [{ role: 'user', content: prompt }],
   })
 
@@ -193,12 +202,16 @@ async function callOpenAI(prompt: string, maxTokens: number, model: string, apiK
       model,
       temperature: 0.2,
       max_tokens: maxTokens,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
+       messages: [
+         {
+           role: 'system',
+           content: SCHOOL_DOMAIN_SYSTEM_PROMPT,
+         },
+         {
+           role: 'user',
+           content: prompt,
+         },
+       ],
     }),
   })
 
@@ -225,6 +238,10 @@ async function callGemini(prompt: string, maxTokens: number, model: string, apiK
       },
       body: JSON.stringify({
         contents: [
+                   {
+                     role: 'user',
+                     parts: [{ text: SCHOOL_DOMAIN_SYSTEM_PROMPT }],
+                   },
           {
             role: 'user',
             parts: [{ text: prompt }],
@@ -256,7 +273,23 @@ async function callGemini(prompt: string, maxTokens: number, model: string, apiK
 async function generateWithFallback(prompt: string, maxTokens: number): Promise<string> {
   const config = await getAIServiceConfig()
   const providerErrors: Array<{ provider: AIProvider; error: unknown }> = []
+  // School-domain policy: Enforce topic restrictions
+  const schoolDomainKeywords = ['students', 'teachers', 'parents', 'school', 'classes', 'subjects', 'assessments', 'grades', 'performance', 'attendance', 'assignments', 'curriculum']
+  const restrictedTopics = ['politics', 'religion', 'personal', 'unauthorized', 'system admin', 'delete', 'modify database']
+  
+  const lowerPrompt = prompt.toLowerCase()
+  const hasRestrictedTopic = restrictedTopics.some(topic => lowerPrompt.includes(topic))
+  
+  if (hasRestrictedTopic) {
+    throw new Error('This question is outside the scope of school operations. I can only assist with students, teachers, parents, classes, grades, and assessments.')
+  }
 
+  // Allow request if it contains school-domain keywords
+  const hasSchoolTopic = schoolDomainKeywords.some(keyword => lowerPrompt.includes(keyword))
+  if (!hasSchoolTopic && prompt.length > 20) {
+    // For very short queries, be more lenient; for longer queries, enforce stricter scope
+    throw new Error('This question is outside the scope of school operations. Please ask about students, teachers, parents, classes, or assessments.')
+  }
   for (const provider of config.providerOrder) {
     const providerConfig = config.providers[provider]
     if (!providerConfig.enabled || !providerConfig.apiKey) {
@@ -282,6 +315,8 @@ async function generateWithFallback(prompt: string, maxTokens: number): Promise<
   const errorSummary = providerErrors.map(({ provider }) => provider).join(', ')
   throw new Error(errorSummary ? `No configured AI providers succeeded: ${errorSummary}` : 'No AI provider is configured')
 }
+
+export { generateWithFallback }
 
 /**
  * Generate AI-powered test cases for a feature audit

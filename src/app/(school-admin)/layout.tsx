@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { requireSchoolAdmin } from '@/lib/auth'
 import { SchoolAdminSidebar } from '@/components/layout/school-admin-sidebar'
 import { SchoolAdminLayoutWrapper } from '@/components/layout/school-admin-layout-wrapper'
+import { AIBubbleWrapper } from '@/components/ai/ai-bubble-wrapper'
 
 /**
  * School Admin Dashboard Layout
@@ -34,6 +35,9 @@ export default async function SchoolAdminLayout({
           {children}
         </main>
       </SchoolAdminLayoutWrapper>
+
+      {/* AI Floating Bubble */}
+      <AIBubbleWrapper schoolId={profile.school_id} />
     </div>
   )
 }

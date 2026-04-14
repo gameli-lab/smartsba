@@ -139,3 +139,80 @@ export async function updateSchoolStatusWithEmail(
     }
   }
 }
+
+export async function deleteSchool(
+  schoolId: string
+) {
+  try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { error: 'Unauthorized', success: false }
+    }
+
+    // Verify user is super_admin
+    const { data: userProfileData } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single()
+
+    const userProfile = userProfileData as { role: string } | null
+
+    if (!userProfile || userProfile.role !== 'super_admin') {
+      return { error: 'Unauthorized: Super admin privileges required', success: false }
+    }
+
+    // Get school details before deletion
+    const { data: schoolData } = await supabase
+      .from('schools')
+      .select('name, id')
+      .eq('id', schoolId)
+      .single()
+
+    const school = schoolData as { name: string; id: string } | null
+
+    if (!school) {
+      return { error: 'School not found', success: false }
+    }
+
+    // Delete the school (cascade handled by database)
+    const { error: deleteError } = await supabase
+      .from('schools')
+      .delete()
+      .eq('id', schoolId)
+
+    if (deleteError) {
+      console.error('Delete error:', deleteError)
+      return { 
+        error: deleteError.message || 'Failed to delete school', 
+        success: false 
+      }
+    }
+
+    // Log the action
+    await logAction(
+      supabase,
+      user.id,
+      'school_deleted',
+      'school',
+      schoolId,
+      {
+        school_name: school.name,
+        school_id: schoolId,
+      }
+    )
+
+    return { 
+      error: null, 
+      success: true,
+      message: `School "${school.name}" deleted successfully`
+    }
+  } catch (error) {
+    console.error('Error deleting school:', error)
+    return { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      success: false
+    }
+  }
+}

@@ -3,13 +3,17 @@ import { createClient } from '@supabase/supabase-js'
 import { createAdminSupabaseClient } from '@/lib/supabase'
 import logAudit from '@/lib/audit'
 import { runAICommand, type AITaskType } from '@/services/aiGovernanceService'
-import { generateAITestCases, generateAISecurityFindings, generateAINextSteps } from '@/services/aiLLMService'
+import { generateAITestCases, generateAISecurityFindings, generateAINextSteps, generateWithFallback } from '@/services/aiLLMService'
 import type { UserRole } from '@/types'
 
 interface AICommandBody {
-  task: AITaskType
+  task?: AITaskType
   targetRole?: UserRole
   focus?: string
+  // New fields for school_admin chat
+  prompt?: string
+  schoolId?: string
+  maxTokens?: number
 }
 
 interface ProfileRow {
@@ -151,6 +155,36 @@ export async function POST(request: NextRequest) {
 
     const parsed = (await request.json()) as AICommandBody
 
+    // Handle school_admin chat mode (from floating bubble)
+    if (parsed.prompt && parsed.schoolId) {
+      // Verify user is school_admin and owns the school
+      if (typedProfile.role !== 'school_admin' || typedProfile.school_id !== parsed.schoolId) {
+        return NextResponse.json({ error: 'Unauthorized: Only school admins can use this feature' }, { status: 403 })
+      }
+
+      try {
+        const response = await generateWithFallback(
+          parsed.prompt,
+          parsed.maxTokens || 500
+        )
+
+        return NextResponse.json({
+          success: true,
+          message: response,
+          result: { next_steps: [response] },
+          session_id: undefined,
+        }, { status: 200 })
+      } catch (llmError) {
+        console.error('AI generation failed:', llmError)
+        return NextResponse.json({
+          success: false,
+          message: 'I encountered an error processing your request. Please try again.',
+          error: 'AI generation failed',
+        }, { status: 500 })
+      }
+    }
+
+    // Handle traditional AI command mode (governance audits)
     if (!parsed.task || !['switch_role', 'feature_audit', 'security_audit', 'test_plan'].includes(parsed.task)) {
       return NextResponse.json({ error: 'Invalid task. Use switch_role, feature_audit, security_audit, or test_plan.' }, { status: 400 })
     }

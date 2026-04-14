@@ -10,7 +10,6 @@ import { SchoolsStats } from "@/components/schools/SchoolsStats";
 import { SchoolDetailsDialog } from "@/components/schools/SchoolDetailsDialog";
 import { useSchools, SchoolWithStats } from "@/hooks/useSchools";
 import { useSchoolFilters } from "@/hooks/useSchoolFilters";
-import { createSchoolDeletionService } from "@/services/schoolDeletionService";
 import { supabase } from "@/lib/supabase";
 import { BulkOperationDialog } from "@/components/super-admin/BulkOperationDialog";
 import { bulkActivateSchools, bulkDeactivateSchools, bulkDeleteSchools } from "../bulk-operations/actions";
@@ -18,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { ExportButton } from "@/components/super-admin/ExportButton";
 import { exportSchoolsToCSV } from "../exports/actions";
 import { exportSchoolsToPDF } from "@/lib/pdf-export";
-import { updateSchoolStatusWithEmail } from "./actions";
+import { updateSchoolStatusWithEmail, deleteSchool } from "./actions";
 
 export default function SchoolsManagementPage() {
   // Custom hooks for state management
@@ -67,12 +66,6 @@ export default function SchoolsManagementPage() {
     getUser();
   }, []);
 
-  // Create school deletion service with callbacks
-  const deletionService = createSchoolDeletionService({
-    showConfirm: (message: string) => confirm(message),
-    showPrompt: (message: string) => prompt(message),
-    showAlert: (message: string) => alert(message),
-  });
 
   // Filter schools based on current filters
   const filteredSchools = schools.filter((school) => {
@@ -148,18 +141,23 @@ export default function SchoolsManagementPage() {
   };
 
   const handleDeleteSchool = async (schoolId: string, schoolName: string) => {
-    const result = await deletionService.deleteSchool(schoolId, schoolName);
-
-    if (result.success) {
-      if (result.action === "soft-delete") {
-        updateSchoolInList(schoolId, { status: "inactive" });
-      } else if (result.action === "hard-delete") {
-        removeSchoolFromList(schoolId);
-      }
+    if (!confirm(`Are you sure you want to delete "${schoolName}"? This action cannot be undone.`)) {
+      return;
     }
 
-    // Always show the result message
-    alert(result.message);
+    try {
+      const result = await deleteSchool(schoolId);
+      
+      if (result.success) {
+        removeSchoolFromList(schoolId);
+        alert(result.message || `School "${schoolName}" deleted successfully`);
+      } else {
+        alert(`Failed to delete school: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Error deleting school:", error);
+      alert("An error occurred while deleting the school.");
+    }
   };
 
   // Bulk selection handlers
