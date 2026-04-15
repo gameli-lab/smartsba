@@ -67,6 +67,12 @@ function redactSettingValue(settingKey: string, settingValue: unknown): unknown 
   return '[REDACTED]'
 }
 
+function deriveCategoryFromSettingKey(settingKey: string): string | null {
+  const [category] = settingKey.split('.')
+  if (!category) return null
+  return category
+}
+
 export async function getSystemSettings(category?: string): Promise<{
   settings: SystemSetting[]
   error: string | null
@@ -101,6 +107,11 @@ export async function updateSystemSetting(
   userRole: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const category = deriveCategoryFromSettingKey(settingKey)
+    if (!category) {
+      return { success: false, error: 'Invalid setting key format' }
+    }
+
     console.log('=== updateSystemSetting called ===')
     console.log('settingKey:', settingKey)
     console.log('settingValue:', redactSettingValue(settingKey, settingValue))
@@ -134,6 +145,7 @@ export async function updateSystemSetting(
       .upsert(
         {
           setting_key: settingKey,
+          category,
           setting_value: settingValue,
           updated_by: userId,
           updated_at: new Date().toISOString(),

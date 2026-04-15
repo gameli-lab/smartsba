@@ -196,8 +196,8 @@ export default function SettingsPage() {
       setCalendarDirty(false)
 
       // Initialize results form values from settings
-      const require_approval = result.settings.find(s => s.setting_key === 'results.require_approval')?.setting_value || true
-      const parent_notification_enabled = result.settings.find(s => s.setting_key === 'results.parent_notification_enabled')?.setting_value || true
+      const require_approval = result.settings.find(s => s.setting_key === 'results.require_approval')?.setting_value ?? true
+      const parent_notification_enabled = result.settings.find(s => s.setting_key === 'results.parent_notification_enabled')?.setting_value ?? true
       
       setResultsValues({
         require_approval: typeof require_approval === 'string' ? require_approval === 'true' : require_approval,
@@ -206,16 +206,16 @@ export default function SettingsPage() {
       setResultsDirty(false)
 
       // Initialize security form values from settings
-      const password_min_length = result.settings.find(s => s.setting_key === 'security.password_min_length')?.setting_value || 8
-      const password_require_uppercase = result.settings.find(s => s.setting_key === 'security.password_require_uppercase')?.setting_value || true
-      const password_require_lowercase = result.settings.find(s => s.setting_key === 'security.password_require_lowercase')?.setting_value || true
-      const password_require_number = result.settings.find(s => s.setting_key === 'security.password_require_number')?.setting_value || true
-      const password_require_special = result.settings.find(s => s.setting_key === 'security.password_require_special')?.setting_value || false
-      const login_lockout_attempts = result.settings.find(s => s.setting_key === 'security.login_lockout_attempts')?.setting_value || 5
-      const login_lockout_duration_minutes = result.settings.find(s => s.setting_key === 'security.login_lockout_duration_minutes')?.setting_value || 30
-      const session_timeout_minutes = result.settings.find(s => s.setting_key === 'security.session_timeout_minutes')?.setting_value || 60
-      const mfa_trusted_session_hours = result.settings.find(s => s.setting_key === 'security.mfa_trusted_session_hours')?.setting_value || 12
-      const mfa_failure_spike_threshold_per_hour = result.settings.find(s => s.setting_key === 'security.mfa_failure_spike_threshold_per_hour')?.setting_value || 5
+      const password_min_length = result.settings.find(s => s.setting_key === 'security.password_min_length')?.setting_value ?? 8
+      const password_require_uppercase = result.settings.find(s => s.setting_key === 'security.password_require_uppercase')?.setting_value ?? true
+      const password_require_lowercase = result.settings.find(s => s.setting_key === 'security.password_require_lowercase')?.setting_value ?? true
+      const password_require_number = result.settings.find(s => s.setting_key === 'security.password_require_number')?.setting_value ?? true
+      const password_require_special = result.settings.find(s => s.setting_key === 'security.password_require_special')?.setting_value ?? false
+      const login_lockout_attempts = result.settings.find(s => s.setting_key === 'security.login_lockout_attempts')?.setting_value ?? 5
+      const login_lockout_duration_minutes = result.settings.find(s => s.setting_key === 'security.login_lockout_duration_minutes')?.setting_value ?? 30
+      const session_timeout_minutes = result.settings.find(s => s.setting_key === 'security.session_timeout_minutes')?.setting_value ?? 60
+      const mfa_trusted_session_hours = result.settings.find(s => s.setting_key === 'security.mfa_trusted_session_hours')?.setting_value ?? 12
+      const mfa_failure_spike_threshold_per_hour = result.settings.find(s => s.setting_key === 'security.mfa_failure_spike_threshold_per_hour')?.setting_value ?? 5
       
       setSecurityValues({
         password_min_length: typeof password_min_length === 'string' ? parseInt(password_min_length) : password_min_length,
@@ -255,6 +255,24 @@ export default function SettingsPage() {
         gemini: Boolean(gemini_api_key),
       })
       setAIDirty(false)
+
+      // Initialize feature toggle form values from settings
+      const enable_bulk_operations = result.settings.find(s => s.setting_key === 'features.enable_bulk_operations')?.setting_value ?? true
+      const enable_analytics = result.settings.find(s => s.setting_key === 'features.enable_analytics')?.setting_value ?? true
+      const enable_audit_logs = result.settings.find(s => s.setting_key === 'features.enable_audit_logs')?.setting_value ?? true
+      const enable_email_notifications = result.settings.find(s => s.setting_key === 'features.enable_email_notifications')?.setting_value ?? true
+      const enable_api_access = result.settings.find(s => s.setting_key === 'features.enable_api_access')?.setting_value ?? false
+      const enable_two_factor_auth = result.settings.find(s => s.setting_key === 'features.enable_two_factor_auth')?.setting_value ?? false
+
+      setFeatureValues({
+        enable_bulk_operations: typeof enable_bulk_operations === 'string' ? enable_bulk_operations === 'true' : Boolean(enable_bulk_operations),
+        enable_analytics: typeof enable_analytics === 'string' ? enable_analytics === 'true' : Boolean(enable_analytics),
+        enable_audit_logs: typeof enable_audit_logs === 'string' ? enable_audit_logs === 'true' : Boolean(enable_audit_logs),
+        enable_email_notifications: typeof enable_email_notifications === 'string' ? enable_email_notifications === 'true' : Boolean(enable_email_notifications),
+        enable_api_access: typeof enable_api_access === 'string' ? enable_api_access === 'true' : Boolean(enable_api_access),
+        enable_two_factor_auth: typeof enable_two_factor_auth === 'string' ? enable_two_factor_auth === 'true' : Boolean(enable_two_factor_auth),
+      })
+      setFeatureDirty(false)
     }
 
     setLoading(false)
@@ -590,12 +608,19 @@ export default function SettingsPage() {
     setError(null)
 
     try {
-      await updateSystemSetting('features.enable_bulk_operations', featureValues.enable_bulk_operations, userId, userRole)
-      await updateSystemSetting('features.enable_analytics', featureValues.enable_analytics, userId, userRole)
-      await updateSystemSetting('features.enable_audit_logs', featureValues.enable_audit_logs, userId, userRole)
-      await updateSystemSetting('features.enable_email_notifications', featureValues.enable_email_notifications, userId, userRole)
-      await updateSystemSetting('features.enable_api_access', featureValues.enable_api_access, userId, userRole)
-      await updateSystemSetting('features.enable_two_factor_auth', featureValues.enable_two_factor_auth, userId, userRole)
+      const updates = [
+        await updateSystemSetting('features.enable_bulk_operations', featureValues.enable_bulk_operations, userId, userRole),
+        await updateSystemSetting('features.enable_analytics', featureValues.enable_analytics, userId, userRole),
+        await updateSystemSetting('features.enable_audit_logs', featureValues.enable_audit_logs, userId, userRole),
+        await updateSystemSetting('features.enable_email_notifications', featureValues.enable_email_notifications, userId, userRole),
+        await updateSystemSetting('features.enable_api_access', featureValues.enable_api_access, userId, userRole),
+        await updateSystemSetting('features.enable_two_factor_auth', featureValues.enable_two_factor_auth, userId, userRole),
+      ]
+
+      const failedUpdate = updates.find((result) => !result.success)
+      if (failedUpdate) {
+        throw new Error(failedUpdate.error || 'Failed to save one or more feature settings')
+      }
       
       setSuccess('Feature settings saved successfully')
       setFeatureDirty(false)
