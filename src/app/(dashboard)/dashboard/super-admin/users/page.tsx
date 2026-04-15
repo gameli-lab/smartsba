@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getClientCsrfHeaders } from '@/lib/csrf';
 import EditSuperAdminModal from '@/components/super-admin/EditSuperAdminModal';
 import type { UserProfile } from '@/types';
 import { BulkOperationDialog } from '@/components/super-admin/BulkOperationDialog';
@@ -109,7 +110,7 @@ export default function UsersPage() {
 
 			const res = await fetch(`/api/super-admin/${id}`, {
 				method: 'DELETE',
-				headers: { Authorization: `Bearer ${token}` },
+				headers: getClientCsrfHeaders({ Authorization: `Bearer ${token}` }),
 			});
 
 			if (!res.ok) {

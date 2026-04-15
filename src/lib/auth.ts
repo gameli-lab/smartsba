@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation'
 import { supabase, createServerComponentClient, createAdminSupabaseClient } from './supabase'
 import { UserRole, UserProfile, Teacher, TeacherAssignment, Student } from '@/types'
+import { getClientCsrfHeaders } from '@/lib/csrf'
+import { recordSecurityEvent } from '@/lib/security-monitor'
+import { MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
 
 type User = NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']>
 
@@ -26,6 +29,82 @@ type LookupProfile = Partial<UserProfile> & {
   schools?: { id: string; name: string } | null
 }
 
+type LoginSecurityRole = 'super_admin' | 'staff' | 'student' | 'parent'
+
+type LoginSecurityResponse = {
+  locked?: boolean
+  remainingMinutes?: number
+  failedAttempts?: number
+  retryAfterSeconds?: number
+  error?: string
+}
+
+async function callLoginSecurity(action: 'check' | 'record_failure' | 'record_success', params: {
+  role: LoginSecurityRole
+  identifier: string
+  schoolId?: string
+}): Promise<LoginSecurityResponse | null> {
+  try {
+    const response = await fetch('/api/auth/login-security', {
+      method: 'POST',
+      headers: getClientCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ action, ...params }),
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    return (await response.json()) as LoginSecurityResponse
+  } catch {
+    return null
+  }
+}
+
+function getLockoutMessage(remainingMinutes?: number): string {
+  return `Account temporarily locked due to failed attempts. Try again in ${remainingMinutes ?? 1} minute(s).`
+}
+
+async function ensureNotLocked(params: {
+  role: LoginSecurityRole
+  identifier: string
+  schoolId?: string
+}) {
+  const lockoutState = await callLoginSecurity('check', params)
+  if (lockoutState?.locked) {
+    throw new Error(getLockoutMessage(lockoutState.remainingMinutes))
+  }
+}
+
+async function recordLoginFailure(params: {
+  role: LoginSecurityRole
+  identifier: string
+  schoolId?: string
+}) {
+  const result = await callLoginSecurity('record_failure', params)
+  if (result?.locked) {
+    await recordSecurityEvent({
+      actorRole: params.role,
+      schoolId: params.schoolId,
+      identifier: params.identifier,
+      eventType: 'account_locked',
+      metadata: {
+        remaining_minutes: result.remainingMinutes,
+        failed_attempts: result.failedAttempts,
+      },
+    })
+    throw new Error(getLockoutMessage(result.remainingMinutes))
+  }
+}
+
+async function clearLoginFailures(params: {
+  role: LoginSecurityRole
+  identifier: string
+  schoolId?: string
+}) {
+  await callLoginSecurity('record_success', params)
+}
+
 /**
  * Custom error thrown when multiple schools are found for an identifier
  * Frontend should catch this and show a school selection dialog
@@ -43,12 +122,24 @@ export class MultipleSchoolsFoundError extends Error {
 export class AuthService {
   // SysAdmin login with email
   static async loginSuperAdmin(email: string, password: string): Promise<AuthResult> {
+    const normalizedEmail = email.trim().toLowerCase()
+    await ensureNotLocked({ role: 'super_admin', identifier: normalizedEmail })
+
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     })
 
-    if (error) throw error
+    if (error) {
+      await recordLoginFailure({ role: 'super_admin', identifier: normalizedEmail })
+      await recordSecurityEvent({
+        actorRole: 'super_admin',
+        identifier: normalizedEmail,
+        eventType: 'login_failure',
+        metadata: { reason: error.message },
+      })
+      throw error
+    }
 
     // Verify role is super_admin
     const { data: profile, error: profileError } = await supabase
@@ -70,6 +161,13 @@ export class AuthService {
 
     // Set custom JWT claims for proper authorization
     await AuthService.setUserClaims(data.user.id)
+    await clearLoginFailures({ role: 'super_admin', identifier: normalizedEmail })
+    await recordSecurityEvent({
+      actorUserId: data.user.id,
+      actorRole: 'super_admin',
+      eventType: 'login_success',
+      metadata: { method: 'password' },
+    })
 
     return { user: data.user, profile: typedProfile }
   }
@@ -82,24 +180,41 @@ export class AuthService {
       throw new Error('Staff ID is required')
     }
 
+    await ensureNotLocked({ role: 'staff', identifier: normalizedStaffId, schoolId })
+
     // Use server-side lookup endpoint (service role) to bypass RLS on user_profiles
     const lookupResponse = await fetch('/api/auth/staff-lookup', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getClientCsrfHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ staffId: normalizedStaffId, schoolId }),
     })
 
     if (!lookupResponse.ok) {
-      throw new Error('Failed to look up staff credentials')
+      const errorPayload = (await lookupResponse.json().catch(() => null)) as LoginSecurityResponse | null
+      if (lookupResponse.status === 423) {
+        throw new Error(errorPayload?.error || getLockoutMessage(errorPayload?.remainingMinutes))
+      }
+      if (lookupResponse.status === 429) {
+        throw new Error(errorPayload?.error || 'Too many authentication attempts. Please try again later.')
+      }
+      throw new Error(errorPayload?.error || 'Failed to look up staff credentials')
     }
 
     const { profiles } = (await lookupResponse.json()) as { profiles: LookupProfile[] }
 
     if (!profiles || profiles.length === 0) {
+      await recordLoginFailure({ role: 'staff', identifier: normalizedStaffId, schoolId })
+      await recordSecurityEvent({
+        actorRole: 'staff',
+        schoolId,
+        identifier: normalizedStaffId,
+        eventType: 'login_failure',
+        metadata: { reason: 'no_profiles_found' },
+      })
       throw new Error('Invalid staff credentials')
     }
 
-    const candidateProfiles = profiles as UserProfile[]
+    const candidateProfiles = profiles as LookupProfile[]
 
     if (!schoolId) {
       const uniqueSchools = Array.from(
@@ -141,12 +256,30 @@ export class AuthService {
 
       if (authError) {
         lastAuthError = authError
+        await recordSecurityEvent({
+          actorRole: 'staff',
+          schoolId,
+          identifier: normalizedStaffId,
+          eventType: 'login_failure',
+          metadata: { email: profile.email, reason: authError.message },
+        })
         continue
       }
 
       await AuthService.setUserClaims(authUser.user.id)
-      return { user: authUser.user, profile }
+      await clearLoginFailures({ role: 'staff', identifier: normalizedStaffId, schoolId })
+      await recordSecurityEvent({
+        actorUserId: authUser.user.id,
+        actorRole: profile.role,
+        schoolId,
+        identifier: normalizedStaffId,
+        eventType: 'login_success',
+        metadata: { email: profile.email },
+      })
+      return { user: authUser.user, profile: profile as UserProfile }
     }
+
+    await recordLoginFailure({ role: 'staff', identifier: normalizedStaffId, schoolId })
 
     if (lastAuthError) {
       throw lastAuthError
@@ -163,19 +296,36 @@ export class AuthService {
       throw new Error('Admission number is required')
     }
 
+    await ensureNotLocked({ role: 'student', identifier: normalizedAdmission, schoolId })
+
     const lookupResponse = await fetch('/api/auth/student-lookup', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getClientCsrfHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ admissionNumber: normalizedAdmission, schoolId }),
     })
 
     if (!lookupResponse.ok) {
-      throw new Error('Failed to look up student credentials')
+      const errorPayload = (await lookupResponse.json().catch(() => null)) as LoginSecurityResponse | null
+      if (lookupResponse.status === 423) {
+        throw new Error(errorPayload?.error || getLockoutMessage(errorPayload?.remainingMinutes))
+      }
+      if (lookupResponse.status === 429) {
+        throw new Error(errorPayload?.error || 'Too many authentication attempts. Please try again later.')
+      }
+      throw new Error(errorPayload?.error || 'Failed to look up student credentials')
     }
 
     const { profiles } = (await lookupResponse.json()) as { profiles: LookupProfile[] }
 
     if (!profiles || profiles.length === 0) {
+      await recordLoginFailure({ role: 'student', identifier: normalizedAdmission, schoolId })
+      await recordSecurityEvent({
+        actorRole: 'student',
+        schoolId,
+        identifier: normalizedAdmission,
+        eventType: 'login_failure',
+        metadata: { reason: 'no_profiles_found' },
+      })
       throw new Error('Invalid student credentials')
     }
 
@@ -202,28 +352,57 @@ export class AuthService {
       password,
     })
 
-    if (authError) throw authError
+    if (authError) {
+      await recordLoginFailure({ role: 'student', identifier: normalizedAdmission, schoolId })
+      await recordSecurityEvent({
+        actorRole: 'student',
+        schoolId,
+        identifier: normalizedAdmission,
+        eventType: 'login_failure',
+        metadata: { email: typedProfile.email, reason: authError.message },
+      })
+      throw authError
+    }
 
     // Set custom JWT claims for proper authorization
     await AuthService.setUserClaims(authUser.user.id)
+    await clearLoginFailures({ role: 'student', identifier: normalizedAdmission, schoolId })
+    await recordSecurityEvent({
+      actorUserId: authUser.user.id,
+      actorRole: 'student',
+      schoolId,
+      identifier: normalizedAdmission,
+      eventType: 'login_success',
+      metadata: { email: typedProfile.email },
+    })
 
     return { user: authUser.user, profile: typedProfile }
   }
 
   // Parent login with Parent Name/Email + Ward Admission Number and optional School verification
   static async loginParent(parentName: string, wardAdmissionNumber: string, password: string, schoolId?: string): Promise<AuthResult> {
+    const normalizedParentName = parentName.trim()
+    await ensureNotLocked({ role: 'parent', identifier: normalizedParentName, schoolId })
+
     const lookupResponse = await fetch('/api/auth/parent-lookup', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getClientCsrfHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
-        parentName: parentName.trim(),
+        parentName: normalizedParentName,
         wardAdmissionNumber: wardAdmissionNumber.trim(),
         schoolId,
       }),
     })
 
     if (!lookupResponse.ok) {
-      throw new Error('Failed to look up parent credentials')
+      const errorPayload = (await lookupResponse.json().catch(() => null)) as LoginSecurityResponse | null
+      if (lookupResponse.status === 423) {
+        throw new Error(errorPayload?.error || getLockoutMessage(errorPayload?.remainingMinutes))
+      }
+      if (lookupResponse.status === 429) {
+        throw new Error(errorPayload?.error || 'Too many authentication attempts. Please try again later.')
+      }
+      throw new Error(errorPayload?.error || 'Failed to look up parent credentials')
     }
 
     const { profiles: parentProfiles, reason } = (await lookupResponse.json()) as {
@@ -232,6 +411,14 @@ export class AuthService {
     }
 
     if (!parentProfiles || parentProfiles.length === 0) {
+      await recordLoginFailure({ role: 'parent', identifier: normalizedParentName, schoolId })
+      await recordSecurityEvent({
+        actorRole: 'parent',
+        schoolId,
+        identifier: normalizedParentName,
+        eventType: 'login_failure',
+        metadata: { reason: 'no_profiles_found', wardAdmissionNumber: wardAdmissionNumber.trim() },
+      })
       if (reason === 'no_parent_link_for_ward') {
         throw new Error('No parent account is linked to that ward admission number in the selected school')
       }
@@ -263,7 +450,17 @@ export class AuthService {
       password,
     })
 
-    if (authError) throw authError
+    if (authError) {
+      await recordLoginFailure({ role: 'parent', identifier: normalizedParentName, schoolId })
+      await recordSecurityEvent({
+        actorRole: 'parent',
+        schoolId,
+        identifier: normalizedParentName,
+        eventType: 'login_failure',
+        metadata: { email: typedProfile.email, reason: authError.message },
+      })
+      throw authError
+    }
 
     // Ensure we authenticated the exact parent account resolved by lookup.
     if (typedProfile.user_id !== authUser.user.id) {
@@ -273,6 +470,15 @@ export class AuthService {
 
     // Set custom JWT claims for proper authorization
     await AuthService.setUserClaims(authUser.user.id)
+    await clearLoginFailures({ role: 'parent', identifier: normalizedParentName, schoolId })
+    await recordSecurityEvent({
+      actorUserId: authUser.user.id,
+      actorRole: 'parent',
+      schoolId,
+      identifier: normalizedParentName,
+      eventType: 'login_success',
+      metadata: { email: typedProfile.email },
+    })
 
     return { user: authUser.user, profile: typedProfile }
   }
@@ -323,6 +529,10 @@ export class AuthService {
   static async signOut() {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
+
+    if (typeof document !== 'undefined') {
+      document.cookie = `${MFA_VERIFIED_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+    }
   }
 
   // Check if user has permission for school

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase'
+import { checkLockout, createScopeKey, normalizeIdentifier } from '@/lib/login-security'
+import { applyRateLimit, getClientIp } from '@/lib/rate-limit'
 
 interface ParentLookupBody {
   parentName?: string
@@ -29,6 +31,39 @@ export async function POST(req: NextRequest) {
 
     if (!normalizedParentName || !normalizedWardAdmissionNumber) {
       return NextResponse.json({ error: 'Parent name and ward admission number are required' }, { status: 400 })
+    }
+
+    const normalizedIdentifier = normalizeIdentifier(normalizedParentName)
+    const ip = getClientIp(req.headers)
+    const rateLimitKey = `auth:parent-lookup:${ip}:${normalizedIdentifier}:${normalizedWardAdmissionNumber.toLowerCase()}`
+    const rateLimit = applyRateLimit(rateLimitKey, { limit: 10, windowMs: 15 * 60 * 1000 })
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Too many authentication attempts. Please try again later.',
+          retryAfterSeconds: rateLimit.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimit.retryAfterSeconds),
+            'X-RateLimit-Remaining': String(rateLimit.remaining),
+          },
+        }
+      )
+    }
+
+    const lockoutState = await checkLockout(createScopeKey('parent', normalizedIdentifier, schoolId))
+    if (lockoutState.locked) {
+      return NextResponse.json(
+        {
+          error: `Account temporarily locked due to failed attempts. Try again in ${lockoutState.remainingMinutes ?? 1} minute(s).`,
+          locked: true,
+          remainingMinutes: lockoutState.remainingMinutes ?? 1,
+        },
+        { status: 423 }
+      )
     }
 
     const supabaseAdmin = createAdminSupabaseClient()
@@ -67,7 +102,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to look up parent credentials' }, { status: 500 })
     }
 
-    const normalizedLookup = normalizedParentName.toLowerCase()
+    const normalizedLookup = normalizedIdentifier
     const dedupedProfiles = Array.from(
       new Map(((parentRows || []) as ParentLookupProfile[]).map((profile) => [profile.id, profile])).values()
     )

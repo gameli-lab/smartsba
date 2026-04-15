@@ -67,6 +67,8 @@ export default function SettingsPage() {
     login_lockout_attempts: 5,
     login_lockout_duration_minutes: 30,
     session_timeout_minutes: 60,
+    mfa_trusted_session_hours: 12,
+    mfa_failure_spike_threshold_per_hour: 5,
   })
   const [securityDirty, setSecurityDirty] = useState(false)
   const [savingSecurity, setSavingSecurity] = useState(false)
@@ -212,6 +214,8 @@ export default function SettingsPage() {
       const login_lockout_attempts = result.settings.find(s => s.setting_key === 'security.login_lockout_attempts')?.setting_value || 5
       const login_lockout_duration_minutes = result.settings.find(s => s.setting_key === 'security.login_lockout_duration_minutes')?.setting_value || 30
       const session_timeout_minutes = result.settings.find(s => s.setting_key === 'security.session_timeout_minutes')?.setting_value || 60
+      const mfa_trusted_session_hours = result.settings.find(s => s.setting_key === 'security.mfa_trusted_session_hours')?.setting_value || 12
+      const mfa_failure_spike_threshold_per_hour = result.settings.find(s => s.setting_key === 'security.mfa_failure_spike_threshold_per_hour')?.setting_value || 5
       
       setSecurityValues({
         password_min_length: typeof password_min_length === 'string' ? parseInt(password_min_length) : password_min_length,
@@ -222,6 +226,8 @@ export default function SettingsPage() {
         login_lockout_attempts: typeof login_lockout_attempts === 'string' ? parseInt(login_lockout_attempts) : login_lockout_attempts,
         login_lockout_duration_minutes: typeof login_lockout_duration_minutes === 'string' ? parseInt(login_lockout_duration_minutes) : login_lockout_duration_minutes,
         session_timeout_minutes: typeof session_timeout_minutes === 'string' ? parseInt(session_timeout_minutes) : session_timeout_minutes,
+        mfa_trusted_session_hours: typeof mfa_trusted_session_hours === 'string' ? parseInt(mfa_trusted_session_hours) : mfa_trusted_session_hours,
+        mfa_failure_spike_threshold_per_hour: typeof mfa_failure_spike_threshold_per_hour === 'string' ? parseInt(mfa_failure_spike_threshold_per_hour) : mfa_failure_spike_threshold_per_hour,
       })
       setSecurityDirty(false)
 
@@ -447,6 +453,8 @@ export default function SettingsPage() {
       await updateSystemSetting('security.login_lockout_attempts', securityValues.login_lockout_attempts, userId, userRole)
       await updateSystemSetting('security.login_lockout_duration_minutes', securityValues.login_lockout_duration_minutes, userId, userRole)
       await updateSystemSetting('security.session_timeout_minutes', securityValues.session_timeout_minutes, userId, userRole)
+      await updateSystemSetting('security.mfa_trusted_session_hours', securityValues.mfa_trusted_session_hours, userId, userRole)
+      await updateSystemSetting('security.mfa_failure_spike_threshold_per_hour', securityValues.mfa_failure_spike_threshold_per_hour, userId, userRole)
       
       setSuccess('Security settings saved successfully')
       setSecurityDirty(false)
@@ -1092,6 +1100,42 @@ export default function SettingsPage() {
                     const value = parseInt(e.target.value)
                     if (!isNaN(value) && value >= 15 && value <= 480) {
                       handleSecurityChange('session_timeout_minutes', value)
+                    }
+                  }}
+                  disabled={savingSecurity}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="mfa_trusted_hours">MFA Trusted Session Duration (hours)</Label>
+                <Input
+                  id="mfa_trusted_hours"
+                  type="number"
+                  min="1"
+                  max="168"
+                  value={securityValues.mfa_trusted_session_hours}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value)
+                    if (!isNaN(value) && value >= 1 && value <= 168) {
+                      handleSecurityChange('mfa_trusted_session_hours', value)
+                    }
+                  }}
+                  disabled={savingSecurity}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="mfa_spike_threshold">MFA Failure Spike Alert Threshold (per hour)</Label>
+                <Input
+                  id="mfa_spike_threshold"
+                  type="number"
+                  min="2"
+                  max="50"
+                  value={securityValues.mfa_failure_spike_threshold_per_hour}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value)
+                    if (!isNaN(value) && value >= 2 && value <= 50) {
+                      handleSecurityChange('mfa_failure_spike_threshold_per_hour', value)
                     }
                   }}
                   disabled={savingSecurity}

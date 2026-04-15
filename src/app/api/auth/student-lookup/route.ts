@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase'
+import { checkLockout, createScopeKey, normalizeIdentifier } from '@/lib/login-security'
+import { applyRateLimit, getClientIp } from '@/lib/rate-limit'
 
 interface StudentLookupBody {
   admissionNumber?: string
@@ -27,7 +29,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Admission number is required' }, { status: 400 })
     }
 
-    const normalizedAdmission = admissionNumber.trim()
+    const normalizedAdmission = normalizeIdentifier(admissionNumber)
+    const ip = getClientIp(req.headers)
+    const rateLimitKey = `auth:student-lookup:${ip}:${normalizedAdmission}`
+    const rateLimit = applyRateLimit(rateLimitKey, { limit: 10, windowMs: 15 * 60 * 1000 })
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Too many authentication attempts. Please try again later.',
+          retryAfterSeconds: rateLimit.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimit.retryAfterSeconds),
+            'X-RateLimit-Remaining': String(rateLimit.remaining),
+          },
+        }
+      )
+    }
+
+    const lockoutState = await checkLockout(createScopeKey('student', normalizedAdmission, schoolId))
+    if (lockoutState.locked) {
+      return NextResponse.json(
+        {
+          error: `Account temporarily locked due to failed attempts. Try again in ${lockoutState.remainingMinutes ?? 1} minute(s).`,
+          locked: true,
+          remainingMinutes: lockoutState.remainingMinutes ?? 1,
+        },
+        { status: 423 }
+      )
+    }
+
     const supabaseAdmin = createAdminSupabaseClient()
 
     let profileQuery = supabaseAdmin

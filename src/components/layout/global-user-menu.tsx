@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Bot, LogOut, User } from 'lucide-react'
+import { Bot, KeyRound, LogOut, User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { AuthService } from '@/lib/auth'
 
@@ -102,6 +102,10 @@ export function GlobalUserMenu({ userName, userEmail, userRole }: GlobalUserMenu
         <DropdownMenuItem onClick={() => router.push(aiAssistantLink)} className="cursor-pointer">
           <Bot className="mr-2 h-4 w-4" />
           <span>AI Assistant</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push('/mfa-challenge')} className="cursor-pointer">
+          <KeyRound className="mr-2 h-4 w-4" />
+          <span>MFA Security</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
+import { getClientCsrfHeaders } from '@/lib/csrf'
 
 interface ChatMessage {
   id: string
@@ -89,10 +90,10 @@ export function AIFloatingBubble({ context }: { context: SchoolAdminContext }) {
 
       const response = await fetch('/api/ai/command', {
         method: 'POST',
-        headers: {
+        headers: getClientCsrfHeaders({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-        },
+        }),
         body: JSON.stringify({
           prompt: inputValue,
           schoolId: context.schoolId,

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getClientCsrfHeaders } from '@/lib/csrf';
 import type { UserProfile } from '@/types';
 
 interface Props {
@@ -27,10 +28,10 @@ export default function EditSuperAdminModal({ admin, onClose, onSaved }: Props) 
 
       const res = await fetch(`/api/super-admin/${admin.id}`, {
         method: 'PATCH',
-        headers: {
+        headers: getClientCsrfHeaders({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-        },
+        }),
         body: JSON.stringify({ full_name: fullName, email, status }),
       });
 

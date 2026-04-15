@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Bot, Code2, ShieldAlert, ShieldCheck, Send, Save, GitBranch, MessageSquare, Shield } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { getClientCsrfHeaders } from '@/lib/csrf'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -124,10 +125,10 @@ export function SuperAdminAIHub() {
 
       const response = await fetch('/api/ai/command', {
         method: 'POST',
-        headers: {
+        headers: getClientCsrfHeaders({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-        },
+        }),
         body: JSON.stringify({
           prompt: currentPrompt,
           assistantMode: activeTab,
@@ -231,10 +232,10 @@ export function SuperAdminAIHub() {
 
       const response = await fetch('/api/super-admin/github/sync', {
         method: 'POST',
-        headers: {
+        headers: getClientCsrfHeaders({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-        },
+        }),
         body: JSON.stringify({
           filePath: githubSyncInput.filePath,
           content: githubSyncInput.content,
@@ -283,10 +284,10 @@ export function SuperAdminAIHub() {
 
       const response = await fetch('/api/super-admin/twilio/send', {
         method: 'POST',
-        headers: {
+        headers: getClientCsrfHeaders({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-        },
+        }),
         body: JSON.stringify({
           to: twilioTestInput.to,
           body: twilioTestInput.body,
@@ -330,10 +331,10 @@ export function SuperAdminAIHub() {
 
       const response = await fetch('/api/super-admin/security/rule-checks', {
         method: 'POST',
-        headers: {
+        headers: getClientCsrfHeaders({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-        },
+        }),
         body: JSON.stringify(securityCheckInput),
       })
 
@@ -367,10 +368,10 @@ export function SuperAdminAIHub() {
 
       const response = await fetch('/api/super-admin/twilio/queue/process', {
         method: 'POST',
-        headers: {
+        headers: getClientCsrfHeaders({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-        },
+        }),
         body: JSON.stringify({ batchSize: 20 }),
       })
 

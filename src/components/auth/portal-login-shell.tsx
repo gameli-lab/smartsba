@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, HelpCircle, Lock, School, Shield, Sparkles, Users } from "lucide-react";
 import { AuthService, MultipleSchoolsFoundError, SchoolOption } from "@/lib/auth";
+import { getClientCsrfHeaders } from "@/lib/csrf";
 import { SchoolService } from "@/lib/schools";
 import { SchoolSelectionDialog } from "@/components/auth/SchoolSelectionDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -127,7 +128,7 @@ export function PortalLoginShell() {
 
       switch (loginResult.profile.role) {
         case "school_admin":
-          window.location.href = "/school-admin";
+          window.location.href = "/mfa-challenge?next=%2Fschool-admin";
           break;
         case "teacher":
           window.location.href = "/teacher";
@@ -174,7 +175,7 @@ export function PortalLoginShell() {
         throw new Error("Login failed - no profile returned");
       }
 
-      window.location.href = "/dashboard/super-admin";
+      window.location.href = "/mfa-challenge?next=%2Fdashboard%2Fsuper-admin";
     } catch (err) {
       setAdminError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -223,9 +224,9 @@ export function PortalLoginShell() {
 
       const response = await fetch("/api/password-reset/request", {
         method: "POST",
-        headers: {
+        headers: getClientCsrfHeaders({
           "Content-Type": "application/json",
-        },
+        }),
         body: JSON.stringify({
           identifier: trimmedIdentifier,
           role: mapAuthRoleToApiRole(forgotRole),

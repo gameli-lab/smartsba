@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminSupabaseClient } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
+import { recordSecurityEvent } from '@/lib/security-monitor';
 
 // Placeholder for email sending functionality
 async function sendApprovalEmail(adminEmail: string, approvalLink: string) {
@@ -29,6 +30,7 @@ async function sendApprovalEmail(adminEmail: string, approvalLink: string) {
 
 export async function POST(req: Request) {
   const supabaseAdmin = createAdminSupabaseClient();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
   try {
     const { identifier, role, schoolId, wardAdmissionNumber } = await req.json();
@@ -146,6 +148,7 @@ export async function POST(req: Request) {
           requesting_profile_id: userProfile.id,
           school_id: userProfile.school_id,
           reset_token: resetToken,
+          expires_at: expiresAt,
         }),
       });
 
@@ -168,6 +171,18 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'No school admin email available' }, { status: 500 });
       }
       await sendApprovalEmail(adminEmail, approvalLink);
+
+      await recordSecurityEvent({
+        actorUserId: userProfile.user_id,
+        actorRole: userProfile.role || null,
+        schoolId: userProfile.school_id,
+        identifier: userProfile.email || userProfile.full_name || userProfile.user_id,
+        eventType: 'password_reset_requested',
+        metadata: {
+          request_id: resetRequest.id,
+          role,
+        },
+      });
 
       return NextResponse.json({ message: 'Password reset request submitted for admin approval.' }, { status: 200 });
 
@@ -230,6 +245,7 @@ export async function POST(req: Request) {
         requesting_profile_id: (userProfile as { id?: string }).id,
         school_id: (userProfile as { school_id?: string | null }).school_id,
         reset_token: resetToken,
+        expires_at: expiresAt,
       }),
     });
 
@@ -252,6 +268,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No school admin email available' }, { status: 500 });
     }
     await sendApprovalEmail(adminEmail2, approvalLink);
+
+    await recordSecurityEvent({
+      actorUserId: (userProfile as { user_id?: string }).user_id || null,
+      actorRole: (userProfile as { role?: string }).role || null,
+      schoolId: (userProfile as { school_id?: string | null }).school_id || null,
+      identifier: foundEmail || foundSchoolId,
+      eventType: 'password_reset_requested',
+      metadata: {
+        request_id: resetRequest.id,
+        role,
+      },
+    });
 
     return NextResponse.json({ message: 'Password reset request submitted for admin approval.' }, { status: 200 });
 

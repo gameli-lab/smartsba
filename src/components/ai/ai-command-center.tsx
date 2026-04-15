@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getClientCsrfHeaders } from '@/lib/csrf'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -153,10 +154,10 @@ export function AICommandCenter({ initialRole }: { initialRole: UserRole }) {
 
       const response = await fetch('/api/ai/command', {
         method: 'POST',
-        headers: {
+        headers: getClientCsrfHeaders({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-        },
+        }),
         body: JSON.stringify({
           task,
           targetRole,
@@ -217,10 +218,10 @@ export function AICommandCenter({ initialRole }: { initialRole: UserRole }) {
 
       const response = await fetch('/api/ai/test-cases', {
         method: 'POST',
-        headers: {
+        headers: getClientCsrfHeaders({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-        },
+        }),
         body: JSON.stringify({
           sessionId,
           caseId: persistedCaseId,

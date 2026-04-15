@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getClientCsrfHeaders } from '@/lib/csrf'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
@@ -105,10 +106,10 @@ export function AIFindingsBoard({ title = 'AI Security Findings' }: { title?: st
 
       const response = await fetch('/api/ai/findings', {
         method: 'PATCH',
-        headers: {
+        headers: getClientCsrfHeaders({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-        },
+        }),
         body: JSON.stringify({ findingId, status }),
       })
 

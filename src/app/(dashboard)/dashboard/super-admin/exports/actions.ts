@@ -1,6 +1,7 @@
 "use server"
 
 import { supabase } from '@/lib/supabase'
+import { recordSecurityEvent } from '@/lib/security-monitor'
 
 interface ExportResult {
   success: boolean
@@ -177,6 +178,20 @@ export async function exportSchoolsToCSV(
         record_count: schoolsData?.length || 0,
         filters: filters,
         filename: filename,
+        risk_score: Math.min(95, 20 + Math.floor((schoolsData?.length || 0) / 5)),
+      },
+    })
+
+    await recordSecurityEvent({
+      actorUserId: userId,
+      actorRole: userRole,
+      eventType: 'bulk_export',
+      metadata: {
+        export_type: 'csv',
+        entity_type: 'school',
+        record_count: schoolsData?.length || 0,
+        filename,
+        filters,
       },
     })
 
@@ -284,6 +299,20 @@ export async function exportUsersToCSV(
         record_count: usersData?.length || 0,
         filters: filters,
         filename: filename,
+        risk_score: Math.min(95, 20 + Math.floor((usersData?.length || 0) / 5)),
+      },
+    })
+
+    await recordSecurityEvent({
+      actorUserId: userId,
+      actorRole: userRole,
+      eventType: 'bulk_export',
+      metadata: {
+        export_type: 'csv',
+        entity_type: 'user',
+        record_count: usersData?.length || 0,
+        filename,
+        filters,
       },
     })
 
@@ -401,6 +430,20 @@ export async function exportAuditLogsToCSV(
         record_count: logsData?.length || 0,
         filters: filters,
         filename: filename,
+        risk_score: Math.min(95, 35 + Math.floor((logsData?.length || 0) / 10)),
+      },
+    })
+
+    await recordSecurityEvent({
+      actorUserId: userId,
+      actorRole: userRole,
+      eventType: 'bulk_export',
+      metadata: {
+        export_type: 'csv',
+        entity_type: 'audit_log',
+        record_count: logsData?.length || 0,
+        filename,
+        filters,
       },
     })
 
@@ -511,6 +554,20 @@ export async function exportAnalyticsToCSV(
           users_by_role: usersByRole,
         },
         filename: filename,
+        risk_score: Math.min(90, 25 + Math.floor(totalSchools / 2)),
+      },
+    })
+
+    await recordSecurityEvent({
+      actorUserId: userId,
+      actorRole: userRole,
+      eventType: 'bulk_export',
+      metadata: {
+        export_type: 'csv',
+        entity_type: 'analytics',
+        total_schools: totalSchools,
+        total_users: usersData.length,
+        filename,
       },
     })
 

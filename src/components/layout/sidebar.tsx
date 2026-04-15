@@ -30,6 +30,7 @@ import {
   Mail,
   TrendingUp,
   Bot,
+  KeyRound,
 } from "lucide-react";
 import { UserRole } from "@/types";
 import { AuthService } from "@/lib/auth";
@@ -71,6 +72,11 @@ const roleConfig = {
         icon: FileText,
         label: "Audit Logs",
         href: "/dashboard/super-admin/audit-logs",
+      },
+      {
+        icon: KeyRound,
+        label: "MFA Audit",
+        href: "/dashboard/super-admin/mfa-audit",
       },
       {
         icon: FileText,
