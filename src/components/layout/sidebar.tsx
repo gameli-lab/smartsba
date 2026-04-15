@@ -79,6 +79,11 @@ const roleConfig = {
         href: "/dashboard/super-admin/mfa-audit",
       },
       {
+        icon: UserCheck,
+        label: "Testing Tools",
+        href: "/dashboard/super-admin/testing-tools",
+      },
+      {
         icon: FileText,
         label: "AI Findings",
         href: "/dashboard/super-admin/security-findings",

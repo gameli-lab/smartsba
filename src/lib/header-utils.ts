@@ -1,4 +1,5 @@
 import { createServerComponentClient } from "./supabase";
+import { getAssumeRoleContextForActor } from "./assume-role";
 
 export interface HeaderProps {
   isAuthenticated: boolean
@@ -7,6 +8,7 @@ export interface HeaderProps {
   userEmail?: string
   schoolName?: string
   contextInfo?: string  // e.g. "St. Mary's School • 2024/2025 • Term 1"
+  assumedRole?: string
 }
 
 export async function getHeaderProps(): Promise<HeaderProps> {
@@ -38,6 +40,13 @@ export async function getHeaderProps(): Promise<HeaderProps> {
       userName: profile.full_name || undefined,
       userEmail: profile.email || undefined,
     };
+
+    if (profile.role === 'super_admin') {
+      const assumeContext = await getAssumeRoleContextForActor(user.id)
+      if (assumeContext) {
+        base.assumedRole = assumeContext.assumedRole
+      }
+    }
 
     // For all school-affiliated users fetch school name + current session
     if (profile.school_id) {

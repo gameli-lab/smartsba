@@ -5,6 +5,7 @@ import { UserRole, UserProfile, Teacher, TeacherAssignment, Student } from '@/ty
 import { getClientCsrfHeaders } from '@/lib/csrf'
 import { recordSecurityEvent } from '@/lib/security-monitor'
 import { buildMfaCookieValue, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
+import { getAssumeRoleContextForActor } from '@/lib/assume-role'
 
 type User = NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']>
 
@@ -604,38 +605,13 @@ async function requirePrivilegedMfa(userId: string): Promise<void> {
  * @returns {Promise<{user: User, profile: UserProfile}>} Authenticated school admin user and profile
  */
 export async function requireSchoolAdmin(): Promise<AuthResult> {
-  const supabase = await createServerComponentClient()
-  
-  const { data: { user }, error } = await supabase.auth.getUser()
-  
-  if (error || !user) {
-    redirect('/login')
-  }
+  const context = await resolveRoleGuardContext('school_admin')
 
-  // Get user profile
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    redirect('/login')
-  }
-
-  const typedProfile = profile as UserProfile
-  
-  if (typedProfile.role !== 'school_admin') {
+  if (!context.profile.school_id) {
     redirect('/login')
   }
   
-  if (!typedProfile.school_id) {
-    redirect('/login')
-  }
-
-  await requirePrivilegedMfa(user.id)
-  
-  return { user, profile: typedProfile }
+  return { user: context.effectiveUser, profile: context.profile }
 }
 
 /**
@@ -693,48 +669,106 @@ export interface ParentGuardResult extends AuthResult {
   }>
 }
 
+type GuardRole = 'school_admin' | 'teacher' | 'student' | 'parent'
+
+type RoleGuardContext = {
+  actorUser: User
+  effectiveUser: User
+  profile: UserProfile
+  isAssumed: boolean
+}
+
+async function resolveRoleGuardContext(requiredRole: GuardRole): Promise<RoleGuardContext> {
+  const serverSupabase = await createServerComponentClient()
+
+  const { data: { user }, error } = await serverSupabase.auth.getUser()
+  if (error || !user) {
+    redirect('/login')
+  }
+
+  const { data: actorProfileRow, error: actorProfileError } = await serverSupabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', user.id)
+    .single()
+
+  if (actorProfileError || !actorProfileRow) {
+    redirect('/login')
+  }
+
+  const actorProfile = actorProfileRow as UserProfile
+
+  if (actorProfile.role === requiredRole) {
+    if (requiredRole === 'school_admin') {
+      await requirePrivilegedMfa(user.id)
+    }
+
+    return {
+      actorUser: user,
+      effectiveUser: user,
+      profile: actorProfile,
+      isAssumed: false,
+    }
+  }
+
+  if (actorProfile.role !== 'super_admin') {
+    redirect('/login')
+  }
+
+  await requirePrivilegedMfa(user.id)
+
+  const assumeContext = await getAssumeRoleContextForActor(user.id)
+  if (!assumeContext || assumeContext.assumedRole !== requiredRole) {
+    redirect('/dashboard/super-admin')
+  }
+
+  const adminSupabase = createAdminSupabaseClient()
+  const { data: assumedProfileRow, error: assumedProfileError } = await adminSupabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', assumeContext.assumedUserId)
+    .eq('role', requiredRole)
+    .maybeSingle()
+
+  if (assumedProfileError || !assumedProfileRow) {
+    redirect('/dashboard/super-admin')
+  }
+
+  const assumedProfile = assumedProfileRow as UserProfile
+  const effectiveUser = {
+    ...user,
+    id: assumedProfile.user_id,
+    email: assumedProfile.email || user.email,
+  } as User
+
+  return {
+    actorUser: user,
+    effectiveUser,
+    profile: assumedProfile,
+    isAssumed: true,
+  }
+}
+
 /**
  * Server-side auth guard for Teacher role
  * Ensures the user is a teacher and returns their assignments.
  * If no assignments are found, the caller can decide how to render an empty state.
  */
 export async function requireTeacher(): Promise<TeacherGuardResult> {
-  const serverSupabase = await createServerComponentClient()
-  
-  const { data: { user }, error } = await serverSupabase.auth.getUser()
-  
-  if (error || !user) {
-    redirect('/login')
-  }
+  const context = await resolveRoleGuardContext('teacher')
+  const sourceSupabase = context.isAssumed ? createAdminSupabaseClient() : await createServerComponentClient()
 
-  // Get user profile
-  const { data: profile, error: profileError } = await serverSupabase
-    .from('user_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    redirect('/login')
-  }
-
-  const teacherProfile = profile as UserProfile
-
-  if (teacherProfile.role !== 'teacher') {
-    redirect('/login')
-  }
-
-  const { data: teacherRow } = await serverSupabase
+  const { data: teacherRow } = await sourceSupabase
     .from('teachers')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', context.effectiveUser.id)
     .single()
 
-  if (!teacherRow || (teacherRow as Teacher).school_id !== teacherProfile.school_id) {
+  if (!teacherRow || (teacherRow as Teacher).school_id !== context.profile.school_id) {
     redirect('/login')
   }
 
-  const { data: assignmentRows } = await serverSupabase
+  const { data: assignmentRows } = await sourceSupabase
     .from('teacher_assignments')
     .select('id, teacher_id, class_id, subject_id, is_class_teacher, academic_year')
     .eq('teacher_id', (teacherRow as Teacher).id)
@@ -743,8 +777,8 @@ export async function requireTeacher(): Promise<TeacherGuardResult> {
   const effectiveRole = assignments.some((a) => a.is_class_teacher) ? 'class_teacher' : 'subject_teacher'
 
   return {
-    user,
-    profile: teacherProfile,
+    user: context.effectiveUser,
+    profile: context.profile,
     teacher: teacherRow as Teacher,
     assignments,
     effectiveRole,
@@ -757,40 +791,18 @@ export async function requireTeacher(): Promise<TeacherGuardResult> {
  * Returns student record if found; callers handle missing profile state.
  */
 export async function requireStudent(): Promise<StudentGuardResult> {
-  const serverSupabase = await createServerComponentClient()
-  
-  const { data: { user }, error } = await serverSupabase.auth.getUser()
-  
-  if (error || !user) {
-    redirect('/login')
-  }
+  const context = await resolveRoleGuardContext('student')
+  const sourceSupabase = context.isAssumed ? createAdminSupabaseClient() : await createServerComponentClient()
 
-  // Get user profile
-  const { data: profile, error: profileError } = await serverSupabase
-    .from('user_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    redirect('/login')
-  }
-
-  const studentProfile = profile as UserProfile
-
-  if (studentProfile.role !== 'student') {
-    redirect('/login')
-  }
-
-  const { data: studentRow } = await serverSupabase
+  const { data: studentRow } = await sourceSupabase
     .from('students')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', context.effectiveUser.id)
     .maybeSingle()
 
   return {
-    user,
-    profile: studentProfile,
+    user: context.effectiveUser,
+    profile: context.profile,
     student: studentRow ? (studentRow as Student) : null,
   }
 }
@@ -801,31 +813,9 @@ export async function requireStudent(): Promise<StudentGuardResult> {
  * Returns linked wards (students); callers handle empty wards state.
  */
 export async function requireParent(): Promise<ParentGuardResult> {
-  const serverSupabase = await createServerComponentClient()
   const adminSupabase = createAdminSupabaseClient()
-  
-  const { data: { user }, error } = await serverSupabase.auth.getUser()
-  
-  if (error || !user) {
-    redirect('/login')
-  }
-
-  // Get user profile
-  const { data: profile, error: profileError } = await serverSupabase
-    .from('user_profiles')
-    .select('*')
-    .eq('user_id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    redirect('/login')
-  }
-
-  const parentProfile = profile as UserProfile
-
-  if (parentProfile.role !== 'parent') {
-    redirect('/login')
-  }
+  const context = await resolveRoleGuardContext('parent')
+  const parentProfile = context.profile
 
   type ParentLinkRow = {
     relationship: string
@@ -864,7 +854,7 @@ export async function requireParent(): Promise<ParentGuardResult> {
     const { data: parentProfileRow } = await adminSupabase
       .from('user_profiles')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', context.effectiveUser.id)
       .eq('role', 'parent')
       .maybeSingle()
 
@@ -911,8 +901,8 @@ export async function requireParent(): Promise<ParentGuardResult> {
     .filter((ward): ward is { student: Student; relationship: string; is_primary: boolean } => ward !== null)
 
   return {
-    user,
-    profile: profile as UserProfile,
+    user: context.effectiveUser,
+    profile: context.profile,
     wards,
   }
 }

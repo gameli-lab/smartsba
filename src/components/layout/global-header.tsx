@@ -40,7 +40,7 @@ function getDashboardLink(isAuthenticated: boolean, userRole?: string): string {
 }
 
 export async function GlobalHeader() {
-  const { isAuthenticated, userRole, userName, userEmail, contextInfo } =
+  const { isAuthenticated, userRole, userName, userEmail, contextInfo, assumedRole } =
     await getHeaderProps();
   const contextIndicator = getContextIndicator(isAuthenticated, userRole);
   const dashboardLink    = getDashboardLink(isAuthenticated, userRole);
@@ -70,6 +70,11 @@ export async function GlobalHeader() {
             {contextInfo ? (
               <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">{contextInfo}</span>
             ) : null}
+            {assumedRole ? (
+              <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700 border-0">
+                PREVIEW AS {assumedRole.replace('_', ' ').toUpperCase()}
+              </Badge>
+            ) : null}
           </div>
 
           {/* Mobile: context badge only (sm–md) */}
@@ -92,6 +97,7 @@ export async function GlobalHeader() {
                   userName={userName}
                   userEmail={userEmail}
                   userRole={userRole}
+                  assumedRole={assumedRole}
                 />
               </div>
             )}
