@@ -57,7 +57,7 @@ export async function bulkActivateSchools(
         successCount: 0,
         failureCount: schoolIds.length,
         failures: schoolIds.map(id => ({ id, error: 'Unauthorized' })),
-        message: 'Unauthorized: Super admin privileges required',
+        message: 'Unauthorized: SysAdmin privileges required',
       }
     }
 
@@ -135,7 +135,7 @@ export async function bulkDeactivateSchools(
         successCount: 0,
         failureCount: schoolIds.length,
         failures: schoolIds.map(id => ({ id, error: 'Unauthorized' })),
-        message: 'Unauthorized: Super admin privileges required',
+        message: 'Unauthorized: SysAdmin privileges required',
       }
     }
 
@@ -213,7 +213,7 @@ export async function bulkDeleteSchools(
         successCount: 0,
         failureCount: schoolIds.length,
         failures: schoolIds.map(id => ({ id, error: 'Unauthorized' })),
-        message: 'Unauthorized: Super admin privileges required',
+        message: 'Unauthorized: SysAdmin privileges required',
       }
     }
 
@@ -291,7 +291,7 @@ export async function bulkDeleteUsers(
         successCount: 0,
         failureCount: userIds.length,
         failures: userIds.map(id => ({ id, error: 'Unauthorized' })),
-        message: 'Unauthorized: Super admin privileges required',
+        message: 'Unauthorized: SysAdmin privileges required',
       }
     }
 
@@ -382,7 +382,7 @@ export async function bulkActivateUsers(
         successCount: 0,
         failureCount: profileIds.length,
         failures: profileIds.map(id => ({ id, error: 'Unauthorized' })),
-        message: 'Unauthorized: Super admin privileges required',
+        message: 'Unauthorized: SysAdmin privileges required',
       }
     }
 
@@ -460,7 +460,7 @@ export async function bulkDeactivateUsers(
         successCount: 0,
         failureCount: profileIds.length,
         failures: profileIds.map(id => ({ id, error: 'Unauthorized' })),
-        message: 'Unauthorized: Super admin privileges required',
+        message: 'Unauthorized: SysAdmin privileges required',
       }
     }
 

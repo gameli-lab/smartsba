@@ -54,7 +54,7 @@ async function requireSuperAdmin(request: NextRequest): Promise<{ userId: string
 
   const typedProfile = profile as ProfileRow
   if (typedProfile.role !== 'super_admin') {
-    return { userId: '', error: 'Super admin privileges required', status: 403 }
+    return { userId: '', error: 'SysAdmin privileges required', status: 403 }
   }
 
   return { userId: user.id }

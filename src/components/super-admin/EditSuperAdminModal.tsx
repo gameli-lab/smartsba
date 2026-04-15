@@ -41,7 +41,7 @@ export default function EditSuperAdminModal({ admin, onClose, onSaved }: Props) 
 
       onSaved();
     } catch (e: unknown) {
-      console.error('Error updating super admin:', e);
+      console.error('Error updating sysadmin:', e);
       setError(((e as Error)?.message) ?? 'Error');
     } finally {
       setLoading(false);
@@ -51,7 +51,7 @@ export default function EditSuperAdminModal({ admin, onClose, onSaved }: Props) 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-md p-6 w-full max-w-md">
-        <h2 className="text-lg font-medium mb-4">Edit Super Admin</h2>
+        <h2 className="text-lg font-medium mb-4">Edit SysAdmin</h2>
 
         {error && <div className="text-red-600 mb-2">{error}</div>}
 

@@ -74,9 +74,27 @@ export function PortalLoginShell() {
   const [showSchoolDialog, setShowSchoolDialog] = useState(false);
   const [availableSchools, setAvailableSchools] = useState<SchoolOption[]>([]);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [forgotRole, setForgotRole] = useState<AuthRole>("student");
+  const [forgotIdentifier, setForgotIdentifier] = useState("");
+  const [forgotSchool, setForgotSchool] = useState("");
+  const [forgotWardAdmissionNumber, setForgotWardAdmissionNumber] = useState("");
+  const [forgotError, setForgotError] = useState("");
+  const [forgotSuccess, setForgotSuccess] = useState("");
+  const [isForgotSubmitting, setIsForgotSubmitting] = useState(false);
 
   const identifierLabel = useMemo(() => getIdentifierLabel(authRole), [authRole]);
   const identifierPlaceholder = useMemo(() => getIdentifierPlaceholder(authRole), [authRole]);
+  const forgotIdentifierLabel = useMemo(() => getIdentifierLabel(forgotRole), [forgotRole]);
+  const forgotIdentifierPlaceholder = useMemo(() => getIdentifierPlaceholder(forgotRole), [forgotRole]);
+
+  const mapAuthRoleToApiRole = (role: AuthRole): "teacher" | "student" | "parent" => {
+    if (role === "staff") {
+      return "teacher";
+    }
+
+    return role;
+  };
 
   const handleAuthSubmit = async (e?: React.FormEvent, schoolIdOverride?: string) => {
     e?.preventDefault();
@@ -98,7 +116,7 @@ export function PortalLoginShell() {
       const loginResult = await AuthService.login({
         identifier: trimmedIdentifier,
         password,
-        role: authRole === "staff" ? "teacher" : authRole,
+        role: mapAuthRoleToApiRole(authRole),
         schoolId: resolvedSchoolId,
         wardAdmissionNumber: authRole === "parent" ? trimmedWardAdmission : undefined,
       });
@@ -164,6 +182,72 @@ export function PortalLoginShell() {
     }
   };
 
+  const resetForgotPasswordForm = () => {
+    setForgotRole("student");
+    setForgotIdentifier("");
+    setForgotSchool("");
+    setForgotWardAdmissionNumber("");
+    setForgotError("");
+    setForgotSuccess("");
+    setIsForgotSubmitting(false);
+  };
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError("");
+    setForgotSuccess("");
+    setIsForgotSubmitting(true);
+
+    try {
+      const trimmedSchool = forgotSchool.trim();
+      const trimmedIdentifier = forgotIdentifier.trim();
+      const trimmedWard = forgotWardAdmissionNumber.trim();
+
+      if (!trimmedSchool) {
+        throw new Error("Please enter your school name or ID.");
+      }
+
+      if (!trimmedIdentifier) {
+        throw new Error("Please enter your identifier.");
+      }
+
+      if (forgotRole === "parent" && !trimmedWard) {
+        throw new Error("Ward admission number is required for parent password reset requests.");
+      }
+
+      const resolvedSchoolId = await SchoolService.resolveSchoolId(trimmedSchool);
+
+      if (!resolvedSchoolId) {
+        throw new Error("School not found. Enter the exact registered school name or ID.");
+      }
+
+      const response = await fetch("/api/password-reset/request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          identifier: trimmedIdentifier,
+          role: mapAuthRoleToApiRole(forgotRole),
+          schoolId: resolvedSchoolId,
+          wardAdmissionNumber: forgotRole === "parent" ? trimmedWard : undefined,
+        }),
+      });
+
+      const payload = (await response.json()) as { message?: string; error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to submit password reset request.");
+      }
+
+      setForgotSuccess(payload.message || "Password reset request submitted for admin approval.");
+    } catch (err) {
+      setForgotError(err instanceof Error ? err.message : "An unexpected error occurred.");
+    } finally {
+      setIsForgotSubmitting(false);
+    }
+  };
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="absolute inset-0 overflow-hidden">
@@ -216,7 +300,7 @@ export function PortalLoginShell() {
                     Users
                   </TabsTrigger>
                   <TabsTrigger value="admin" className="rounded-full text-slate-700 data-[state=active]:bg-white data-[state=active]:text-slate-900 dark:text-slate-200 dark:data-[state=active]:bg-slate-700 dark:data-[state=active]:text-slate-50">
-                    Super Admin
+                    SysAdmin
                   </TabsTrigger>
                 </TabsList>
 
@@ -329,7 +413,11 @@ export function PortalLoginShell() {
                         <button
                           type="button"
                           className="text-[10px] font-bold uppercase tracking-[0.3em] text-sky-700 hover:text-slate-900 dark:text-sky-300 dark:hover:text-slate-100"
-                          onClick={() => setShowHelpModal(true)}
+                          onClick={() => {
+                            setForgotError("");
+                            setForgotSuccess("");
+                            setShowForgotPasswordModal(true);
+                          }}
                         >
                           Forgot?
                         </button>
@@ -368,7 +456,7 @@ export function PortalLoginShell() {
 
                 <TabsContent value="admin" className="space-y-6 outline-none">
                   <div className="space-y-2 text-center lg:text-left">
-                    <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Super Admin Login</h2>
+                    <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">SysAdmin Login</h2>
                     <p className="text-sm text-slate-600 dark:text-slate-300">Email-based access for platform administrators</p>
                   </div>
 
@@ -422,7 +510,7 @@ export function PortalLoginShell() {
                   <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4 text-sm text-purple-900 dark:border-purple-500/30 dark:bg-purple-500/10 dark:text-purple-200">
                     <p className="mb-2 font-semibold">Need to reset your password?</p>
                     <p>
-                      Super Admins must reset their password via the Supabase project dashboard.
+                      SysAdmins must reset their password via the Supabase project dashboard.
                     </p>
                   </div>
                 </TabsContent>
@@ -452,8 +540,127 @@ export function PortalLoginShell() {
             <p>• Students: Admission number + password</p>
             <p>• Staff (Teacher / School Admin): Staff ID + password</p>
             <p>• Parents: Parent name or email + ward admission number + password</p>
-            <p>• Super Admin: Email + password</p>
+            <p>• SysAdmin: Email + password</p>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showForgotPasswordModal}
+        onOpenChange={(open) => {
+          setShowForgotPasswordModal(open);
+          if (!open) {
+            resetForgotPasswordForm();
+          }
+        }}
+      >
+        <DialogContent className="border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Reset Your Password</DialogTitle>
+            <DialogDescription className="text-slate-600 dark:text-slate-300">
+              Enter your details to request a password reset. Your school admin will approve the request before a reset link is sent to your email.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form className="space-y-4" onSubmit={handleForgotPasswordSubmit}>
+            {forgotError ? (
+              <Alert variant="destructive">
+                <AlertDescription>{forgotError}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            {forgotSuccess ? (
+              <Alert className="border-green-200 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">
+                <AlertDescription>{forgotSuccess}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">Role</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {roleCards.map((item) => {
+                  const active = forgotRole === item.role;
+                  return (
+                    <button
+                      key={`forgot-${item.role}`}
+                      type="button"
+                      onClick={() => {
+                        setForgotRole(item.role);
+                        setForgotError("");
+                        setForgotSuccess("");
+                      }}
+                      className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
+                        active
+                          ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900"
+                          : "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="forgot-school" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                School Name or ID
+              </Label>
+              <Input
+                id="forgot-school"
+                value={forgotSchool}
+                onChange={(e) => setForgotSchool(e.target.value)}
+                placeholder="Enter your school name or code"
+                className="h-11 rounded-xl border-slate-300 bg-slate-100 text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="forgot-identifier" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                {forgotIdentifierLabel}
+              </Label>
+              <Input
+                id="forgot-identifier"
+                value={forgotIdentifier}
+                onChange={(e) => setForgotIdentifier(e.target.value)}
+                placeholder={forgotIdentifierPlaceholder}
+                className="h-11 rounded-xl border-slate-300 bg-slate-100 text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+                required
+              />
+            </div>
+
+            {forgotRole === "parent" ? (
+              <div className="space-y-2">
+                <Label htmlFor="forgot-ward" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                  Ward Admission Number
+                </Label>
+                <Input
+                  id="forgot-ward"
+                  value={forgotWardAdmissionNumber}
+                  onChange={(e) => setForgotWardAdmissionNumber(e.target.value)}
+                  placeholder="ADM-000-000"
+                  className="h-11 rounded-xl border-slate-300 bg-slate-100 text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+                  required
+                />
+              </div>
+            ) : null}
+
+            <div className="flex gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 flex-1 rounded-xl"
+                onClick={() => setShowForgotPasswordModal(false)}
+                disabled={isForgotSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="h-11 flex-1 rounded-xl" disabled={isForgotSubmitting}>
+                {isForgotSubmitting ? "Requesting..." : "Request Reset"}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
           session_id: undefined,
         }, { status: 200 })
       } catch (llmError) {
-        console.error('Super admin AI generation failed:', llmError)
+        console.error('SysAdmin AI generation failed:', llmError)
         return NextResponse.json({
           success: false,
           message: 'I encountered an error processing your request. Please try again.',

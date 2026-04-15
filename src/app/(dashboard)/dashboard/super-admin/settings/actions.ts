@@ -116,7 +116,7 @@ export async function updateSystemSetting(
 
     if (!profile || profile.role !== 'super_admin') {
       console.log('User is not super_admin:', profile)
-      return { success: false, error: 'Unauthorized: Super admin privileges required' }
+      return { success: false, error: 'Unauthorized: SysAdmin privileges required' }
     }
 
     // Get current setting for audit log
@@ -206,7 +206,7 @@ export async function updateMultipleSettings(
       .single()) as { data: SettingProfileRow | null }
 
     if (!profile || profile.role !== 'super_admin') {
-      return { success: false, error: 'Unauthorized: Super admin privileges required' }
+      return { success: false, error: 'Unauthorized: SysAdmin privileges required' }
     }
 
     // Update each setting

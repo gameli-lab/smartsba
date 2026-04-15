@@ -383,7 +383,7 @@ export function AICommandCenter({ initialRole }: { initialRole: UserRole }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                  <SelectItem value="super_admin">SysAdmin</SelectItem>
                   <SelectItem value="school_admin">School Admin</SelectItem>
                   <SelectItem value="teacher">Teacher</SelectItem>
                   <SelectItem value="student">Student</SelectItem>

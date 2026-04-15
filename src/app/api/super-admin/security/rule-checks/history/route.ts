@@ -41,7 +41,7 @@ async function requireSuperAdmin(request: NextRequest): Promise<{ ok: true } | {
   }
 
   if ((profile as ProfileRow).role !== 'super_admin') {
-    return { ok: false, error: 'Super admin privileges required', status: 403 }
+    return { ok: false, error: 'SysAdmin privileges required', status: 403 }
   }
 
   return { ok: true }

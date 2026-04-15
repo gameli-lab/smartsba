@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (profile.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Super admin privileges required' }, { status: 403 });
+      return NextResponse.json({ error: 'SysAdmin privileges required' }, { status: 403 });
     }
 
     // Total schools count

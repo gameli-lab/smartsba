@@ -12,7 +12,7 @@ import DateRangeSelector from './DateRangeSelector'
 import ReportsExport from './ReportsExport'
 
 export const metadata: Metadata = {
-  title: 'Advanced Reports | Super Admin',
+  title: 'Advanced Reports | SysAdmin',
   description: 'Platform analytics and performance reports',
 }
 

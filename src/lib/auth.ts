@@ -41,7 +41,7 @@ export class MultipleSchoolsFoundError extends Error {
 }
 
 export class AuthService {
-  // Super Admin login with email
+  // SysAdmin login with email
   static async loginSuperAdmin(email: string, password: string): Promise<AuthResult> {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -59,13 +59,13 @@ export class AuthService {
 
     if (profileError || !profile) {
       await supabase.auth.signOut()
-      throw new Error('Invalid super admin credentials')
+      throw new Error('Invalid SysAdmin credentials')
     }
 
     const typedProfile = profile as UserProfile
     if (typedProfile.role !== 'super_admin') {
       await supabase.auth.signOut()
-      throw new Error('Invalid super admin credentials')
+      throw new Error('Invalid SysAdmin credentials')
     }
 
     // Set custom JWT claims for proper authorization
@@ -99,36 +99,60 @@ export class AuthService {
       throw new Error('Invalid staff credentials')
     }
 
-    // If multiple schools found and no schoolId provided, ask user to select
-    if (profiles.length > 1 && !schoolId) {
-      const schools = profiles
-        .map((p) => ({
-          id: p.school_id,
-        name: p.schools?.name || 'Unknown School',
-        }))
-        .filter((school): school is SchoolOption => Boolean(school.id))
-      throw new MultipleSchoolsFoundError(schools)
+    const candidateProfiles = profiles as UserProfile[]
+
+    if (!schoolId) {
+      const uniqueSchools = Array.from(
+        new Map(
+          candidateProfiles
+            .map((p) => ({
+              id: p.school_id,
+              name: p.schools?.name || 'Unknown School',
+            }))
+            .filter((school): school is SchoolOption => Boolean(school.id))
+            .map((school) => [school.id, school])
+        ).values()
+      )
+
+      if (uniqueSchools.length > 1) {
+        throw new MultipleSchoolsFoundError(uniqueSchools)
+      }
     }
 
-    const profile = profiles[0] as UserProfile
+    const scopedCandidates = schoolId
+      ? candidateProfiles.filter((profile) => profile.school_id === schoolId)
+      : candidateProfiles
 
-    // Additional security check - if school was provided, ensure it matches
-    if (schoolId && profile.school_id !== schoolId) {
+    if (schoolId && scopedCandidates.length === 0) {
       throw new Error('User does not belong to the selected school')
     }
 
-    // Get the user's email from the profile to sign in
-    const { data: authUser, error: authError } = await supabase.auth.signInWithPassword({
-      email: profile.email,
-      password,
-    })
+    let lastAuthError: Error | null = null
 
-    if (authError) throw authError
+    for (const profile of scopedCandidates) {
+      if (!profile.email) {
+        continue
+      }
 
-    // Set custom JWT claims for proper authorization
-    await AuthService.setUserClaims(authUser.user.id)
+      const { data: authUser, error: authError } = await supabase.auth.signInWithPassword({
+        email: profile.email,
+        password,
+      })
 
-    return { user: authUser.user, profile }
+      if (authError) {
+        lastAuthError = authError
+        continue
+      }
+
+      await AuthService.setUserClaims(authUser.user.id)
+      return { user: authUser.user, profile }
+    }
+
+    if (lastAuthError) {
+      throw lastAuthError
+    }
+
+    throw new Error('Invalid staff credentials')
   }
 
   // Student login with Admission Number and optional School verification
@@ -313,7 +337,7 @@ export class AuthService {
 
     const typedProfile = profile as UserProfile
 
-    // Super admin has access to all schools
+    // SysAdmin has access to all schools
     if (typedProfile.role === 'super_admin') return true
 
     // Others are limited to their school
@@ -371,11 +395,11 @@ export async function requireSchoolAdmin(): Promise<AuthResult> {
 }
 
 /**
- * Server-side auth guard for Super Admin role.
- * Use this in Server Components and layouts to enforce Super Admin-only access.
+ * Server-side auth guard for SysAdmin role.
+ * Use this in Server Components and layouts to enforce SysAdmin-only access.
  *
  * @throws Redirects to /login if not authenticated or not super_admin
- * @returns Authenticated super admin user and profile
+ * @returns Authenticated sysadmin user and profile
  */
 export async function requireSuperAdmin(): Promise<AuthResult> {
   const serverSupabase = await createServerComponentClient()

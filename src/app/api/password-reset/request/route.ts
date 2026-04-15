@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     }
 
     if (role === 'super_admin') {
-      return NextResponse.json({ error: 'Super Admins cannot request password resets through this portal.' }, { status: 403 });
+      return NextResponse.json({ error: 'SysAdmins cannot request password resets through this portal.' }, { status: 403 });
     }
 
     // 1. Find the user_profile based on identifier and role

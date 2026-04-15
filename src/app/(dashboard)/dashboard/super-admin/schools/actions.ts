@@ -51,7 +51,7 @@ async function getSuperAdminContext() {
 
   const profile = userProfileData as UserProfileRow | null
   if (!profile || profile.role !== 'super_admin') {
-    return { error: 'Unauthorized: Super admin privileges required', user: null, profile: null }
+    return { error: 'Unauthorized: SysAdmin privileges required', user: null, profile: null }
   }
 
   return { error: null as string | null, user, profile }

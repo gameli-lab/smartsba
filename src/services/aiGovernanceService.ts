@@ -187,7 +187,7 @@ export function runAICommand(input: AICommandInput): AICommandOutput {
       },
       next_steps: allowed
         ? [`Open ${ROLE_HOME[targetRole]} and execute checklist for ${targetRole}.`, 'Record outcomes in audit logs and test notes.']
-        : ['Choose one of your accessible roles.', 'Escalate to super admin for broader cross-role audits.'],
+        : ['Choose one of your accessible roles.', 'Escalate to sysadmin for broader cross-role audits.'],
     }
   }
 

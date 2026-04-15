@@ -107,7 +107,7 @@ export async function exportSchoolsToCSV(
     const profile = profileResponse.data
 
     if (!profile || profile.role !== 'super_admin') {
-      return { success: false, error: 'Unauthorized: Super admin privileges required' }
+      return { success: false, error: 'Unauthorized: SysAdmin privileges required' }
     }
 
     // Fetch schools data
@@ -209,7 +209,7 @@ export async function exportUsersToCSV(
     const profile = profileResponse.data
 
     if (!profile || profile.role !== 'super_admin') {
-      return { success: false, error: 'Unauthorized: Super admin privileges required' }
+      return { success: false, error: 'Unauthorized: SysAdmin privileges required' }
     }
 
     // Fetch users with school info
@@ -318,7 +318,7 @@ export async function exportAuditLogsToCSV(
     const profile = profileResponse.data
 
     if (!profile || profile.role !== 'super_admin') {
-      return { success: false, error: 'Unauthorized: Super admin privileges required' }
+      return { success: false, error: 'Unauthorized: SysAdmin privileges required' }
     }
 
     // Fetch audit logs
@@ -429,7 +429,7 @@ export async function exportAnalyticsToCSV(
     const profile = profileResponse.data
 
     if (!profile || profile.role !== 'super_admin') {
-      return { success: false, error: 'Unauthorized: Super admin privileges required' }
+      return { success: false, error: 'Unauthorized: SysAdmin privileges required' }
     }
 
     // Fetch analytics data
@@ -476,7 +476,7 @@ export async function exportAnalyticsToCSV(
       '',
       '# User Statistics',
       'Role,Count',
-      `Super Admins,${usersByRole.super_admin}`,
+      `SysAdmins,${usersByRole.super_admin}`,
       `School Admins,${usersByRole.school_admin}`,
       `Teachers,${usersByRole.teacher}`,
       `Students,${usersByRole.student}`,

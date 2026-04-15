@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (profile.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Super admin privileges required' }, { status: 403 });
+      return NextResponse.json({ error: 'SysAdmin privileges required' }, { status: 403 });
     }
 
     const { data: admins, error } = await supabaseAdmin
@@ -61,8 +61,8 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching super admins:', error);
-      return NextResponse.json({ error: 'Failed to fetch super admins' }, { status: 500 });
+      console.error('Error fetching sysadmins:', error);
+      return NextResponse.json({ error: 'Failed to fetch sysadmins' }, { status: 500 });
     }
 
     return NextResponse.json({ superAdmins: admins }, { status: 200 });

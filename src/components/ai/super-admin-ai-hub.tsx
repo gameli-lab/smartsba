@@ -427,7 +427,7 @@ export function SuperAdminAIHub() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">AI Command Center</h1>
         <p className="text-muted-foreground mt-1">
-          Super admin AI hub for chat, coding assistance, cyber analysis, external auditing, and integrations setup.
+          SysAdmin AI hub for chat, coding assistance, cyber analysis, external auditing, and integrations setup.
         </p>
       </div>
 

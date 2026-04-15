@@ -4,7 +4,7 @@ import EmailLogsTable from './EmailLogsTable'
 import EmailStatsCards from './EmailStatsCards'
 
 export const metadata: Metadata = {
-  title: 'Email Logs | Super Admin',
+  title: 'Email Logs | SysAdmin',
   description: 'View and monitor email delivery logs',
 }
 

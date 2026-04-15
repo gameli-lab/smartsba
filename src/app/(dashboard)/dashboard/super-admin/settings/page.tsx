@@ -147,7 +147,7 @@ export default function SettingsPage() {
       const profile = profileResponse.data
 
       if (!profile || profile.role !== 'super_admin') {
-        setError('Unauthorized: Super admin access required')
+        setError('Unauthorized: SysAdmin access required')
         setLoading(false)
         return
       }
@@ -1224,7 +1224,7 @@ export default function SettingsPage() {
                 AI Provider Configuration
               </CardTitle>
               <CardDescription>
-                Configure multi-AI support. This section is restricted to super admins and is protected by the super-admin route.
+                Configure multi-AI support. This section is restricted to sysadmins and is protected by the super-admin route.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">

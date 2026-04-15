@@ -10,7 +10,7 @@ export interface School {
 }
 
 export class SchoolService {
-  // Get all schools (for super admin)
+  // Get all schools (for sysadmin)
   static async getAllSchools(): Promise<School[]> {
     const { data, error } = await supabase
       .from('schools')

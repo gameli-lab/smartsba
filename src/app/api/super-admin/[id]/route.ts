@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
 
     if (profile.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Super admin privileges required' }, { status: 403 });
+      return NextResponse.json({ error: 'SysAdmin privileges required' }, { status: 403 });
     }
 
     const body = (await request.json()) as {
@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       .eq('id', id);
 
     if (error) {
-      console.error('Error updating super admin profile:', error);
+      console.error('Error updating sysadmin profile:', error);
       return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
     }
 
@@ -154,7 +154,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     if (profile.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Super admin privileges required' }, { status: 403 });
+      return NextResponse.json({ error: 'SysAdmin privileges required' }, { status: 403 });
     }
 
     // Fetch the target profile to find the auth user id

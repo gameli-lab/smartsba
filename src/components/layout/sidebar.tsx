@@ -46,7 +46,7 @@ interface SidebarProps {
 
 const roleConfig = {
   super_admin: {
-    title: "Super Admin",
+    title: "SysAdmin",
     color: "bg-purple-500",
     badge: "SUPER",
     items: [

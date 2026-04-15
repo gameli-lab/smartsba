@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     if (!profile || profile.role !== 'super_admin') {
       return NextResponse.json(
-        { error: 'Super admin privileges required' },
+        { error: 'SysAdmin privileges required' },
         { status: 403 }
       );
     }

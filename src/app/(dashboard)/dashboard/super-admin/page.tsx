@@ -741,7 +741,7 @@ export default function SuperAdminDashboard() {
       {/* Header Section */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl dark:text-gray-100">Super Admin Command Center</h1>
+          <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl dark:text-gray-100">SysAdmin Command Center</h1>
           <p className="mt-2 text-base text-gray-600 sm:text-lg dark:text-gray-300">Global Platform Oversight</p>
           <div className="flex items-center gap-3 mt-4">
             <Badge variant="outline" className="font-mono">
