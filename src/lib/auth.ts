@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { supabase, createServerComponentClient, createAdminSupabaseClient } from './supabase'
 import { UserRole, UserProfile, Teacher, TeacherAssignment, Student } from '@/types'
 import { getClientCsrfHeaders } from '@/lib/csrf'
 import { recordSecurityEvent } from '@/lib/security-monitor'
-import { MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
+import { buildMfaCookieValue, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
 
 type User = NonNullable<Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']>
 
@@ -527,6 +528,15 @@ export class AuthService {
 
   // Sign out
   static async signOut() {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: getClientCsrfHeaders({}),
+      })
+    } catch {
+      // Ignore logout endpoint failures and continue with the client sign-out.
+    }
+
     const { error } = await supabase.auth.signOut()
     if (error) throw error
 
@@ -561,6 +571,28 @@ export class AuthService {
     // This function is kept for backwards compatibility but does nothing
     // The storage policies have been updated to query user_profiles directly
     console.log('setUserClaims called for user:', userId, '(no-op - policies use direct queries)')
+  }
+}
+
+async function requirePrivilegedMfa(userId: string): Promise<void> {
+  const supabaseAdmin = createAdminSupabaseClient()
+  const { data: enrollment } = await (supabaseAdmin as any)
+    .from('mfa_enrollments')
+    .select('enabled, last_used_at')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  const enrollmentRow = enrollment as { enabled?: boolean; last_used_at?: string | null } | null
+  if (!enrollmentRow?.enabled || !enrollmentRow.last_used_at) {
+    redirect('/mfa-challenge')
+  }
+
+  const cookieStore = await cookies()
+  const providedCookie = cookieStore.get(MFA_VERIFIED_COOKIE_NAME)?.value
+  const expectedCookie = buildMfaCookieValue(userId, enrollmentRow.last_used_at)
+
+  if (!providedCookie || providedCookie !== expectedCookie) {
+    redirect('/mfa-challenge')
   }
 }
 
@@ -600,6 +632,8 @@ export async function requireSchoolAdmin(): Promise<AuthResult> {
   if (!typedProfile.school_id) {
     redirect('/login')
   }
+
+  await requirePrivilegedMfa(user.id)
   
   return { user, profile: typedProfile }
 }
@@ -635,6 +669,8 @@ export async function requireSuperAdmin(): Promise<AuthResult> {
   if (typedProfile.role !== 'super_admin') {
     redirect('/login')
   }
+
+  await requirePrivilegedMfa(user.id)
 
   return { user, profile: typedProfile }
 }

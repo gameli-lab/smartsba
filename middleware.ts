@@ -139,8 +139,10 @@ export async function middleware(req: NextRequest) {
       url: supabaseUrl ? 'SET' : 'MISSING',
       key: supabaseAnonKey ? 'SET' : 'MISSING'
     })
-    // Allow request to continue without auth middleware
-    return finalizeResponse(req, NextResponse.next())
+    // Fail closed so privileged routes never bypass auth if middleware is misconfigured.
+    const loginUrl = new URL('/login', req.url)
+    loginUrl.searchParams.set('reason', 'configuration_error')
+    return finalizeResponse(req, NextResponse.redirect(loginUrl))
   }
 
   if (isStateChangingApiRequest(req)) {
