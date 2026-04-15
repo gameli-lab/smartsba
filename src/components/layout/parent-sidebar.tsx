@@ -25,7 +25,7 @@ const items: SidebarItem[] = [
   { href: '/parent/results', label: 'Ward Results', icon: <FileText className="h-5 w-5" /> },
   { href: '/parent/performance', label: 'Performance History', icon: <Activity className="h-5 w-5" /> },
   { href: '/parent/announcements', label: 'Announcements', icon: <Megaphone className="h-5 w-5" /> },
-  { href: '/parent/profile', label: 'Profile', icon: <UserCircle className="h-5 w-5" /> },
+  { href: '/profile', label: 'Profile', icon: <UserCircle className="h-5 w-5" /> },
 ]
 
 interface ParentSidebarProps {
@@ -46,7 +46,7 @@ export function ParentSidebar({ wards }: ParentSidebarProps) {
   const effectiveWardId = selectedWardId || wards[0]?.id
 
   const withWard = (href: string) => {
-    if (!effectiveWardId || href.includes('/parent/profile')) return href
+    if (!effectiveWardId || href === '/profile') return href
     return `${href}?ward=${encodeURIComponent(effectiveWardId)}`
   }
 

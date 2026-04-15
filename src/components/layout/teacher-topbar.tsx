@@ -40,7 +40,7 @@ export function TeacherTopbar({ teacherName, teacherEmail, role, currentSession 
   }
 
   const handleProfile = () => {
-    router.push('/teacher/profile')
+    router.push('/profile')
   }
 
   const handleChangePassword = () => {

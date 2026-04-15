@@ -15,13 +15,7 @@ import { useRouter } from 'next/navigation'
 import { AuthService } from '@/lib/auth'
 
 function getProfileLink(userRole?: string): string | null {
-  switch (userRole) {
-    case 'school_admin': return '/school-admin/school-profile'
-    case 'teacher':      return '/teacher/profile'
-    case 'student':      return '/student/profile'
-    case 'parent':       return '/parent/profile'
-    default:             return null
-  }
+  return userRole ? '/profile' : null
 }
 
 function getAIAssistantLink(userRole?: string): string {

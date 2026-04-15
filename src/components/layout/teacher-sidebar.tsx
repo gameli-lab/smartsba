@@ -36,7 +36,7 @@ const items: SidebarItem[] = [
   { href: '/teacher/assessments', label: 'Assessments & Scores', icon: <ClipboardList className="h-5 w-5" /> },
   { href: '/teacher/reports', label: 'Reports', icon: <FileText className="h-5 w-5" /> },
   { href: '/teacher/announcements', label: 'Announcements', icon: <Megaphone className="h-5 w-5" /> },
-  { href: '/teacher/profile', label: 'Profile', icon: <UserCircle className="h-5 w-5" /> },
+  { href: '/profile', label: 'Profile', icon: <UserCircle className="h-5 w-5" /> },
 ]
 
 export function TeacherSidebar() {

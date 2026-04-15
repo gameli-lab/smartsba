@@ -48,6 +48,7 @@ export interface UserProfile {
   admission_number?: string
   phone?: string
   address?: string
+  photo_url?: string
   gender?: Gender
   date_of_birth?: string
   created_at: string

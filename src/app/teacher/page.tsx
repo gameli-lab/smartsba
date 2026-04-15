@@ -229,7 +229,7 @@ export default async function TeacherPage({ searchParams }: { searchParams: Reco
                 No class assigned yet.
                 <div className="mt-2">
                   <Button asChild size="sm" variant="outline">
-                    <Link href="/teacher/profile">Update Profile / Contact Admin</Link>
+                    <Link href="/profile">Update Profile / Contact Admin</Link>
                   </Button>
                 </div>
               </div>
@@ -472,7 +472,7 @@ export default async function TeacherPage({ searchParams }: { searchParams: Reco
             No active term. Configure current academic session to unlock session-based analytics.
             <div className="mt-3">
               <Button asChild variant="outline" size="sm">
-                <Link href="/teacher/profile">Contact Admin</Link>
+                <Link href="/profile">Contact Admin</Link>
               </Button>
             </div>
           </CardContent>

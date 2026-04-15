@@ -25,7 +25,7 @@ const items: SidebarItem[] = [
   { href: '/student/performance', label: 'Performance History', icon: <Activity className="h-5 w-5" /> },
   { href: '/student/announcements', label: 'Announcements', icon: <Megaphone className="h-5 w-5" /> },
   { href: '/student/downloads', label: 'Downloads', icon: <FileText className="h-5 w-5" /> },
-  { href: '/student/profile', label: 'Profile', icon: <UserCircle className="h-5 w-5" /> },
+  { href: '/profile', label: 'Profile', icon: <UserCircle className="h-5 w-5" /> },
 ]
 
 export function StudentSidebar() {

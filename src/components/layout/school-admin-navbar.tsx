@@ -47,7 +47,7 @@ export function SchoolAdminNavbar({
   }
 
   const handleProfile = () => {
-    router.push('/school-admin/school-profile')
+    router.push('/profile')
   }
 
   const handleChangePassword = () => {
