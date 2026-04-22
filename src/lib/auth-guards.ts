@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { supabase, createServerComponentClient, createAdminSupabaseClient } from './supabase'
 import { UserProfile, Teacher, TeacherAssignment, Student } from '@/types'
-import { buildMfaCookieValue, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
+import { isMfaCookieVerified, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
 import { getAssumeRoleContextForActor } from '@/lib/assume-role'
 import type { AuthResult } from './auth'
 
@@ -48,13 +48,10 @@ async function requirePrivilegedMfa(userId: string): Promise<void> {
     redirect('/mfa-challenge')
   }
 
-  const enrollmentRecord = enrollmentRow as { enabled: boolean; last_used_at: string }
-
   const cookieStore = await cookies()
   const providedCookie = cookieStore.get(MFA_VERIFIED_COOKIE_NAME)?.value
-  const expectedCookie = buildMfaCookieValue(userId, enrollmentRecord.last_used_at)
 
-  if (!providedCookie || providedCookie !== expectedCookie) {
+  if (!isMfaCookieVerified(userId, enrollmentRow.last_used_at, providedCookie)) {
     redirect('/mfa-challenge')
   }
 }

@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { CSRF_COOKIE_NAME, createCsrfToken } from '@/lib/csrf'
-import { buildMfaCookieValue, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
+import { isMfaCookieVerified, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
 
 const SESSION_ACTIVITY_COOKIE = 'smartsba_session_activity'
 const STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -293,11 +293,10 @@ export async function middleware(req: NextRequest) {
 
       const enrollmentRow = enrollment as { enabled?: boolean; last_used_at?: string | null } | null
 
-      const expectedCookie = enrollmentRow?.enabled && enrollmentRow?.last_used_at
-        ? buildMfaCookieValue(user.id, enrollmentRow.last_used_at)
-        : null
       const providedCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value
-      const verified = Boolean(expectedCookie && providedCookie && expectedCookie === providedCookie)
+      const verified = enrollmentRow?.enabled
+        ? isMfaCookieVerified(user.id, enrollmentRow.last_used_at, providedCookie)
+        : false
 
       if (!verified) {
         const challengeUrl = new URL('/mfa-challenge', req.url)
@@ -312,9 +311,23 @@ export async function middleware(req: NextRequest) {
   if (user && pathname.startsWith('/login') && profile?.role) {
     const targetPath = getRoleRedirectPath(profile.role)
     if (isPrivilegedRole(profile.role)) {
-      const challengeUrl = new URL('/mfa-challenge', req.url)
-      challengeUrl.searchParams.set('next', targetPath)
-      return finalizeResponse(req, NextResponse.redirect(challengeUrl))
+      const { data: enrollment } = await (supabase as any)
+        .from('mfa_enrollments')
+        .select('enabled, last_used_at')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      const enrollmentRow = enrollment as { enabled?: boolean; last_used_at?: string | null } | null
+      const providedCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value
+      const verified = enrollmentRow?.enabled
+        ? isMfaCookieVerified(user.id, enrollmentRow.last_used_at, providedCookie)
+        : false
+
+      if (!verified) {
+        const challengeUrl = new URL('/mfa-challenge', req.url)
+        challengeUrl.searchParams.set('next', targetPath)
+        return finalizeResponse(req, NextResponse.redirect(challengeUrl))
+      }
     }
 
     return finalizeResponse(req, NextResponse.redirect(new URL(targetPath, req.url)))
