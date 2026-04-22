@@ -1,4 +1,4 @@
-import { requireSuperAdmin } from '@/lib/auth'
+import { requireSuperAdmin } from '@/lib/auth-guards'
 import { SuperAdminAIHub } from '@/components/ai/super-admin-ai-hub'
 
 export default async function SuperAdminAIPage() {

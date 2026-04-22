@@ -1,4 +1,4 @@
-import { requireSuperAdmin } from '@/lib/auth'
+import { requireSuperAdmin } from '@/lib/auth-guards'
 import { DummyDataGeneratorPanel } from '@/components/super-admin/dummy-data-generator-panel'
 import { RoleAssumptionPanel } from '@/components/super-admin/role-assumption-panel'
 

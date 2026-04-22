@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { requireSchoolAdmin } from '@/lib/auth'
+import { requireSchoolAdmin } from '@/lib/auth-guards'
 
 export default async function SchoolAdminDashboardRedirect() {
   await requireSchoolAdmin()

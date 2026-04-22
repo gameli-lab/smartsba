@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
-import { requireSchoolAdmin } from '@/lib/auth'
+import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { createAdminSupabaseClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

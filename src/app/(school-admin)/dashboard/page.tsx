@@ -1,4 +1,4 @@
-import { requireSchoolAdmin } from '@/lib/auth'
+import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { createAdminSupabaseClient } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { formatDate } from '@/lib/utils'

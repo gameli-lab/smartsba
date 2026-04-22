@@ -1,4 +1,4 @@
-import { requireSchoolAdmin } from '@/lib/auth'
+import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { createServerComponentClient } from '@/lib/supabase'
 import { getSchoolAssetSignedUrl } from '@/lib/storage'
 import { School } from '@/types'

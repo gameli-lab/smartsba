@@ -1,6 +1,6 @@
 "use server"
 
-import { requireParent } from '@/lib/auth'
+import { requireParent } from '@/lib/auth-guards'
 import { supabase } from '@/lib/supabase'
 
 export async function submitProfileUpdateRequest(

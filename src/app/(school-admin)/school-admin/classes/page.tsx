@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { unstable_noStore as noStore } from 'next/cache'
-import { requireSchoolAdmin } from '@/lib/auth'
+import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { createServerComponentClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

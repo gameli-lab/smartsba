@@ -1,4 +1,4 @@
-import { requireSchoolAdmin } from '@/lib/auth'
+import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { createServerComponentClient } from '@/lib/supabase'
 import { AnnouncementsClient } from './announcements-client'
 import { Announcement, Class } from '@/types'

@@ -2,7 +2,7 @@
  * Shared utilities for student pages
  */
 
-import { requireStudent } from '@/lib/auth'
+import { requireStudent } from '@/lib/auth-guards'
 import { initializeStudentProfile } from './actions'
 
 /**

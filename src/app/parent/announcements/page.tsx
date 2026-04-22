@@ -1,4 +1,4 @@
-import { requireParent } from '@/lib/auth'
+import { requireParent } from '@/lib/auth-guards'
 import { supabase } from '@/lib/supabase'
 import { AnnouncementsClient } from '@/components/parent/announcements-client'
 import { buildParentAnnouncementFilter, selectWard } from '../_lib/ward-selection'

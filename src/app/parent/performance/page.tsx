@@ -1,4 +1,4 @@
-import { requireParent } from '@/lib/auth'
+import { requireParent } from '@/lib/auth-guards'
 import { supabase } from '@/lib/supabase'
 import { PerformanceClient } from '@/components/parent/performance-client'
 import { selectWard } from '../_lib/ward-selection'

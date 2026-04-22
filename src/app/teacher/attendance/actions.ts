@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requireTeacher } from '@/lib/auth'
+import { requireTeacher } from '@/lib/auth-guards'
 import { supabase } from '@/lib/supabase'
 
 function normalizeNumber(raw: FormDataEntryValue | null): number | undefined {

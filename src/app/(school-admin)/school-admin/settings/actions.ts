@@ -1,6 +1,6 @@
 'use server'
 
-import { requireSchoolAdmin } from '@/lib/auth'
+import { requireSchoolAdmin } from '@/lib/auth-guards'
 
 export interface SettingsInput {
   gradingScheme: 'default' | 'custom'

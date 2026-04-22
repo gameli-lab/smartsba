@@ -1,6 +1,6 @@
 'use server'
 
-import { requireSchoolAdmin } from '@/lib/auth'
+import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { supabase, createServerComponentClient } from '@/lib/supabase'
 import { getSchoolAssetSignedUrl } from '@/lib/storage'
 import type { ReportCardData, ClassReportData, Score, AcademicSession } from '@/types'

@@ -1,4 +1,4 @@
-import { requireSuperAdmin } from '@/lib/auth'
+import { requireSuperAdmin } from '@/lib/auth-guards'
 import { AIFindingsBoard } from '@/components/ai/ai-findings-board'
 
 export default async function SecurityFindingsPage() {

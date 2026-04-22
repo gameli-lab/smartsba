@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 import { ParentShell } from '@/components/layout/parent-shell'
-import { requireParent } from '@/lib/auth'
+import { requireParent } from '@/lib/auth-guards'
 import { createServerComponentClient } from '@/lib/supabase'
 
 export default async function ParentRootLayout({ children }: { children: ReactNode }) {

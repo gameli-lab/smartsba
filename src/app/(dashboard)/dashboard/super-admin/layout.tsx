@@ -1,4 +1,4 @@
-import { requireSuperAdmin } from '@/lib/auth'
+import { requireSuperAdmin } from '@/lib/auth-guards'
 
 export default async function SuperAdminLayout({
   children,

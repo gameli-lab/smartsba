@@ -1,4 +1,4 @@
-import { requireSchoolAdmin } from '@/lib/auth'
+import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { createAdminSupabaseClient, createServerComponentClient } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'

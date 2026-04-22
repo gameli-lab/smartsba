@@ -1,4 +1,4 @@
-import { requireTeacher } from '@/lib/auth'
+import { requireTeacher } from '@/lib/auth-guards'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'

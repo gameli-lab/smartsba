@@ -1,4 +1,4 @@
-import { requireSchoolAdmin } from '@/lib/auth'
+import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { createServerComponentClient } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { ReportsClient } from './reports-client'

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import ExcelJS from 'exceljs'
-import { requireSchoolAdmin } from '@/lib/auth'
+import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { supabase } from '@/lib/supabase'
 
 interface ScoreInput {

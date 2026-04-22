@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { requireTeacher } from '@/lib/auth'
+import { requireTeacher } from '@/lib/auth-guards'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'

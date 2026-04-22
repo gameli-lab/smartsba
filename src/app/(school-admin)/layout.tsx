@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { requireSchoolAdmin } from '@/lib/auth'
+import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { SchoolAdminSidebar } from '@/components/layout/school-admin-sidebar'
 import { SchoolAdminLayoutWrapper } from '@/components/layout/school-admin-layout-wrapper'
 import { AIBubbleWrapper } from '@/components/ai/ai-bubble-wrapper'

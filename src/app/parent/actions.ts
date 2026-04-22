@@ -1,6 +1,6 @@
 'use server'
 
-import { requireParent } from '@/lib/auth'
+import { requireParent } from '@/lib/auth-guards'
 import { createAdminSupabaseClient } from '@/lib/supabase'
 import logAudit from '@/lib/audit'
 
