@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -120,6 +120,7 @@ export default function SettingsPage() {
     enable_api_access: false,
     enable_two_factor_auth: false,
   })
+  const featureValuesRef = useRef(featureValues)
   const [featureDirty, setFeatureDirty] = useState(false)
   const [savingFeatures, setSavingFeatures] = useState(false)
 
@@ -272,6 +273,14 @@ export default function SettingsPage() {
         enable_api_access: typeof enable_api_access === 'string' ? enable_api_access === 'true' : Boolean(enable_api_access),
         enable_two_factor_auth: typeof enable_two_factor_auth === 'string' ? enable_two_factor_auth === 'true' : Boolean(enable_two_factor_auth),
       })
+      featureValuesRef.current = {
+        enable_bulk_operations: typeof enable_bulk_operations === 'string' ? enable_bulk_operations === 'true' : Boolean(enable_bulk_operations),
+        enable_analytics: typeof enable_analytics === 'string' ? enable_analytics === 'true' : Boolean(enable_analytics),
+        enable_audit_logs: typeof enable_audit_logs === 'string' ? enable_audit_logs === 'true' : Boolean(enable_audit_logs),
+        enable_email_notifications: typeof enable_email_notifications === 'string' ? enable_email_notifications === 'true' : Boolean(enable_email_notifications),
+        enable_api_access: typeof enable_api_access === 'string' ? enable_api_access === 'true' : Boolean(enable_api_access),
+        enable_two_factor_auth: typeof enable_two_factor_auth === 'string' ? enable_two_factor_auth === 'true' : Boolean(enable_two_factor_auth),
+      }
       setFeatureDirty(false)
     }
 
@@ -608,13 +617,15 @@ export default function SettingsPage() {
     setError(null)
 
     try {
+      const currentFeatureValues = featureValuesRef.current
+
       const updates = [
-        await updateSystemSetting('features.enable_bulk_operations', featureValues.enable_bulk_operations, userId, userRole),
-        await updateSystemSetting('features.enable_analytics', featureValues.enable_analytics, userId, userRole),
-        await updateSystemSetting('features.enable_audit_logs', featureValues.enable_audit_logs, userId, userRole),
-        await updateSystemSetting('features.enable_email_notifications', featureValues.enable_email_notifications, userId, userRole),
-        await updateSystemSetting('features.enable_api_access', featureValues.enable_api_access, userId, userRole),
-        await updateSystemSetting('features.enable_two_factor_auth', featureValues.enable_two_factor_auth, userId, userRole),
+        await updateSystemSetting('features.enable_bulk_operations', currentFeatureValues.enable_bulk_operations, userId, userRole),
+        await updateSystemSetting('features.enable_analytics', currentFeatureValues.enable_analytics, userId, userRole),
+        await updateSystemSetting('features.enable_audit_logs', currentFeatureValues.enable_audit_logs, userId, userRole),
+        await updateSystemSetting('features.enable_email_notifications', currentFeatureValues.enable_email_notifications, userId, userRole),
+        await updateSystemSetting('features.enable_api_access', currentFeatureValues.enable_api_access, userId, userRole),
+        await updateSystemSetting('features.enable_two_factor_auth', currentFeatureValues.enable_two_factor_auth, userId, userRole),
       ]
 
       const failedUpdate = updates.find((result) => !result.success)
@@ -624,6 +635,10 @@ export default function SettingsPage() {
       
       setSuccess('Feature settings saved successfully')
       setFeatureDirty(false)
+
+      setTimeout(async () => {
+        await loadSettings()
+      }, 500)
       
       setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
@@ -1463,7 +1478,11 @@ export default function SettingsPage() {
                     <Switch
                       checked={featureValues[feature.key as keyof typeof featureValues]}
                       onCheckedChange={(checked) => {
-                        setFeatureValues({ ...featureValues, [feature.key]: checked })
+                        setFeatureValues((prev) => {
+                          const nextValues = { ...prev, [feature.key]: checked }
+                          featureValuesRef.current = nextValues
+                          return nextValues
+                        })
                         setFeatureDirty(true)
                       }}
                       disabled={savingFeatures}
