@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { supabase, createServerComponentClient, createAdminSupabaseClient } from './supabase'
+import { supabase, createServerComponentClient, createAdminSupabaseClient, getMfaVerificationState } from './supabase'
 import { UserProfile, Teacher, TeacherAssignment, Student } from '@/types'
 import { isMfaCookieVerified, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
 import { getAssumeRoleContextForActor } from '@/lib/assume-role'
@@ -36,22 +36,11 @@ type RoleGuardContext = {
 }
 
 async function requirePrivilegedMfa(userId: string): Promise<void> {
-  const supabaseAdmin = createAdminSupabaseClient()
-  const { data: enrollment } = await (supabaseAdmin as any)
-    .from('mfa_enrollments')
-    .select('enabled, last_used_at')
-    .eq('user_id', userId)
-    .maybeSingle()
-
-  const enrollmentRow = enrollment as { enabled?: boolean; last_used_at?: string | null } | null
-  if (!enrollmentRow?.enabled || !enrollmentRow.last_used_at) {
-    redirect('/mfa-challenge')
-  }
-
   const cookieStore = await cookies()
   const providedCookie = cookieStore.get(MFA_VERIFIED_COOKIE_NAME)?.value
+  const verificationState = await getMfaVerificationState(userId, providedCookie)
 
-  if (!isMfaCookieVerified(userId, enrollmentRow.last_used_at, providedCookie)) {
+  if (!verificationState.enabled || !verificationState.lastUsedAt || !verificationState.verified) {
     redirect('/mfa-challenge')
   }
 }

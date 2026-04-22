@@ -1,10 +1,48 @@
 import { createBrowserClient, createServerClient } from '@supabase/ssr'
 import type { CookieOptions } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
+import { isMfaCookieVerified } from '@/lib/mfa-session'
 import { Database } from '@/types/supabase'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+export type MfaEnrollmentRow = {
+  enabled: boolean
+  enabled_at: string | null
+  last_used_at: string | null
+  backup_codes_hashed?: string[] | null
+  secret_base32?: string | null
+  role?: string
+  school_id?: string | null
+}
+
+export type MfaVerificationState = {
+  enrolled: boolean
+  enabled: boolean
+  verified: boolean
+  lastUsedAt: string | null
+}
+
+function normalizeMfaEnrollmentRow(row: unknown): MfaEnrollmentRow | null {
+  if (!row || typeof row !== 'object') {
+    return null
+  }
+
+  const enrollment = row as Record<string, unknown>
+
+  return {
+    enabled: Boolean(enrollment.enabled),
+    enabled_at: typeof enrollment.enabled_at === 'string' ? enrollment.enabled_at : null,
+    last_used_at: typeof enrollment.last_used_at === 'string' ? enrollment.last_used_at : null,
+    backup_codes_hashed: Array.isArray(enrollment.backup_codes_hashed)
+      ? (enrollment.backup_codes_hashed.filter((value): value is string => typeof value === 'string'))
+      : null,
+    secret_base32: typeof enrollment.secret_base32 === 'string' ? enrollment.secret_base32 : null,
+    role: typeof enrollment.role === 'string' ? enrollment.role : undefined,
+    school_id: typeof enrollment.school_id === 'string' ? enrollment.school_id : null,
+  }
+}
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
@@ -99,4 +137,36 @@ export function createAdminSupabaseClient() {
       detectSessionInUrl: false,
     },
   })
+}
+
+export async function getMfaEnrollmentForUser(userId: string): Promise<MfaEnrollmentRow | null> {
+  const admin = createAdminSupabaseClient()
+  const { data, error } = await (admin as any)
+    .from('mfa_enrollments')
+    .select('enabled, enabled_at, last_used_at, backup_codes_hashed, secret_base32, role, school_id')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return normalizeMfaEnrollmentRow(data)
+}
+
+export async function getMfaVerificationState(
+  userId: string,
+  providedCookie?: string | null
+): Promise<MfaVerificationState> {
+  const enrollment = await getMfaEnrollmentForUser(userId)
+
+  return {
+    enrolled: Boolean(enrollment),
+    enabled: Boolean(enrollment?.enabled),
+    verified: Boolean(
+      enrollment?.enabled &&
+        isMfaCookieVerified(userId, enrollment?.last_used_at, providedCookie)
+    ),
+    lastUsedAt: enrollment?.last_used_at ?? null,
+  }
 }

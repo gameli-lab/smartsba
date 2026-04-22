@@ -71,6 +71,7 @@ export default function MfaChallengePage() {
       }
 
       const response = await fetch('/api/auth/mfa', {
+        credentials: 'same-origin',
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -128,6 +129,7 @@ export default function MfaChallengePage() {
 
       const response = await fetch('/api/auth/mfa', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: getClientCsrfHeaders({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -174,6 +176,7 @@ export default function MfaChallengePage() {
 
       const response = await fetch('/api/auth/mfa', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: getClientCsrfHeaders({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -190,11 +193,15 @@ export default function MfaChallengePage() {
         throw new Error(payload.error || 'Failed to verify MFA code')
       }
 
-      if (nextPath) {
-        setSuccess('MFA verification successful. Redirecting...')
-        const redirectTo = nextPath || getDefaultRouteByRole(status?.role)
-        window.location.href = redirectTo
-      } else {
+      setSuccess(
+        nextPath
+          ? 'MFA verification successful. Finalizing trusted session...'
+          : 'MFA verification successful. Finalizing trusted session...'
+      )
+
+      await loadStatus()
+
+      if (!nextPath) {
         setSuccess('MFA verification successful. Your account is now trusted for this session window.')
       }
     } catch (verifyError) {

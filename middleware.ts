@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { CSRF_COOKIE_NAME, createCsrfToken } from '@/lib/csrf'
@@ -127,6 +128,32 @@ function finalizeResponse(req: NextRequest, response: NextResponse): NextRespons
 
   applySecurityHeaders(response)
   return response
+}
+
+async function getMfaEnrollment(userId: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !serviceRoleKey) {
+    console.error('Missing service role environment variables for MFA middleware checks')
+    return null
+  }
+
+  const admin = createClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  })
+
+  const { data } = await (admin as any)
+    .from('mfa_enrollments')
+    .select('enabled, last_used_at')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  return data as { enabled?: boolean; last_used_at?: string | null } | null
 }
 
 export async function middleware(req: NextRequest) {
@@ -285,13 +312,7 @@ export async function middleware(req: NextRequest) {
 
   if (user && profile?.role && isPrivilegedRole(profile.role) && isPrivilegedPath(pathname)) {
     if (!pathname.startsWith('/mfa-challenge') && !pathname.startsWith('/api/auth/mfa')) {
-      const { data: enrollment } = await (supabase as any)
-        .from('mfa_enrollments')
-        .select('enabled, last_used_at')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      const enrollmentRow = enrollment as { enabled?: boolean; last_used_at?: string | null } | null
+      const enrollmentRow = await getMfaEnrollment(user.id)
 
       const providedCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value
       const verified = enrollmentRow?.enabled
@@ -311,13 +332,7 @@ export async function middleware(req: NextRequest) {
   if (user && pathname.startsWith('/login') && profile?.role) {
     const targetPath = getRoleRedirectPath(profile.role)
     if (isPrivilegedRole(profile.role)) {
-      const { data: enrollment } = await (supabase as any)
-        .from('mfa_enrollments')
-        .select('enabled, last_used_at')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      const enrollmentRow = enrollment as { enabled?: boolean; last_used_at?: string | null } | null
+      const enrollmentRow = await getMfaEnrollment(user.id)
       const providedCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value
       const verified = enrollmentRow?.enabled
         ? isMfaCookieVerified(user.id, enrollmentRow.last_used_at, providedCookie)
