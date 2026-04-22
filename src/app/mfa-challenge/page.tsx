@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import QRCode from 'qrcode'
 import { supabase } from '@/lib/supabase'
 import { getClientCsrfHeaders } from '@/lib/csrf'
 
@@ -54,6 +55,7 @@ export default function MfaChallengePage() {
   const [secret, setSecret] = useState<string | null>(null)
   const [otpauthUrl, setOtpauthUrl] = useState<string | null>(null)
   const [backupCodes, setBackupCodes] = useState<string[]>([])
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null)
 
   const challengeRequired = Boolean(nextPath) || Boolean(status?.requiredForRole)
 
@@ -95,6 +97,21 @@ export default function MfaChallengePage() {
   useEffect(() => {
     void loadStatus()
   }, [])
+
+  useEffect(() => {
+    if (!otpauthUrl) {
+      setQrCodeUrl(null)
+      return
+    }
+
+    QRCode.toDataURL(otpauthUrl, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 256,
+    })
+      .then(setQrCodeUrl)
+      .catch(() => setQrCodeUrl(null))
+  }, [otpauthUrl])
 
   const handleEnroll = async () => {
     setIsSubmitting(true)
@@ -190,49 +207,59 @@ export default function MfaChallengePage() {
   const enrollmentPending = status && (!status.enrolled || !status.enabled)
 
   if (isLoading) {
-    return <div className="mx-auto max-w-xl p-6">Loading MFA challenge...</div>
+    return <div className="mx-auto max-w-xl p-6 text-gray-900 dark:text-gray-100">Loading MFA challenge...</div>
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-6 p-6">
+    <div className="mx-auto max-w-xl space-y-6 p-6 text-gray-900 dark:text-gray-100">
       <div>
         <h1 className="text-2xl font-bold">Multi-Factor Authentication</h1>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
           {challengeRequired
             ? 'This account must pass MFA before accessing privileged pages.'
             : 'MFA is optional for this role but strongly recommended to protect your account.'}
         </p>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
           Trusted MFA session duration: {status?.trustedSessionHours || 12} hour(s).
         </p>
       </div>
 
-      {error ? <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
-      {success ? <div className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-700">{success}</div> : null}
+      {error ? <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">{error}</div> : null}
+      {success ? <div className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300">{success}</div> : null}
 
       {enrollmentPending ? (
-        <div className="space-y-4 rounded border p-4">
+        <div className="space-y-4 rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
           <h2 className="text-lg font-semibold">Set Up MFA</h2>
-          <p className="text-sm text-gray-600">Enroll your authenticator app to continue.</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Enroll your authenticator app to continue.</p>
 
           {!secret ? (
             <button
-              className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+              className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
               onClick={handleEnroll}
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Initializing...' : 'Start MFA Setup'}
             </button>
           ) : (
-            <div className="space-y-3 rounded border bg-gray-50 p-3 text-sm">
-              <p><strong>Secret:</strong> {secret}</p>
-              <p><strong>OTP URI:</strong> <span className="break-all">{otpauthUrl}</span></p>
+            <div className="space-y-4 rounded border border-gray-200 bg-gray-50 p-4 text-sm dark:border-gray-700 dark:bg-gray-800">
+              {qrCodeUrl ? (
+                <div className="flex justify-center rounded-md border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+                  <img src={qrCodeUrl} alt="MFA enrollment QR code" className="h-64 w-64" />
+                </div>
+              ) : null}
+
+              <p>
+                <strong>Secret:</strong> <span className="break-all font-mono text-xs">{secret}</span>
+              </p>
+              <p>
+                <strong>OTP URI:</strong> <span className="break-all font-mono text-xs text-gray-600 dark:text-gray-300">{otpauthUrl}</span>
+              </p>
               {backupCodes.length > 0 ? (
                 <div>
                   <p className="font-semibold">Backup Codes (store safely):</p>
                   <ul className="mt-1 grid grid-cols-2 gap-2">
                     {backupCodes.map((code) => (
-                      <li key={code} className="rounded bg-white p-2 font-mono text-xs">{code}</li>
+                      <li key={code} className="rounded bg-white p-2 font-mono text-xs text-gray-900 dark:bg-gray-900 dark:text-gray-100">{code}</li>
                     ))}
                   </ul>
                 </div>
@@ -242,16 +269,16 @@ export default function MfaChallengePage() {
         </div>
       ) : null}
 
-      <form className="space-y-4 rounded border p-4" onSubmit={handleVerify}>
+      <form className="space-y-4 rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900" onSubmit={handleVerify}>
         <h2 className="text-lg font-semibold">Verify Code</h2>
-        <p className="text-sm text-gray-600">Enter a 6-digit authenticator code or a backup code.</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">Enter a 6-digit authenticator code or a backup code.</p>
 
         <input
           type="text"
           value={verificationCode}
           onChange={(event) => setVerificationCode(event.target.value)}
           placeholder="123456"
-          className="w-full rounded border px-3 py-2"
+          className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
         />
 
         <input
@@ -259,12 +286,12 @@ export default function MfaChallengePage() {
           value={backupCode}
           onChange={(event) => setBackupCode(event.target.value)}
           placeholder="Backup code (optional)"
-          className="w-full rounded border px-3 py-2"
+          className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
         />
 
         <button
           type="submit"
-          className="w-full rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
+          className="w-full rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
           disabled={isSubmitting || (!verificationCode && !backupCode)}
         >
           {isSubmitting ? 'Verifying...' : challengeRequired ? 'Verify and Continue' : 'Verify MFA'}
