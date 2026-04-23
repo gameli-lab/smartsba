@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { getClientCsrfHeaders } from '@/lib/csrf'
 
 type Preset = 'full_school_fixture' | 'report_focused'
 
@@ -34,7 +35,7 @@ export function DummyDataGeneratorPanel() {
     try {
       const response = await fetch('/api/super-admin/dummy-data', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getClientCsrfHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           preset,
           schoolId: schoolId.trim() || null,

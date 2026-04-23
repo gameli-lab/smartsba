@@ -38,6 +38,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/lib/supabase";
 import { uploadSchoolAsset } from "@/lib/storage";
+import { getClientCsrfHeaders } from "@/lib/csrf";
 import { School } from "@/types";
 import Image from "next/image";
 import {
@@ -358,9 +359,9 @@ export default function CreateSchoolForm({
     } else {
       const response = await fetch("/api/schools", {
         method: "POST",
-        headers: {
+        headers: getClientCsrfHeaders({
           "Content-Type": "application/json",
-        },
+        }),
         credentials: "include",
         body: JSON.stringify(schoolData),
       });

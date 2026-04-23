@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { getClientCsrfHeaders } from '@/lib/csrf'
 
 type SubjectSetting = {
   id: string
@@ -36,7 +37,7 @@ export function SubjectLevelToggles({
     try {
       const response = await fetch(`/api/schools/${schoolId}/subjects/toggle`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getClientCsrfHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({
           level_group: setting.level_group,
