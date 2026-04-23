@@ -41,11 +41,25 @@ import { uploadSchoolAsset } from "@/lib/storage";
 import { getClientCsrfHeaders } from "@/lib/csrf";
 import { School } from "@/types";
 import Image from "next/image";
-import {
-  createAdminCreationService,
-  type AdminData,
-} from "@/services/adminCreationService";
-import { sendSchoolCreatedEmail } from "@/services/emailService";
+
+type SchoolAdminCredentials = {
+  email: string;
+  username: string;
+  staff_id: string;
+  temporary_password: string | null;
+  login_url: string;
+  email_sent: boolean;
+  email_error?: string | null;
+  assigned_existing: boolean;
+  user_id: string;
+};
+
+type SchoolCreationResponse = {
+  school: School;
+  setup?: unknown;
+  admin_credentials?: SchoolAdminCredentials | null;
+  warning?: string | null;
+};
 
 interface CreateSchoolFormProps {
   open: boolean;
@@ -68,6 +82,10 @@ interface SchoolSubmissionData {
   education_levels: EducationLevel[];
   stream_type: StreamType;
   stream_count?: number | null;
+  headmaster_name?: string;
+  headmaster_email?: string;
+  headmaster_staff_id?: string;
+  headmaster_phone?: string;
 }
 
 type EducationLevel = "KG" | "PRIMARY" | "JHS" | "SHS" | "SHTS";
@@ -120,6 +138,8 @@ export default function CreateSchoolForm({
 }: CreateSchoolFormProps) {
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [creationResult, setCreationResult] = useState<SchoolCreationResponse | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [formData, setFormData] = useState<SchoolFormData>({
     name: school?.name || "",
     motto: school?.motto || "",
@@ -180,6 +200,50 @@ export default function CreateSchoolForm({
       };
     });
   };
+
+  const sanitizeFilename = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+
+  const downloadCredentialsText = (credentials: SchoolAdminCredentials, schoolName: string) => {
+    const fileName = `${sanitizeFilename(schoolName || 'school')}_admin_credentials.txt`
+    const content = [
+      'School Admin Credentials',
+      '========================',
+      `School Name: ${schoolName}`,
+      `Admin Email: ${credentials.email}`,
+      `Username: ${credentials.username}`,
+      `Staff ID: ${credentials.staff_id || '-'}`,
+      `Temporary Password: ${credentials.temporary_password || '-'}`,
+      `Login URL: ${credentials.login_url}`,
+      '',
+      'Security Notes',
+      '========================',
+      'Change the temporary password after first login.',
+      'Keep this file secure and delete it after use.',
+    ].join('\n')
+
+    try {
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+      const objectUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(objectUrl)
+      setDownloadError(null)
+      return true
+    } catch (error) {
+      console.error('Failed to auto-download credentials:', error)
+      setDownloadError('Automatic download was blocked. Use the fallback button below.')
+      return false
+    }
+  }
 
   // Enhanced file validation with security checks
   const validateImageFile = async (file: File): Promise<boolean> => {
@@ -286,40 +350,7 @@ export default function CreateSchoolForm({
     img.src = objectUrl;
   };
 
-  const createSchoolAdmins = async (schoolId: string) => {
-    const admins: AdminData[] = [];
-
-    // Collect admin information for automatic creation
-    if (formData.headmaster_email && formData.headmaster_name) {
-      admins.push({
-        name: formData.headmaster_name,
-        email: formData.headmaster_email,
-        role: "Headmaster/School Admin",
-        staff_id: formData.headmaster_staff_id,
-        phone: formData.headmaster_phone,
-      });
-    }
-
-    // Store deputy info
-    if (formData.deputy_email && formData.deputy_name) {
-      admins.push({
-        name: formData.deputy_name,
-        email: formData.deputy_email,
-        role: "Deputy Headmaster",
-        staff_id: formData.deputy_staff_id,
-        phone: formData.deputy_phone,
-      });
-    }
-
-    // Return empty array if no admins to create
-    if (admins.length === 0) {
-      return [];
-    }
-
-    // Use admin creation service
-    const adminService = createAdminCreationService(supabase);
-    return await adminService.createAdmins(admins, schoolId);
-  }; // Upload assets to storage
+  // Upload assets to storage
   const uploadAssets = async (uploadFiles: typeof files, schoolId: string) => {
     const logoUrl = uploadFiles.logo.file
       ? await uploadSchoolAsset(uploadFiles.logo.file, schoolId, "logo")
@@ -344,18 +375,19 @@ export default function CreateSchoolForm({
   const saveSchool = async (
     schoolData: SchoolSubmissionData,
     existingSchool?: School
-  ): Promise<string> => {
+  ): Promise<SchoolCreationResponse | { school: School }> => {
     if (existingSchool) {
       // Update existing school
+      const { headmaster_name, headmaster_email, headmaster_staff_id, headmaster_phone, ...schoolUpdateData } = schoolData
       // Temporarily use explicit typing until database schema types are regenerated
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any)
         .from("schools")
-        .update(schoolData)
+        .update(schoolUpdateData)
         .eq("id", existingSchool.id);
 
       if (error) throw error;
-      return existingSchool.id;
+      return { school: existingSchool };
     } else {
       const response = await fetch("/api/schools", {
         method: "POST",
@@ -376,88 +408,7 @@ export default function CreateSchoolForm({
         throw new Error("Failed to create school");
       }
 
-      return payload.school.id;
-    }
-  };
-
-  // Handle admin creation and show appropriate messages
-  const handleAdminCreation = async (schoolId: string) => {
-    const adminResults = await createSchoolAdmins(schoolId);
-    const emailFailures: string[] = [];
-
-    if (adminResults.length > 0) {
-      const successfulCreations = adminResults.filter(
-        (admin) => !admin.pending_creation
-      );
-      const pendingCreations = adminResults.filter(
-        (admin) => admin.pending_creation
-      );
-
-      if (successfulCreations.length > 0) {
-        // Send email notifications to successfully created admins
-        for (const admin of successfulCreations) {
-          try {
-            const emailResult = await sendSchoolCreatedEmail({
-              schoolName: formData.name,
-              adminName: admin.name,
-              adminEmail: admin.email,
-              adminUserId: admin.userId || '',
-              temporaryPassword: admin.password,
-              schoolId,
-            });
-            if (!emailResult.success) {
-              throw new Error(emailResult.error || 'Failed to send email')
-            }
-          } catch (emailError) {
-            console.error(`Failed to send email to ${admin.email}:`, emailError);
-            emailFailures.push(admin.email)
-          }
-        }
-
-        // Some or all admins created successfully
-        const successList = successfulCreations
-          .map(
-            (admin) =>
-              `✅ ${admin.name} (${admin.email}) - Password: ${admin.password}`
-          )
-          .join("\n");
-
-        const pendingList = pendingCreations
-          .map(
-            (admin) =>
-              `⚠️  ${admin.name} (${admin.email}) - Needs manual creation`
-          )
-          .join("\n");
-
-        const message =
-          `🎉 School created successfully!\n\n` +
-          (successfulCreations.length > 0
-            ? `Admin Accounts Created:\n${successList}\n\n`
-            : "") +
-          (pendingCreations.length > 0
-            ? `Manual Creation Required:\n${pendingList}\n\n`
-            : "") +
-          (emailFailures.length === 0
-            ? `📧 Email notifications sent to administrators with login credentials.\n`
-            : `⚠️  Email failed for: ${emailFailures.join(', ')}\n`) +
-          `🔐 They should change their passwords on first login.`;
-
-        alert(message);
-      } else {
-        // All admins failed automatic creation
-        const adminList = adminResults
-          .map((admin) => `${admin.name} (${admin.email}) - ${admin.role}`)
-          .join("\n");
-
-        alert(
-          `🎉 School created successfully!\n\n` +
-            `⚠️  Admin accounts need manual creation:\n\n${adminList}\n\n` +
-            `Please create these accounts through the Supabase Auth dashboard or invite them via email.`
-        );
-      }
-    } else {
-      // No admin info provided
-      alert("🎉 School created successfully!");
+      return payload as SchoolCreationResponse;
     }
   };
 
@@ -474,6 +425,9 @@ export default function CreateSchoolForm({
   const handleSubmit = async () => {
     setLoading(true);
     try {
+      setCreationResult(null);
+      setDownloadError(null);
+
       // Generate a temporary school ID for file organization
       const tempSchoolId = school?.id || crypto.randomUUID();
 
@@ -501,20 +455,35 @@ export default function CreateSchoolForm({
           formData.stream_type === "cluster"
             ? Number(formData.stream_count || "0")
             : null,
+        headmaster_name: formData.headmaster_name,
+        headmaster_email: formData.headmaster_email,
+        headmaster_staff_id: formData.headmaster_staff_id,
+        headmaster_phone: formData.headmaster_phone,
       };
 
       // Step 3: Save school
-      const schoolId = await saveSchool(schoolData, school);
+      const saveResult = await saveSchool(schoolData, school);
 
       // Step 4: Handle admin creation for new schools
       if (!school) {
-        await handleAdminCreation(schoolId);
+        const creation = saveResult as SchoolCreationResponse;
+        setCreationResult(creation);
+        onSchoolCreated();
+
+        if (creation.admin_credentials?.temporary_password) {
+          downloadCredentialsText(creation.admin_credentials, creation.school.name);
+        }
+
+        if (creation.warning) {
+          alert(`School created, but ${creation.warning}`);
+        } else {
+          alert("School created. Admin credentials have been emailed and downloaded.");
+        }
       } else {
         alert("School updated successfully!");
+        onSchoolCreated();
+        onOpenChange(false);
       }
-
-      onSchoolCreated();
-      onOpenChange(false);
     } catch (error) {
       handleSubmissionError(error);
     } finally {
@@ -1218,35 +1187,84 @@ export default function CreateSchoolForm({
             </div>
           )}
 
-          {/* Navigation Buttons */}
-          <div className="flex items-center justify-between pt-6 border-t">
-            <div className="flex gap-2">
-              {currentStep > 1 && (
-                <Button variant="outline" onClick={prevStep}>
-                  Previous
-                </Button>
-              )}
-            </div>
+          {creationResult && !school ? (
+            <Card className="border-green-200 bg-green-50/70 dark:border-green-900 dark:bg-green-950/30">
+              <CardHeader>
+                <CardTitle>School created</CardTitle>
+                <CardDescription>
+                  Admin credentials have been generated for {creationResult.school.name}.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {downloadError ? (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                    {downloadError}
+                  </div>
+                ) : null}
 
-            <div className="flex gap-2">
-              {currentStep < 4 ? (
-                <Button onClick={nextStep} disabled={!isStepValid(currentStep)}>
-                  Next
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleSubmit}
-                  disabled={loading || !isStepValid(currentStep)}
-                >
-                  {loading
-                    ? "Saving..."
-                    : school
-                    ? "Update School"
-                    : "Create School"}
-                </Button>
-              )}
-            </div>
-          </div>
+                {creationResult.admin_credentials ? (
+                  <div className="space-y-2 rounded-md border bg-white p-4 text-sm dark:border-gray-800 dark:bg-gray-950">
+                    <div><strong>Email:</strong> {creationResult.admin_credentials.email}</div>
+                    <div><strong>Username:</strong> {creationResult.admin_credentials.username}</div>
+                    <div><strong>Staff ID:</strong> {creationResult.admin_credentials.staff_id || '-'}</div>
+                    <div><strong>Temporary Password:</strong> {creationResult.admin_credentials.temporary_password || '-'}</div>
+                    <div><strong>Login URL:</strong> {creationResult.admin_credentials.login_url}</div>
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap gap-2">
+                  {creationResult.admin_credentials?.temporary_password ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => downloadCredentialsText(creationResult.admin_credentials!, creationResult.school.name)}
+                    >
+                      Download Credentials
+                    </Button>
+                  ) : null}
+                  <Button
+                    onClick={() => {
+                      onSchoolCreated();
+                      onOpenChange(false);
+                    }}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Navigation Buttons */}
+              <div className="flex items-center justify-between pt-6 border-t">
+                <div className="flex gap-2">
+                  {currentStep > 1 && (
+                    <Button variant="outline" onClick={prevStep}>
+                      Previous
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  {currentStep < 4 ? (
+                    <Button onClick={nextStep} disabled={!isStepValid(currentStep)}>
+                      Next
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={loading || !isStepValid(currentStep)}
+                    >
+                      {loading
+                        ? "Saving..."
+                        : school
+                        ? "Update School"
+                        : "Create School"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

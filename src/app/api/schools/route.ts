@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminSupabaseClient, createServerComponentClient } from '@/lib/supabase'
 import { EducationLevel, StreamType, provisionSchoolAcademicStructure } from '@/lib/school-provisioning'
+import { provisionSchoolAdminAccount } from '@/lib/school-admin-onboarding'
 
 type CreateSchoolBody = {
   name: string
@@ -16,6 +17,10 @@ type CreateSchoolBody = {
   education_levels: EducationLevel[]
   stream_type: StreamType
   stream_count?: number | null
+  headmaster_name?: string
+  headmaster_email?: string
+  headmaster_staff_id?: string
+  headmaster_phone?: string
 }
 
 async function requireSuperAdminForApi() {
@@ -29,7 +34,7 @@ async function requireSuperAdminForApi() {
 
   const { data: profile, error: profileError } = await admin
     .from('user_profiles')
-    .select('role')
+    .select('role, full_name')
     .eq('user_id', authResult.user.id)
     .maybeSingle()
 
@@ -41,7 +46,7 @@ async function requireSuperAdminForApi() {
     return { error: NextResponse.json({ error: 'SysAdmin privileges required' }, { status: 403 }) }
   }
 
-  return { admin }
+  return { admin, actorUserId: authResult.user.id, actorName: profile.full_name || authResult.user.email || 'Super Admin' }
 }
 
 function validateSchoolPayload(payload: CreateSchoolBody): string | null {
@@ -68,6 +73,10 @@ function validateSchoolPayload(payload: CreateSchoolBody): string | null {
   if (payload.stream_type !== 'cluster' && payload.stream_count) {
     return 'Stream count is only allowed for cluster stream type'
   }
+
+  if (!payload.headmaster_name?.trim()) return 'Headmaster name is required'
+  if (!payload.headmaster_email?.trim()) return 'Headmaster email is required'
+  if (!payload.headmaster_staff_id?.trim()) return 'Headmaster staff ID is required'
 
   return null
 }
@@ -112,10 +121,32 @@ export async function POST(request: Request) {
 
     const provision = await provisionSchoolAcademicStructure(insertedSchool.id)
 
+    let adminCredentials: Awaited<ReturnType<typeof provisionSchoolAdminAccount>> | null = null
+    let onboardingWarning: string | null = null
+
+    if (body.headmaster_email && body.headmaster_name) {
+      try {
+        adminCredentials = await provisionSchoolAdminAccount({
+          schoolId: insertedSchool.id,
+          schoolName: insertedSchool.name,
+          adminName: body.headmaster_name,
+          adminEmail: body.headmaster_email,
+          staffId: body.headmaster_staff_id || '',
+          phone: body.headmaster_phone || null,
+          actorUserId: auth.actorUserId,
+        })
+      } catch (error) {
+        onboardingWarning = error instanceof Error ? error.message : 'Failed to create school admin account'
+        console.error('School admin onboarding failed:', error)
+      }
+    }
+
     return NextResponse.json(
       {
         school: insertedSchool,
         setup: provision,
+        admin_credentials: adminCredentials,
+        warning: onboardingWarning,
       },
       { status: 201 }
     )
