@@ -14,6 +14,7 @@ import {
 import { Bot, KeyRound, LogOut, User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { AuthService } from '@/lib/auth'
+import { getClientCsrfHeaders } from '@/lib/csrf'
 
 function getProfileLink(userRole?: string): string | null {
   return userRole ? '/profile' : null
@@ -72,7 +73,10 @@ export function GlobalUserMenu({ userName, userEmail, userRole, assumedRole }: G
   const handleReturnToSysAdmin = async () => {
     setIsClearingAssume(true)
     try {
-      const response = await fetch('/api/super-admin/assume-role', { method: 'DELETE' })
+      const response = await fetch('/api/super-admin/assume-role', {
+        method: 'DELETE',
+        headers: getClientCsrfHeaders(),
+      })
       const payload = (await response.json()) as { success?: boolean }
       if (!response.ok || !payload.success) {
         throw new Error('Failed to clear assumption')

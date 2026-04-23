@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { getClientCsrfHeaders } from '@/lib/csrf'
 
 type AssumableRole = 'school_admin' | 'teacher' | 'student' | 'parent'
 
@@ -101,7 +102,7 @@ export function RoleAssumptionPanel() {
     try {
       const response = await fetch('/api/super-admin/assume-role', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getClientCsrfHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ role, targetUserId: selectedUserId }),
       })
 
@@ -125,7 +126,10 @@ export function RoleAssumptionPanel() {
     setMessage(null)
 
     try {
-      const response = await fetch('/api/super-admin/assume-role', { method: 'DELETE' })
+      const response = await fetch('/api/super-admin/assume-role', {
+        method: 'DELETE',
+        headers: getClientCsrfHeaders(),
+      })
       const payload = (await response.json()) as { success?: boolean; error?: string }
       if (!response.ok || !payload.success) {
         throw new Error(payload.error || 'Failed to clear role assumption')
