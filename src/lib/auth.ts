@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { clearAuthPersistencePreference, setAuthPersistencePreference, supabase } from './supabase'
 import { UserRole, UserProfile, Teacher, TeacherAssignment, Student } from '@/types'
 import { getClientCsrfHeaders } from '@/lib/csrf'
 import { buildMfaCookieValue, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
@@ -11,6 +11,7 @@ export interface LoginCredentials {
   role: UserRole
   schoolId?: string // School ID for multi-school verification (optional - can be discovered)
   wardAdmissionNumber?: string // For parent login
+  rememberMe?: boolean
 }
 
 export interface AuthResult {
@@ -487,7 +488,10 @@ export class AuthService {
   }
 
   // Universal login function
-  static async login({ identifier, password, role, schoolId, wardAdmissionNumber }: LoginCredentials): Promise<AuthResult> {
+  static async login(credentials: LoginCredentials): Promise<AuthResult> {
+    const { identifier, password, role, schoolId, wardAdmissionNumber, rememberMe = false } = credentials
+    setAuthPersistencePreference(Boolean(rememberMe))
+
     switch (role) {
       case 'super_admin':
         return this.loginSuperAdmin(identifier, password)
@@ -541,6 +545,8 @@ export class AuthService {
 
     const { error } = await supabase.auth.signOut()
     if (error) throw error
+
+    clearAuthPersistencePreference()
 
     if (typeof document !== 'undefined') {
       document.cookie = `${MFA_VERIFIED_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`

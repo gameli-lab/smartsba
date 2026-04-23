@@ -62,6 +62,7 @@ export function PortalLoginShell() {
   const [authRole, setAuthRole] = useState<AuthRole>("student");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [selectedSchool, setSelectedSchool] = useState("");
   const [wardAdmissionNumber, setWardAdmissionNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -120,6 +121,7 @@ export function PortalLoginShell() {
         role: mapAuthRoleToApiRole(authRole),
         schoolId: resolvedSchoolId,
         wardAdmissionNumber: authRole === "parent" ? trimmedWardAdmission : undefined,
+        rememberMe,
       });
 
       if (!loginResult?.profile) {
@@ -169,6 +171,7 @@ export function PortalLoginShell() {
         identifier: adminEmail,
         password: adminPassword,
         role: "super_admin",
+        rememberMe,
       });
 
       if (!result?.profile) {
@@ -436,6 +439,21 @@ export function PortalLoginShell() {
                       </div>
                     </div>
 
+                    <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(event) => setRememberMe(event.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 dark:border-slate-600 dark:text-slate-100 dark:focus:ring-slate-100"
+                      />
+                      <span>
+                        Remember Me
+                        <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
+                          Keep me signed in on this device after browser restart.
+                        </span>
+                      </span>
+                    </label>
+
                     <div className="pt-3">
                       <Button
                         type="submit"
@@ -495,6 +513,21 @@ export function PortalLoginShell() {
                         className="h-12 rounded-2xl border-slate-300 bg-slate-100 text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
                       />
                     </div>
+
+                    <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(event) => setRememberMe(event.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 dark:border-slate-600 dark:text-slate-100 dark:focus:ring-slate-100"
+                      />
+                      <span>
+                        Remember Me
+                        <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
+                          Keep me signed in on this device after browser restart.
+                        </span>
+                      </span>
+                    </label>
 
                     <Button
                       type="submit"

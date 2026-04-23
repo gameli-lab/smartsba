@@ -1,4 +1,4 @@
-import { createBrowserClient, createServerClient } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import type { CookieOptions } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { isMfaCookieVerified } from '@/lib/mfa-session'
@@ -6,6 +6,9 @@ import { Database } from '@/types/supabase'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const AUTH_PERSISTENCE_COOKIE = 'smartsba_auth_persistence'
+const REMEMBER_ME_COOKIE_VALUE = 'remember'
+const SESSION_COOKIE_MAX_AGE_SECONDS = 400 * 24 * 60 * 60
 
 export type MfaEnrollmentRow = {
   enabled: boolean
@@ -44,6 +47,130 @@ function normalizeMfaEnrollmentRow(row: unknown): MfaEnrollmentRow | null {
   }
 }
 
+function isBrowserRuntime(): boolean {
+  return typeof document !== 'undefined'
+}
+
+function readCookie(name: string): string | null {
+  if (!isBrowserRuntime()) {
+    return null
+  }
+
+  const cookie = document.cookie
+    .split('; ')
+    .find((entry) => entry.startsWith(`${name}=`))
+
+  if (!cookie) {
+    return null
+  }
+
+  const [, value] = cookie.split('=')
+  return value ? decodeURIComponent(value) : null
+}
+
+function writeCookie(name: string, value: string, options: CookieOptions = {}) {
+  if (!isBrowserRuntime()) {
+    return
+  }
+
+  const segments = [`${name}=${encodeURIComponent(value)}`, `path=${options.path ?? '/'}`]
+
+  if (options.sameSite) {
+    segments.push(`SameSite=${options.sameSite}`)
+  } else {
+    segments.push('SameSite=Lax')
+  }
+
+  if (options.secure) {
+    segments.push('Secure')
+  }
+
+  if (typeof options.maxAge === 'number') {
+    segments.push(`Max-Age=${Math.max(0, Math.floor(options.maxAge))}`)
+  }
+
+  if (options.expires instanceof Date) {
+    segments.push(`Expires=${options.expires.toUTCString()}`)
+  }
+
+  document.cookie = segments.join('; ')
+}
+
+function removeCookie(name: string) {
+  writeCookie(name, '', {
+    path: '/',
+    expires: new Date(0),
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  })
+}
+
+function getAuthPersistenceCookieValue(): 'remember' | 'session' {
+  return readCookie(AUTH_PERSISTENCE_COOKIE) === REMEMBER_ME_COOKIE_VALUE ? 'remember' : 'session'
+}
+
+function getAuthStorageOptions(): CookieOptions {
+  const rememberMeEnabled = getAuthPersistenceCookieValue() === 'remember'
+
+  return {
+    path: '/',
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    ...(rememberMeEnabled
+      ? { maxAge: SESSION_COOKIE_MAX_AGE_SECONDS }
+      : {}),
+  }
+}
+
+function createBrowserAuthStorage() {
+  return {
+    isServer: false,
+    getItem: async (key: string) => {
+      if (!isBrowserRuntime()) {
+        return null
+      }
+
+      return readCookie(key)
+    },
+    setItem: async (key: string, value: string) => {
+      if (!isBrowserRuntime()) {
+        return
+      }
+
+      writeCookie(key, value, getAuthStorageOptions())
+    },
+    removeItem: async (key: string) => {
+      if (!isBrowserRuntime()) {
+        return
+      }
+
+      removeCookie(key)
+    },
+  }
+}
+
+export function setAuthPersistencePreference(rememberMe: boolean): void {
+  if (!isBrowserRuntime()) {
+    return
+  }
+
+  if (rememberMe) {
+    writeCookie(AUTH_PERSISTENCE_COOKIE, REMEMBER_ME_COOKIE_VALUE, {
+      path: '/',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: SESSION_COOKIE_MAX_AGE_SECONDS,
+    })
+    return
+  }
+
+  removeCookie(AUTH_PERSISTENCE_COOKIE)
+}
+
+export function clearAuthPersistencePreference(): void {
+  removeCookie(AUTH_PERSISTENCE_COOKIE)
+}
+
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
     'Missing Supabase environment variables. Please check your .env.local file:\n' +
@@ -54,7 +181,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Client-side Supabase client
-export const supabase = createBrowserClient<Database>(supabaseUrl as string, supabaseAnonKey as string)
+export const supabase = createClient<Database>(supabaseUrl as string, supabaseAnonKey as string, {
+  auth: {
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    persistSession: true,
+    storage: createBrowserAuthStorage(),
+    flowType: 'pkce',
+  },
+})
 
 // Server-side Supabase client for Server Components (reads session from cookies)
 export async function createServerComponentClient() {

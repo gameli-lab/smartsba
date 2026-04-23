@@ -16,6 +16,17 @@ const DEFAULT_TIMEOUT_MINUTES = 60
 const DEFAULT_WARNING_MINUTES = 5
 const ACTIVITY_EVENTS = ['click', 'mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'] as const
 
+function isProtectedClientPath(pathname: string): boolean {
+  return (
+    pathname.startsWith('/school-admin') ||
+    pathname.startsWith('/analytics') ||
+    pathname.startsWith('/teacher') ||
+    pathname.startsWith('/student') ||
+    pathname.startsWith('/parent') ||
+    pathname.startsWith('/dashboard')
+  )
+}
+
 export function SessionTimeoutProvider({
   children,
   timeoutMinutes = DEFAULT_TIMEOUT_MINUTES,
@@ -77,11 +88,15 @@ export function SessionTimeoutProvider({
     let active = true
 
     const checkSession = async () => {
-      const { data } = await supabase.auth.getSession()
+      const { data, error } = await supabase.auth.getUser()
       if (!active) return
-      const sessionActive = Boolean(data.session)
+      const sessionActive = Boolean(data.user) && !error
       setIsAuthenticated(sessionActive)
       lastActivityRef.current = Date.now()
+
+      if (!sessionActive && isProtectedClientPath(pathname) && pathname !== '/login') {
+        await signOutAndRedirect()
+      }
     }
 
     void checkSession()
@@ -94,14 +109,28 @@ export function SessionTimeoutProvider({
       } else {
         clearTimers()
         setShowWarning(false)
+        if (isProtectedClientPath(pathname) && pathname !== '/login') {
+          void signOutAndRedirect()
+        }
       }
     })
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isProtectedClientPath(pathname) && pathname !== '/login') {
+        void checkSession()
+      }
+    }
+
+    window.addEventListener('focus', checkSession)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       active = false
       subscription.unsubscribe()
+      window.removeEventListener('focus', checkSession)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [])
+  }, [pathname])
 
   useEffect(() => {
     if (!isAuthenticated) {
