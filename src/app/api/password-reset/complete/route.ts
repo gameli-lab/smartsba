@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { getPasswordPolicyFromSettings, validatePasswordPolicy } from '@/lib/password-policy'
 import { recordSecurityEvent } from '@/lib/security-monitor'
 
 export async function POST(req: NextRequest) {
   try {
-    const { requestId, token, newPassword, confirmPassword } = await req.json()
+    const { requestId, token, newPassword, confirmPassword, forceReset } = await req.json()
 
-    if (!requestId || !token || !newPassword || !confirmPassword) {
-      return NextResponse.json({ error: 'Missing requestId, token, or password fields' }, { status: 400 })
+    if (!newPassword || !confirmPassword) {
+      return NextResponse.json({ error: 'Missing password fields' }, { status: 400 })
     }
 
     if (newPassword !== confirmPassword) {
@@ -22,6 +23,49 @@ export async function POST(req: NextRequest) {
     }
 
     const supabaseAdmin = createAdminSupabaseClient()
+
+    if (forceReset) {
+      const supabase = await createServerComponentClient()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+      if (authError || !user) {
+        return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+      }
+
+      const { error: passwordError } = await supabase.auth.updateUser({
+        password: newPassword,
+      })
+
+      if (passwordError) {
+        return NextResponse.json({ error: 'Failed to update user password' }, { status: 500 })
+      }
+
+      const { error: profileUpdateError } = await supabaseAdmin
+        .from('user_profiles')
+        .update({
+          password_change_required: false,
+          password_changed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id)
+
+      if (profileUpdateError) {
+        return NextResponse.json({ error: 'Failed to clear password change requirement' }, { status: 500 })
+      }
+
+      await recordSecurityEvent({
+        actorUserId: user.id,
+        identifier: user.email || user.id,
+        eventType: 'password_reset_completed',
+        metadata: { mode: 'forced_initial_reset' },
+      })
+
+      return NextResponse.json({ success: true, message: 'Password updated successfully' }, { status: 200 })
+    }
+
+    if (!requestId || !token) {
+      return NextResponse.json({ error: 'Missing requestId or token fields' }, { status: 400 })
+    }
     const { data: resetRequest, error } = await supabaseAdmin
       .from('password_reset_requests')
       .select('id, user_id, status, reset_token, expires_at, school_id')
@@ -71,6 +115,15 @@ export async function POST(req: NextRequest) {
       eventType: 'password_reset_completed',
       metadata: { request_id: requestId },
     })
+
+    await supabaseAdmin
+      .from('user_profiles')
+      .update({
+        password_change_required: false,
+        password_changed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', resetRequest.user_id)
 
     return NextResponse.json({ success: true, message: 'Password updated successfully' }, { status: 200 })
   } catch (error) {

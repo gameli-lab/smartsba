@@ -181,6 +181,15 @@ export default function CreateSchoolForm({
   const stampInputRef = useRef<HTMLInputElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
 
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setCreationResult(null)
+      setDownloadError(null)
+    }
+
+    onOpenChange(nextOpen)
+  }
+
   const handleInputChange = (field: keyof SchoolFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -524,7 +533,7 @@ export default function CreateSchoolForm({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -1207,7 +1216,6 @@ export default function CreateSchoolForm({
                     <div><strong>Email:</strong> {creationResult.admin_credentials.email}</div>
                     <div><strong>Username:</strong> {creationResult.admin_credentials.username}</div>
                     <div><strong>Staff ID:</strong> {creationResult.admin_credentials.staff_id || '-'}</div>
-                    <div><strong>Temporary Password:</strong> {creationResult.admin_credentials.temporary_password || '-'}</div>
                     <div><strong>Login URL:</strong> {creationResult.admin_credentials.login_url}</div>
                   </div>
                 ) : null}
@@ -1223,8 +1231,10 @@ export default function CreateSchoolForm({
                   ) : null}
                   <Button
                     onClick={() => {
+                      setCreationResult(null)
+                      setDownloadError(null)
                       onSchoolCreated();
-                      onOpenChange(false);
+                      handleDialogOpenChange(false);
                     }}
                   >
                     Close

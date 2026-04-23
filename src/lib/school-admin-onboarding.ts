@@ -40,6 +40,29 @@ async function findUserByEmail(email: string) {
   return data.users.find((user) => user.email?.toLowerCase() === email.toLowerCase()) || null
 }
 
+async function findProfileByEmail(email: string) {
+  const admin = createAdminSupabaseClient()
+  const { data, error } = await admin
+    .from('user_profiles')
+    .select('id, user_id, school_id, role, email, full_name, staff_id')
+    .eq('email', email)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return data as {
+    id: string
+    user_id: string
+    school_id: string | null
+    role: string
+    email: string
+    full_name: string
+    staff_id: string | null
+  } | null
+}
+
 function generateSecureTemporaryPassword(): string {
   return generateCompliantPassword(12, {
     minLength: 12,
@@ -57,6 +80,15 @@ export async function provisionSchoolAdminAccount(input: SchoolAdminOnboardingIn
   const temporaryPassword = generateSecureTemporaryPassword()
 
   const existingUser = await findUserByEmail(normalizedEmail)
+  const existingProfile = await findProfileByEmail(normalizedEmail)
+
+  if (existingProfile?.role === 'super_admin') {
+    throw new Error('This email belongs to a platform super admin account and cannot be reassigned as a school admin.')
+  }
+
+  if (existingProfile?.school_id && existingProfile.school_id !== input.schoolId) {
+    throw new Error('This email already belongs to another school. Use a unique headmaster email for this school.')
+  }
 
   let userId = existingUser?.id
   let assignedExisting = Boolean(existingUser)
@@ -100,6 +132,10 @@ export async function provisionSchoolAdminAccount(input: SchoolAdminOnboardingIn
     if (updateUserError) {
       throw updateUserError
     }
+  }
+
+  if (existingProfile && existingProfile.school_id && existingProfile.school_id === input.schoolId) {
+    assignedExisting = true
   }
 
   if (!userId) {

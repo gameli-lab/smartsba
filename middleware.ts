@@ -156,6 +156,32 @@ async function getMfaEnrollment(userId: string) {
   return data as { enabled?: boolean; last_used_at?: string | null } | null
 }
 
+async function getPasswordChangeRequirement(userId: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !serviceRoleKey) {
+    console.error('Missing service role environment variables for password change checks')
+    return null
+  }
+
+  const admin = createClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  })
+
+  const { data } = await (admin as any)
+    .from('user_profiles')
+    .select('password_change_required')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  return data as { password_change_required?: boolean } | null
+}
+
 export async function middleware(req: NextRequest) {
   // Debug environment variables
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -291,6 +317,25 @@ export async function middleware(req: NextRequest) {
       path: '/',
       expires: new Date(0),
     })
+  }
+
+  if (user) {
+    const passwordChangeState = await getPasswordChangeRequirement(user.id)
+    const passwordChangeRequired = Boolean(passwordChangeState?.password_change_required)
+    const isResetPage = pathname.startsWith('/reset-password')
+    const isResetApi = pathname.startsWith('/api/password-reset/complete')
+    const isLogoutApi = pathname.startsWith('/api/auth/logout')
+
+    if (passwordChangeRequired && !isResetPage && !isResetApi && !isLogoutApi) {
+      if (isApiPath(pathname)) {
+        return finalizeResponse(req, NextResponse.json({ error: 'Password change required' }, { status: 403 }))
+      }
+
+      const resetUrl = new URL('/reset-password', req.url)
+      resetUrl.searchParams.set('mode', 'force')
+      resetUrl.searchParams.set('next', pathname + (req.nextUrl.search || ''))
+      return finalizeResponse(req, NextResponse.redirect(resetUrl))
+    }
   }
 
   // If user is not signed in and trying to access protected routes

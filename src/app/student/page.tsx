@@ -55,12 +55,6 @@ export default async function StudentDashboardPage() {
       .maybeSingle(),
   ])
 
-  console.log('Class fetch result:', { classId: student.class_id, classResult })
-  console.log('Student data:', { studentId: student.id, schoolId: student.school_id, classId: student.class_id })
-  console.log('Session data:', session)
-  console.log('Aggregates data:', aggregatesData)
-  console.log('Announcements data:', announcementsData)
-
   // If class fetch via RLS failed, retry with admin client as a safe fallback for display-only use
   let classRow = classResult.data as { name: string; stream?: string | null } | null
   if (!classRow && student.class_id) {
@@ -72,7 +66,6 @@ export default async function StudentDashboardPage() {
         .eq('id', student.class_id)
         .maybeSingle()
 
-      console.log('Admin class fetch:', { adminClass, adminClassError })
       if (adminClass) {
         classRow = adminClass as { name: string; stream?: string | null }
       }

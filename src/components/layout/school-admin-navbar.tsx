@@ -52,7 +52,6 @@ export function SchoolAdminNavbar({
 
   const handleChangePassword = () => {
     // TODO: Navigate to change password page in later stages
-    console.log('Navigate to change password')
   }
 
   // Get user initials for avatar fallback
