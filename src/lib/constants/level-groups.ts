@@ -6,7 +6,7 @@
  *
  * Current mapping:
  * - Nursery: Not currently stored (future: -2, -1)
- * - KG: Not currently stored (future: 0, 1)
+ * - KG: -1, 0
  * - Primary: 1-6
  * - JHS: 7-9
  *
@@ -33,13 +33,13 @@ export const LEVEL_GROUPS = {
     description: 'Kindergarten',
     levels: ['KG 1', 'KG 2'],
     order: 2,
-    numericLevels: [], // Not currently mapped to numeric storage
+    numericLevels: [-1, 0],
   },
   PRIMARY: {
     key: 'PRIMARY',
     label: 'Primary',
     description: 'Primary education',
-    levels: ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6'],
+    levels: ['Basic 1', 'Basic 2', 'Basic 3', 'Basic 4', 'Basic 5', 'Basic 6'],
     order: 3,
     numericLevels: [1, 2, 3, 4, 5, 6],
   },

@@ -43,7 +43,7 @@ export async function createAssignment(input: CreateAssignmentInput) {
     // Verify class
     const { data: klass } = await supabase
       .from('classes')
-      .select('id, school_id')
+      .select('id, school_id, level')
       .eq('id', input.class_id)
       .single()
 
@@ -53,12 +53,30 @@ export async function createAssignment(input: CreateAssignmentInput) {
     // Verify subject
     const { data: subject } = await supabase
       .from('subjects')
-      .select('id, school_id')
+      .select('id, school_id, name, level_group')
       .eq('id', input.subject_id)
       .single()
 
     const subjectCheck = await ensureSameSchool(subject, schoolId, 'Subject not found')
     if (subjectCheck) return { success: false, error: subjectCheck.error }
+
+    const classLevel = (klass as { level?: number } | null)?.level
+    const subjectName = ((subject as { name?: string } | null)?.name || '').trim().toLowerCase()
+
+    if (subjectName === 'science' && (typeof classLevel !== 'number' || classLevel < 4 || classLevel > 6)) {
+      return { success: false, error: 'Science can only be assigned to Basic 4-6 classes' }
+    }
+
+    const { data: classSubjectLink } = await supabase
+      .from('class_subjects')
+      .select('is_enabled')
+      .eq('class_id', input.class_id)
+      .eq('subject_id', input.subject_id)
+      .maybeSingle()
+
+    if (classSubjectLink && classSubjectLink.is_enabled === false) {
+      return { success: false, error: 'Subject is disabled for this class' }
+    }
 
     // Verify teacher
     const { data: teacherRow } = await supabase

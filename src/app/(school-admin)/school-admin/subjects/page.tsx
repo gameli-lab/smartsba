@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CreateSubjectDialog } from './create-subject-dialog'
 import { SubjectsList } from './subjects-list'
 import { SubjectsFilters } from './subjects-filters'
+import { SubjectLevelToggles } from './subject-level-toggles'
 // TODO: Import LEVEL_GROUPS for level-aware subject availability filtering
 // import { LEVEL_GROUPS } from '@/lib/constants/level-groups'
 import type { Subject, Class } from '@/types'
@@ -44,7 +45,7 @@ export default async function SubjectsPage(props: {
     subjectsQuery = subjectsQuery.eq('is_active', false)
   }
 
-  const [{ data: subjectsData }, { data: classesData }, { data: allSubjectsData }] = await Promise.all([
+  const [{ data: subjectsData }, { data: classesData }, { data: allSubjectsData }, { data: subjectSettingsData }] = await Promise.all([
     subjectsQuery.order('name'),
     supabase
       .from('classes')
@@ -52,11 +53,24 @@ export default async function SubjectsPage(props: {
       .eq('school_id', schoolId)
       .order('level', { ascending: true }),
     supabase.from('subjects').select('id, is_core, is_active').eq('school_id', schoolId),
+    supabase
+      .from('school_subject_settings')
+      .select('id, level_group, subject_key, subject_name, is_enabled')
+      .eq('school_id', schoolId)
+      .order('level_group', { ascending: true })
+      .order('sort_order', { ascending: true }),
   ])
 
   const subjects = (subjectsData || []) as Subject[]
   const classes = (classesData || []) as Class[]
   const allSubjects = (allSubjectsData || []) as Array<Pick<Subject, 'id' | 'is_core' | 'is_active'>>
+  const subjectSettings = (subjectSettingsData || []) as Array<{
+    id: string
+    level_group: 'KG' | 'PRIMARY' | 'JHS' | 'SHS' | 'SHTS'
+    subject_key: string
+    subject_name: string
+    is_enabled: boolean
+  }>
 
   const classIds = classes.map((c) => c.id)
   const { data: assignmentRows } = classIds.length
@@ -170,6 +184,24 @@ export default async function SubjectsPage(props: {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Level Subject Configuration</CardTitle>
+          <CardDescription>
+            Enable or disable subjects by level. Changes sync to class-level availability.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {subjectSettings.length ? (
+            <SubjectLevelToggles schoolId={schoolId} settings={subjectSettings} />
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No subject templates found for this school yet.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

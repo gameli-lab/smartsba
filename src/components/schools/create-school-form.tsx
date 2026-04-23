@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/lib/supabase";
 import { uploadSchoolAsset } from "@/lib/storage";
 import { School } from "@/types";
@@ -63,7 +64,21 @@ interface SchoolSubmissionData {
   stamp_url?: string | null;
   head_signature_url?: string | null;
   status: "active" | "inactive";
+  education_levels: EducationLevel[];
+  stream_type: StreamType;
+  stream_count?: number | null;
 }
+
+type EducationLevel = "KG" | "PRIMARY" | "JHS" | "SHS" | "SHTS";
+type StreamType = "single" | "double" | "cluster";
+
+const EDUCATION_LEVEL_OPTIONS: Array<{ label: string; value: EducationLevel }> = [
+  { label: "KG", value: "KG" },
+  { label: "Primary", value: "PRIMARY" },
+  { label: "JHS", value: "JHS" },
+  { label: "SHS", value: "SHS" },
+  { label: "SHTS", value: "SHTS" },
+];
 
 interface SchoolFormData {
   name: string;
@@ -77,6 +92,9 @@ interface SchoolFormData {
   vacation_start: string;
   vacation_end: string;
   term_end: string;
+  education_levels: EducationLevel[];
+  stream_type: StreamType;
+  stream_count: string;
   headmaster_name: string;
   headmaster_staff_id: string;
   headmaster_email: string;
@@ -114,6 +132,14 @@ export default function CreateSchoolForm({
     vacation_start: "",
     vacation_end: "",
     term_end: "",
+    education_levels:
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ((school as any)?.education_levels as EducationLevel[] | undefined) ||
+      ["PRIMARY"],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    stream_type: ((school as any)?.stream_type as StreamType | undefined) || "single",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    stream_count: ((school as any)?.stream_count as number | undefined)?.toString() || "",
     headmaster_name: "",
     headmaster_staff_id: "",
     headmaster_email: "",
@@ -136,6 +162,22 @@ export default function CreateSchoolForm({
 
   const handleInputChange = (field: keyof SchoolFormData, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const toggleEducationLevel = (level: EducationLevel, checked: boolean) => {
+    setFormData((prev) => {
+      if (checked) {
+        return {
+          ...prev,
+          education_levels: Array.from(new Set([...prev.education_levels, level])),
+        };
+      }
+
+      return {
+        ...prev,
+        education_levels: prev.education_levels.filter((item) => item !== level),
+      };
+    });
   };
 
   // Enhanced file validation with security checks
@@ -314,18 +356,26 @@ export default function CreateSchoolForm({
       if (error) throw error;
       return existingSchool.id;
     } else {
-      // Create new school
-      // Temporarily use explicit typing until database schema types are regenerated
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
-        .from("schools")
-        .insert([schoolData])
-        .select()
-        .single();
+      const response = await fetch("/api/schools", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(schoolData),
+      });
 
-      if (error) throw error;
-      if (!data) throw new Error("Failed to create school");
-      return data.id;
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to create school");
+      }
+
+      if (!payload?.school?.id) {
+        throw new Error("Failed to create school");
+      }
+
+      return payload.school.id;
     }
   };
 
@@ -413,7 +463,11 @@ export default function CreateSchoolForm({
   // Handle submission errors
   const handleSubmissionError = (error: unknown) => {
     console.error("Error saving school:", error);
-    alert("Error saving school. Please try again.");
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Error saving school. Please try again.";
+    alert(message);
   };
 
   const handleSubmit = async () => {
@@ -440,6 +494,12 @@ export default function CreateSchoolForm({
         stamp_url: stampUrl,
         head_signature_url: signatureUrl,
         status: "active" as const,
+        education_levels: formData.education_levels,
+        stream_type: formData.stream_type,
+        stream_count:
+          formData.stream_type === "cluster"
+            ? Number(formData.stream_count || "0")
+            : null,
       };
 
       // Step 3: Save school
@@ -476,7 +536,13 @@ export default function CreateSchoolForm({
       case 2:
         return true; // Optional branding
       case 3:
-        return formData.current_academic_year.trim() !== "";
+        if (!formData.current_academic_year.trim()) return false;
+        if (!formData.education_levels.length) return false;
+        if (formData.stream_type === "cluster") {
+          const count = Number(formData.stream_count || "0");
+          return Number.isInteger(count) && count >= 2 && count <= 26;
+        }
+        return true;
       case 4:
         return (
           formData.headmaster_name.trim() !== "" &&
@@ -829,10 +895,86 @@ export default function CreateSchoolForm({
                   Academic Settings
                 </CardTitle>
                 <CardDescription>
-                  Configure current academic year, term, and important dates
+                  Configure levels, stream structure, and current academic dates
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <Label>Education Levels *</Label>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {EDUCATION_LEVEL_OPTIONS.map((levelOption) => {
+                      const checked = formData.education_levels.includes(
+                        levelOption.value
+                      );
+
+                      return (
+                        <label
+                          key={levelOption.value}
+                          className="flex items-center gap-2 border rounded-md px-3 py-2"
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(value) =>
+                              toggleEducationLevel(
+                                levelOption.value,
+                                value === true
+                              )
+                            }
+                          />
+                          <span className="text-sm font-medium">
+                            {levelOption.label}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="stream-type">Stream Type *</Label>
+                    <Select
+                      value={formData.stream_type}
+                      onValueChange={(value: StreamType) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          stream_type: value,
+                          stream_count: value === "cluster" ? prev.stream_count : "",
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="stream-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="single">Single Stream</SelectItem>
+                        <SelectItem value="double">Double Stream</SelectItem>
+                        <SelectItem value="cluster">Cluster Stream</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.stream_type === "cluster" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="stream-count">Number of Streams *</Label>
+                      <Input
+                        id="stream-count"
+                        type="number"
+                        min={2}
+                        max={26}
+                        value={formData.stream_count}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            stream_count: e.target.value,
+                          }))
+                        }
+                        placeholder="e.g., 4"
+                      />
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="academic-year">

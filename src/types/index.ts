@@ -30,6 +30,9 @@ export interface School {
   logo_url?: string
   stamp_url?: string
   head_signature_url?: string
+  education_levels?: Array<'KG' | 'PRIMARY' | 'JHS' | 'SHS' | 'SHTS'>
+  stream_type?: 'single' | 'double' | 'cluster'
+  stream_count?: number | null
   status: 'active' | 'inactive'
   created_at: string
   updated_at: string
