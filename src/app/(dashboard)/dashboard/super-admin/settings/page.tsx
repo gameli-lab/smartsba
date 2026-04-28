@@ -549,21 +549,37 @@ export default function SettingsPage() {
     setSuccess(null)
 
     try {
-      await updateSystemSetting('ai.default_provider', aiValues.default_provider, userId, userRole)
-      await updateSystemSetting('ai.anthropic_model', aiValues.anthropic_model, userId, userRole)
-      await updateSystemSetting('ai.openai_model', aiValues.openai_model, userId, userRole)
-      await updateSystemSetting('ai.gemini_model', aiValues.gemini_model, userId, userRole)
+      const updates = [
+        await updateSystemSetting('ai.default_provider', aiValues.default_provider, userId, userRole),
+        await updateSystemSetting('ai.anthropic_model', aiValues.anthropic_model, userId, userRole),
+        await updateSystemSetting('ai.openai_model', aiValues.openai_model, userId, userRole),
+        await updateSystemSetting('ai.gemini_model', aiValues.gemini_model, userId, userRole),
+      ]
+
+      const failedUpdate = updates.find((result) => !result.success)
+      if (failedUpdate) {
+        throw new Error(failedUpdate.error || 'Failed to save AI settings')
+      }
 
       if (aiValues.anthropic_api_key.trim()) {
-        await updateSystemSetting('ai.anthropic_api_key', aiValues.anthropic_api_key.trim(), userId, userRole)
+        const result = await updateSystemSetting('ai.anthropic_api_key', aiValues.anthropic_api_key.trim(), userId, userRole)
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to save Anthropic API key')
+        }
       }
 
       if (aiValues.openai_api_key.trim()) {
-        await updateSystemSetting('ai.openai_api_key', aiValues.openai_api_key.trim(), userId, userRole)
+        const result = await updateSystemSetting('ai.openai_api_key', aiValues.openai_api_key.trim(), userId, userRole)
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to save OpenAI API key')
+        }
       }
 
       if (aiValues.gemini_api_key.trim()) {
-        await updateSystemSetting('ai.gemini_api_key', aiValues.gemini_api_key.trim(), userId, userRole)
+        const result = await updateSystemSetting('ai.gemini_api_key', aiValues.gemini_api_key.trim(), userId, userRole)
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to save Gemini API key')
+        }
       }
 
       setSuccess('AI settings saved successfully')

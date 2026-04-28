@@ -663,7 +663,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
-    const supabase = await createServerComponentClient()
+    const adminSupabase = createAdminSupabaseClient()
 
     const file = formData.get('file') as File | null
     if (!file) return { success: false, error: 'Please select an Excel file to import' }
@@ -678,7 +678,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
     if (!sheet) return { success: false, error: 'Excel file is empty or invalid' }
 
     // Fetch classes for name mapping
-    const { data: classRows } = await supabase
+    const { data: classRows } = await adminSupabase
       .from('classes')
       .select('id, name, school_id')
       .eq('school_id', schoolId)
@@ -686,12 +686,12 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
     const classMap = new Map<string, string>()
     ;(classRows || []).forEach((c: { id: string; name: string }) => classMap.set(c.name.trim().toLowerCase(), c.id))
 
-    const { data: existingStudents } = await supabase
+    const { data: existingStudents } = await adminSupabase
       .from('students')
       .select('admission_number')
       .eq('school_id', schoolId)
 
-    const { data: existingProfiles } = await supabase
+    const { data: existingProfiles } = await adminSupabase
       .from('user_profiles')
       .select('email')
 
@@ -767,7 +767,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
 
       const tempPassword = randomTempPassword('Student')
 
-      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+      const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
         email: payload.email,
         password: tempPassword,
         email_confirm: true,
@@ -781,7 +781,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
       const userId = authUser.user.id
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: profileError } = await (supabase as any)
+      const { error: profileError } = await (adminSupabase as any)
         .from('user_profiles')
         .insert({
           user_id: userId,
@@ -804,7 +804,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: studentError } = await (supabase as any)
+      const { error: studentError } = await (adminSupabase as any)
         .from('students')
         .insert({
           user_id: userId,
@@ -823,7 +823,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
         })
 
       if (studentError) {
-        await supabase.auth.admin.deleteUser(userId)
+        await adminSupabase.auth.admin.deleteUser(userId)
         failures.push({ row: rowIndex, reason: studentError.message })
         continue
       }

@@ -43,14 +43,14 @@ async function requireSuperAdminContext() {
 async function enforceSuperAdminMfa(admin: ReturnType<typeof createAdminSupabaseClient>, userId: string, presentedCookie: string | undefined) {
   const { data: enrollment, error } = await admin
     .from('mfa_enrollments')
-    .select('last_used_at')
+    .select('enabled, last_used_at')
     .eq('user_id', userId)
-    .eq('is_verified', true)
+    .eq('enabled', true)
     .order('last_used_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
-  const lastUsedAt = (enrollment as { last_used_at?: string | null } | null)?.last_used_at
+  const lastUsedAt = (enrollment as { enabled?: boolean; last_used_at?: string | null } | null)?.last_used_at
   if (error || !lastUsedAt) {
     return NextResponse.json({ error: 'MFA verification required to start role preview' }, { status: 403 })
   }
