@@ -184,7 +184,7 @@ export function ImportStudentsDialog({}: Props) {
           <span className="ml-2 sm:ml-0">Import Students</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Import Students</DialogTitle>
           <DialogDescription>
@@ -192,7 +192,7 @@ export function ImportStudentsDialog({}: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 overflow-y-auto flex-1">
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="secondary" onClick={handleDownloadTemplate} disabled={isDownloading || isImporting}>
               {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
