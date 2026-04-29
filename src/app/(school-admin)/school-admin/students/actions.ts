@@ -29,7 +29,7 @@ interface UpdateStudentInput extends Partial<CreateStudentInput> {
 
 interface ImportRow {
   full_name: string
-  email: string
+  email?: string
   admission_number: string
   class_name: string
   gender?: 'male' | 'female'
@@ -266,7 +266,7 @@ async function buildTemplateWorkbook() {
 
   sheet.columns = [
     { header: 'Full Name*', key: 'full_name', width: 25 },
-    { header: 'Email*', key: 'email', width: 28 },
+    { header: 'Email', key: 'email', width: 28 },
     { header: 'Admission Number*', key: 'admission_number', width: 22 },
     { header: 'Class Name*', key: 'class_name', width: 20 },
     { header: 'Gender (Male/Female)*', key: 'gender', width: 20 },
@@ -284,7 +284,7 @@ async function buildTemplateWorkbook() {
     full_name: 'Ama Mensah',
     email: 'ama.mensah@example.com',
     admission_number: 'ADM-001',
-    class_name: 'JHS 1',
+    class_name: 'JHS 1A',
     gender: 'Female',
     date_of_birth: '2012-03-14',
     admission_date: '2024-09-01',
@@ -294,6 +294,22 @@ async function buildTemplateWorkbook() {
     guardian_name: 'Kofi Mensah',
     guardian_phone: '+233201111111',
     guardian_email: 'kofi.mensah@example.com',
+  })
+
+  sheet.addRow({
+    full_name: 'Kwame Owusu',
+    email: '',
+    admission_number: 'ADM-002',
+    class_name: 'JHS 1B',
+    gender: 'Male',
+    date_of_birth: '2012-05-20',
+    admission_date: '2024-09-01',
+    roll_number: '02',
+    phone: '+233209876543',
+    address: 'Kumasi, Ghana',
+    guardian_name: 'Akosua Owusu',
+    guardian_phone: '+233209111111',
+    guardian_email: 'akosua@example.com',
   })
 
   sheet.getRow(1).font = { bold: true }
@@ -576,9 +592,9 @@ export async function toggleStudentStatus(studentId: string, isActive: boolean) 
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
-    const supabase = await createServerComponentClient()
+    const adminSupabase = createAdminSupabaseClient()
 
-    const { data: studentRow } = await supabase
+    const { data: studentRow } = await adminSupabase
       .from('students')
       .select('id, school_id, user_id')
       .eq('id', studentId)
@@ -588,7 +604,7 @@ export async function toggleStudentStatus(studentId: string, isActive: boolean) 
     if (!student || student.school_id !== schoolId) return { success: false, error: 'Student not found' }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: studentError } = await (supabase as any)
+    const { error: studentError } = await (adminSupabase as any)
       .from('students')
       .update({ is_active: isActive })
       .eq('id', studentId)
@@ -598,7 +614,8 @@ export async function toggleStudentStatus(studentId: string, isActive: boolean) 
       return { success: false, error: 'Failed to update student status' }
     }
 
-    const { error: profileError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: profileError } = await (adminSupabase as any)
       .from('user_profiles')
       .update({ status: isActive ? 'active' : 'disabled' })
       .eq('user_id', student.user_id)
@@ -620,10 +637,9 @@ export async function deleteStudent(studentId: string) {
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
-    const supabase = await createServerComponentClient()
     const adminSupabase = createAdminSupabaseClient()
 
-    const { data: studentRow } = await supabase
+    const { data: studentRow } = await adminSupabase
       .from('students')
       .select('id, school_id, user_id')
       .eq('id', studentId)
@@ -671,9 +687,9 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
     const allowedTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel']
     if (!allowedTypes.includes(file.type)) return { success: false, error: 'Only Excel .xlsx files are supported' }
 
-    const buffer = Buffer.from(new Uint8Array(await file.arrayBuffer()))
+    const buffer = Buffer.from(new Uint8Array(await file.arrayBuffer())) as any
     const workbook = new ExcelJS.Workbook()
-    await workbook.xlsx.load(buffer)
+    await workbook.xlsx.load(buffer as any)
     const sheet = workbook.worksheets[0]
     if (!sheet) return { success: false, error: 'Excel file is empty or invalid' }
 
@@ -728,12 +744,12 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
 
       if (!full_name && !email && !admission_number) continue
 
-      if (!full_name || !email || !admission_number || !class_name_raw || !gender || !date_of_birth || !admission_date) {
+      if (!full_name || !admission_number || !class_name_raw || !gender || !date_of_birth || !admission_date) {
         failures.push({ row: rowIndex, reason: 'Missing required fields' })
         continue
       }
 
-      if (!validateEmail(email)) {
+      if (email && !validateEmail(email)) {
         failures.push({ row: rowIndex, reason: 'Invalid email format' })
         continue
       }
@@ -748,13 +764,13 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
         failures.push({ row: rowIndex, reason: `Duplicate admission number: ${admission_number}` })
         continue
       }
-      if (inFileEmails.has(email) || existingEmails.has(email)) {
+      if (email && (inFileEmails.has(email) || existingEmails.has(email))) {
         failures.push({ row: rowIndex, reason: `Duplicate email: ${email}` })
         continue
       }
 
       inFileAdmissions.add(admission_number)
-      inFileEmails.add(email)
+      if (email) inFileEmails.add(email)
 
       const payload: ImportRow = {
         full_name,
@@ -784,8 +800,9 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
     const authResults: AuthResult[] = await Promise.all(
       validatedRows.map(async ({ rowIndex, payload }) => {
         const tempPassword = randomTempPassword('Student')
+        const finalEmail = payload.email || `student.${payload.admission_number}@school.local`
         const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
-          email: payload.email,
+          email: finalEmail,
           password: tempPassword,
           email_confirm: true,
         })
@@ -812,11 +829,12 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
         const validated = validatedRows.find((vr) => vr.rowIndex === authResult.rowIndex)
         if (!validated) return null
         const { payload } = validated
+        const finalEmail = payload.email || `student.${payload.admission_number}@school.local`
         return {
           user_id: authResult.userId,
           school_id: schoolId,
           role: 'student',
-          email: payload.email,
+          email: finalEmail,
           full_name: payload.full_name,
           status: 'active',
           admission_number: payload.admission_number,
