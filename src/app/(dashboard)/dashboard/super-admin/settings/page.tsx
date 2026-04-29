@@ -22,6 +22,24 @@ interface SystemSetting {
   updated_by: string | null
 }
 
+function toNumberSetting(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value, 10)
+    return Number.isNaN(parsed) ? fallback : parsed
+  }
+  return fallback
+}
+
+function toBooleanSetting(value: unknown, fallback: boolean): boolean {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') {
+    if (value === 'true') return true
+    if (value === 'false') return false
+  }
+  return fallback
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SystemSetting[]>([])
   const [loading, setLoading] = useState(true)
@@ -173,62 +191,62 @@ export default function SettingsPage() {
     } else {
       setSettings(result.settings)
       // Initialize grading form values from settings
-      const pass_mark = result.settings.find(s => s.setting_key === 'grading.pass_mark')?.setting_value || 40
-      const ca_weight = result.settings.find(s => s.setting_key === 'grading.ca_weight')?.setting_value || 40
-      const exam_weight = result.settings.find(s => s.setting_key === 'grading.exam_weight')?.setting_value || 60
+      const pass_mark = result.settings.find(s => s.setting_key === 'grading.pass_mark')?.setting_value
+      const ca_weight = result.settings.find(s => s.setting_key === 'grading.ca_weight')?.setting_value
+      const exam_weight = result.settings.find(s => s.setting_key === 'grading.exam_weight')?.setting_value
       
       setGradingValues({
-        pass_mark: typeof pass_mark === 'string' ? parseInt(pass_mark) : pass_mark,
-        ca_weight: typeof ca_weight === 'string' ? parseInt(ca_weight) : ca_weight,
-        exam_weight: typeof exam_weight === 'string' ? parseInt(exam_weight) : exam_weight,
+        pass_mark: toNumberSetting(pass_mark, 40),
+        ca_weight: toNumberSetting(ca_weight, 40),
+        exam_weight: toNumberSetting(exam_weight, 60),
       })
       setGradingDirty(false)
 
       // Initialize calendar form values from settings
-      const terms_per_year = result.settings.find(s => s.setting_key === 'calendar.terms_per_year')?.setting_value || 3
-      const default_term_length_weeks = result.settings.find(s => s.setting_key === 'calendar.default_term_length_weeks')?.setting_value || 13
-      const academic_year_start_month = result.settings.find(s => s.setting_key === 'calendar.academic_year_start_month')?.setting_value || 9
+      const terms_per_year = result.settings.find(s => s.setting_key === 'calendar.terms_per_year')?.setting_value
+      const default_term_length_weeks = result.settings.find(s => s.setting_key === 'calendar.default_term_length_weeks')?.setting_value
+      const academic_year_start_month = result.settings.find(s => s.setting_key === 'calendar.academic_year_start_month')?.setting_value
       
       setCalendarValues({
-        terms_per_year: typeof terms_per_year === 'string' ? parseInt(terms_per_year) : terms_per_year,
-        default_term_length_weeks: typeof default_term_length_weeks === 'string' ? parseInt(default_term_length_weeks) : default_term_length_weeks,
-        academic_year_start_month: typeof academic_year_start_month === 'string' ? parseInt(academic_year_start_month) : academic_year_start_month,
+        terms_per_year: toNumberSetting(terms_per_year, 3),
+        default_term_length_weeks: toNumberSetting(default_term_length_weeks, 13),
+        academic_year_start_month: toNumberSetting(academic_year_start_month, 9),
       })
       setCalendarDirty(false)
 
       // Initialize results form values from settings
-      const require_approval = result.settings.find(s => s.setting_key === 'results.require_approval')?.setting_value ?? true
-      const parent_notification_enabled = result.settings.find(s => s.setting_key === 'results.parent_notification_enabled')?.setting_value ?? true
+      const require_approval = result.settings.find(s => s.setting_key === 'results.require_approval')?.setting_value
+      const parent_notification_enabled = result.settings.find(s => s.setting_key === 'results.parent_notification_enabled')?.setting_value
       
       setResultsValues({
-        require_approval: typeof require_approval === 'string' ? require_approval === 'true' : require_approval,
-        parent_notification_enabled: typeof parent_notification_enabled === 'string' ? parent_notification_enabled === 'true' : parent_notification_enabled,
+        require_approval: toBooleanSetting(require_approval, true),
+        parent_notification_enabled: toBooleanSetting(parent_notification_enabled, true),
       })
       setResultsDirty(false)
 
       // Initialize security form values from settings
-      const password_min_length = result.settings.find(s => s.setting_key === 'security.password_min_length')?.setting_value ?? 8
-      const password_require_uppercase = result.settings.find(s => s.setting_key === 'security.password_require_uppercase')?.setting_value ?? true
-      const password_require_lowercase = result.settings.find(s => s.setting_key === 'security.password_require_lowercase')?.setting_value ?? true
-      const password_require_number = result.settings.find(s => s.setting_key === 'security.password_require_number')?.setting_value ?? true
-      const password_require_special = result.settings.find(s => s.setting_key === 'security.password_require_special')?.setting_value ?? false
-      const login_lockout_attempts = result.settings.find(s => s.setting_key === 'security.login_lockout_attempts')?.setting_value ?? 5
-      const login_lockout_duration_minutes = result.settings.find(s => s.setting_key === 'security.login_lockout_duration_minutes')?.setting_value ?? 30
-      const session_timeout_minutes = result.settings.find(s => s.setting_key === 'security.session_timeout_minutes')?.setting_value ?? 60
-      const mfa_trusted_session_hours = result.settings.find(s => s.setting_key === 'security.mfa_trusted_session_hours')?.setting_value ?? 12
-      const mfa_failure_spike_threshold_per_hour = result.settings.find(s => s.setting_key === 'security.mfa_failure_spike_threshold_per_hour')?.setting_value ?? 5
+      const password_min_length = result.settings.find(s => s.setting_key === 'security.password_min_length')?.setting_value
+      const password_require_uppercase = result.settings.find(s => s.setting_key === 'security.password_require_uppercase')?.setting_value
+      const password_require_lowercase = result.settings.find(s => s.setting_key === 'security.password_require_lowercase')?.setting_value
+      const password_require_number = result.settings.find(s => s.setting_key === 'security.password_require_number')?.setting_value
+      const password_require_special = result.settings.find(s => s.setting_key === 'security.password_require_special')?.setting_value
+      const login_lockout_attempts = result.settings.find(s => s.setting_key === 'security.login_lockout_attempts')?.setting_value
+      const login_lockout_duration_minutes = result.settings.find(s => s.setting_key === 'security.login_lockout_duration_minutes')?.setting_value
+      const session_timeout_minutes = result.settings.find(s => s.setting_key === 'security.session_timeout_minutes')?.setting_value
+      const mfa_trusted_session_hours = result.settings.find(s => s.setting_key === 'security.mfa_trusted_session_hours')?.setting_value
+      const mfa_failure_spike_threshold_per_hour = result.settings.find(s => s.setting_key === 'security.mfa_failure_spike_threshold_per_hour')?.setting_value
       
       setSecurityValues({
-        password_min_length: typeof password_min_length === 'string' ? parseInt(password_min_length) : password_min_length,
-        password_require_uppercase: typeof password_require_uppercase === 'string' ? password_require_uppercase === 'true' : password_require_uppercase,
-        password_require_lowercase: typeof password_require_lowercase === 'string' ? password_require_lowercase === 'true' : password_require_lowercase,
-        password_require_number: typeof password_require_number === 'string' ? password_require_number === 'true' : password_require_number,
-        password_require_special: typeof password_require_special === 'string' ? password_require_special === 'true' : password_require_special,
-        login_lockout_attempts: typeof login_lockout_attempts === 'string' ? parseInt(login_lockout_attempts) : login_lockout_attempts,
-        login_lockout_duration_minutes: typeof login_lockout_duration_minutes === 'string' ? parseInt(login_lockout_duration_minutes) : login_lockout_duration_minutes,
-        session_timeout_minutes: typeof session_timeout_minutes === 'string' ? parseInt(session_timeout_minutes) : session_timeout_minutes,
-        mfa_trusted_session_hours: typeof mfa_trusted_session_hours === 'string' ? parseInt(mfa_trusted_session_hours) : mfa_trusted_session_hours,
-        mfa_failure_spike_threshold_per_hour: typeof mfa_failure_spike_threshold_per_hour === 'string' ? parseInt(mfa_failure_spike_threshold_per_hour) : mfa_failure_spike_threshold_per_hour,
+        password_min_length: toNumberSetting(password_min_length, 8),
+        password_require_uppercase: toBooleanSetting(password_require_uppercase, true),
+        password_require_lowercase: toBooleanSetting(password_require_lowercase, true),
+        password_require_number: toBooleanSetting(password_require_number, true),
+        password_require_special: toBooleanSetting(password_require_special, false),
+        login_lockout_attempts: toNumberSetting(login_lockout_attempts, 5),
+        login_lockout_duration_minutes: toNumberSetting(login_lockout_duration_minutes, 30),
+        session_timeout_minutes: toNumberSetting(session_timeout_minutes, 60),
+        mfa_trusted_session_hours: toNumberSetting(mfa_trusted_session_hours, 12),
+        mfa_failure_spike_threshold_per_hour: toNumberSetting(mfa_failure_spike_threshold_per_hour, 5),
       })
       setSecurityDirty(false)
 
@@ -683,6 +701,11 @@ export default function SettingsPage() {
     return value !== undefined && value !== null ? value : defaultValue
   }
 
+  function getBooleanSettingValue(key: string, defaultValue: boolean): boolean {
+    const value = getSettingValue(key, defaultValue)
+    return toBooleanSetting(value, defaultValue)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -753,7 +776,7 @@ export default function SettingsPage() {
                 { key: 'features.announcements_enabled', label: 'Announcements Module' },
               ].map(({ key, label }) => {
                 const setting = getSetting(key)
-                const isEnabled = getSettingValue(key, true)
+                const isEnabled = getBooleanSettingValue(key, true)
 
                 return (
                   <div key={key} className="flex items-center justify-between space-x-2">
