@@ -701,7 +701,14 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
     const inFileEmails = new Set<string>()
 
     const failures: ImportFailure[] = []
-    let successCount = 0
+
+    // First pass: validate all rows and collect into batches for processing
+    interface ValidatedRow {
+      rowIndex: number
+      payload: ImportRow
+      classId: string
+    }
+    const validatedRows: ValidatedRow[] = []
 
     for (let rowIndex = 2; rowIndex <= sheet.rowCount; rowIndex += 1) {
       const row = sheet.getRow(rowIndex)
@@ -765,26 +772,48 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
         guardian_email,
       }
 
-      const tempPassword = randomTempPassword('Student')
+      validatedRows.push({ rowIndex, payload, classId })
+    }
 
-      const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
-        email: payload.email,
-        password: tempPassword,
-        email_confirm: true,
+    // Second pass: create all auth users in parallel
+    interface AuthResult {
+      rowIndex: number
+      userId?: string
+      error?: string
+    }
+    const authResults: AuthResult[] = await Promise.all(
+      validatedRows.map(async ({ rowIndex, payload }) => {
+        const tempPassword = randomTempPassword('Student')
+        const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
+          email: payload.email,
+          password: tempPassword,
+          email_confirm: true,
+        })
+        if (authError || !authUser.user) {
+          return { rowIndex, error: authError?.message || 'Failed to create auth user' }
+        }
+        return { rowIndex, userId: authUser.user.id }
       })
+    )
 
-      if (authError || !authUser.user) {
-        failures.push({ row: rowIndex, reason: authError?.message || 'Failed to create auth user' })
-        continue
+    // Track auth failures
+    authResults.forEach((result) => {
+      if (result.error) {
+        failures.push({ row: result.rowIndex, reason: result.error })
       }
+    })
 
-      const userId = authUser.user.id
+    const successfulAuthResults = authResults.filter((r) => !r.error && r.userId)
+    let successCount = 0
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: profileError } = await (adminSupabase as any)
-        .from('user_profiles')
-        .insert({
-          user_id: userId,
+    // Third pass: create all user_profiles in batch
+    if (successfulAuthResults.length > 0) {
+      const profileInserts = successfulAuthResults.map((authResult) => {
+        const validated = validatedRows.find((vr) => vr.rowIndex === authResult.rowIndex)
+        if (!validated) return null
+        const { payload } = validated
+        return {
+          user_id: authResult.userId,
           school_id: schoolId,
           role: 'student',
           email: payload.email,
@@ -795,40 +824,66 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
           address: payload.address || null,
           gender: payload.gender,
           date_of_birth: payload.date_of_birth,
-        })
+        }
+      }).filter(Boolean)
 
-      if (profileError) {
-        await supabase.auth.admin.deleteUser(userId)
-        failures.push({ row: rowIndex, reason: profileError.message })
-        continue
+      if (profileInserts.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: profileError } = await (adminSupabase as any)
+          .from('user_profiles')
+          .insert(profileInserts)
+
+        if (profileError) {
+          // Delete all auth users if profile batch insert failed
+          await Promise.all(
+            successfulAuthResults.map((r) =>
+              adminSupabase.auth.admin.deleteUser(r.userId!)
+            )
+          )
+          return { success: false, error: `Batch profile creation failed: ${profileError.message}` }
+        }
+
+        // Fourth pass: create all students in batch
+        const studentInserts = successfulAuthResults.map((authResult) => {
+          const validated = validatedRows.find((vr) => vr.rowIndex === authResult.rowIndex)
+          if (!validated) return null
+          const { payload, classId } = validated
+          return {
+            user_id: authResult.userId,
+            school_id: schoolId,
+            admission_number: payload.admission_number,
+            roll_number: payload.roll_number || null,
+            class_id: classId,
+            date_of_birth: payload.date_of_birth,
+            gender: payload.gender,
+            guardian_name: payload.guardian_name || null,
+            guardian_phone: payload.guardian_phone || null,
+            guardian_email: payload.guardian_email || null,
+            address: payload.address || null,
+            admission_date: payload.admission_date,
+            is_active: true,
+          }
+        }).filter(Boolean)
+
+        if (studentInserts.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { error: studentError } = await (adminSupabase as any)
+            .from('students')
+            .insert(studentInserts)
+
+          if (studentError) {
+            // Delete all resources if student batch insert failed
+            await Promise.all(
+              successfulAuthResults.map((r) =>
+                adminSupabase.auth.admin.deleteUser(r.userId!)
+              )
+            )
+            return { success: false, error: `Batch student creation failed: ${studentError.message}` }
+          }
+
+          successCount = studentInserts.length
+        }
       }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: studentError } = await (adminSupabase as any)
-        .from('students')
-        .insert({
-          user_id: userId,
-          school_id: schoolId,
-          admission_number: payload.admission_number,
-          roll_number: payload.roll_number || null,
-          class_id: classId,
-          date_of_birth: payload.date_of_birth,
-          gender: payload.gender,
-          guardian_name: payload.guardian_name || null,
-          guardian_phone: payload.guardian_phone || null,
-          guardian_email: payload.guardian_email || null,
-          address: payload.address || null,
-          admission_date: payload.admission_date,
-          is_active: true,
-        })
-
-      if (studentError) {
-        await adminSupabase.auth.admin.deleteUser(userId)
-        failures.push({ row: rowIndex, reason: studentError.message })
-        continue
-      }
-
-      successCount += 1
     }
 
     if (successCount > 0) {
