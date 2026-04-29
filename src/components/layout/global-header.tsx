@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { AssumeRolePreviewBadge } from "./assume-role-preview-badge";
 import { getHeaderProps } from "@/lib/header-utils";
 import { GlobalUserMenu } from "./global-user-menu";
 import { ThemeToggle } from "./theme-toggle";
@@ -40,7 +41,7 @@ function getDashboardLink(isAuthenticated: boolean, userRole?: string): string {
 }
 
 export async function GlobalHeader() {
-  const { isAuthenticated, userRole, userName, userEmail, contextInfo, assumedRole } =
+  const { isAuthenticated, userRole, userName, userEmail, contextInfo, assumedRole, expiresAt } =
     await getHeaderProps();
   const contextIndicator = getContextIndicator(isAuthenticated, userRole);
   const dashboardLink    = getDashboardLink(isAuthenticated, userRole);
@@ -71,9 +72,7 @@ export async function GlobalHeader() {
               <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs">{contextInfo}</span>
             ) : null}
             {assumedRole ? (
-              <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700 border-0">
-                PREVIEW AS {assumedRole.replace('_', ' ').toUpperCase()}
-              </Badge>
+              <AssumeRolePreviewBadge assumedRole={assumedRole} expiresAt={expiresAt} />
             ) : null}
           </div>
 

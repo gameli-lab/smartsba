@@ -23,6 +23,14 @@ interface ImportFailure {
   reason: string
 }
 
+interface ImportedCredential {
+  row: number
+  full_name: string
+  email: string
+  admission_number: string
+  temp_password: string
+}
+
 interface Props {
   classes: Class[] // kept for API symmetry; currently unused
 }
@@ -47,6 +55,7 @@ export function ImportStudentsDialog({}: Props) {
   const [imported, setImported] = useState<number | null>(null)
   const [failures, setFailures] = useState<ImportFailure[]>([])
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([])
+  const [credentials, setCredentials] = useState<ImportedCredential[]>([])
 
   const reset = () => {
     setFile(null)
@@ -54,6 +63,28 @@ export function ImportStudentsDialog({}: Props) {
     setImported(null)
     setFailures([])
      setPreviewRows([])
+    setCredentials([])
+  }
+
+  const downloadCredentialsCsv = () => {
+    if (!credentials.length) return
+
+    const header = 'Row,Full Name,Email,Admission Number,Temporary Password\n'
+    const rows = credentials
+      .map((c) =>
+        [c.row, c.full_name, c.email, c.admission_number, c.temp_password]
+          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+          .join(',')
+      )
+      .join('\n')
+
+    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `student-import-credentials-${new Date().toISOString().slice(0, 10)}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleDownloadTemplate = async () => {
@@ -174,6 +205,7 @@ export function ImportStudentsDialog({}: Props) {
 
     setImported(result.result.imported)
     setFailures(result.result.failed)
+    setCredentials(result.result.credentials || [])
   }
 
   return (
@@ -279,6 +311,23 @@ export function ImportStudentsDialog({}: Props) {
                 <CheckCircle className="h-5 w-5" />
                 {imported} student{imported === 1 ? '' : 's'} imported successfully
               </div>
+
+              {credentials.length > 0 && (
+                <Alert variant="default" className="border-blue-200 bg-blue-50">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Temporary passwords generated</AlertTitle>
+                  <AlertDescription>
+                    <div className="mt-2 space-y-2 text-sm">
+                      <p>Download and securely share login credentials with imported students.</p>
+                      <Button type="button" size="sm" variant="outline" onClick={downloadCredentialsCsv}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download Credentials CSV
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {failures.length > 0 ? (
                 <Alert variant="default" className="border-amber-200 bg-amber-50">
                   <AlertTriangle className="h-4 w-4" />

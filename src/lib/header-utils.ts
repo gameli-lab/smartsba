@@ -9,6 +9,7 @@ export interface HeaderProps {
   schoolName?: string
   contextInfo?: string  // e.g. "St. Mary's School • 2024/2025 • Term 1"
   assumedRole?: string
+  expiresAt?: number
 }
 
 export async function getHeaderProps(): Promise<HeaderProps> {
@@ -45,6 +46,7 @@ export async function getHeaderProps(): Promise<HeaderProps> {
       const assumeContext = await getAssumeRoleContextForActor(user.id)
       if (assumeContext) {
         base.assumedRole = assumeContext.assumedRole
+        base.expiresAt = assumeContext.expiresAt
       }
     }
 

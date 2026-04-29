@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import ExcelJS from 'exceljs'
 import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { createServerComponentClient, createAdminSupabaseClient } from '@/lib/supabase'
-import logAudit from '@/lib/audit'
+import logAudit, { logAssumptionAwareAudit } from '@/lib/audit'
 import type { Student } from '@/types'
 
 interface CreateStudentInput {
@@ -51,6 +51,13 @@ interface ImportFailure {
 interface ImportResult {
   imported: number
   failed: ImportFailure[]
+  credentials: Array<{
+    row: number
+    full_name: string
+    email: string
+    admission_number: string
+    temp_password: string
+  }>
 }
 
 function normalizeDate(value: unknown): string | undefined {
@@ -483,6 +490,12 @@ export async function createStudent(input: CreateStudentInput) {
       parentResolution,
     })
 
+    await logAssumptionAwareAudit(adminSupabase, user.id, 'student_created', 'student', insertedStudent.id, {
+      schoolId,
+      admissionNumber: insertedStudent.admission_number,
+      createdBy: 'school_admin',
+    })
+
     return {
       success: true,
       tempPassword,
@@ -498,9 +511,10 @@ export async function createStudent(input: CreateStudentInput) {
 
 export async function updateStudent(input: UpdateStudentInput) {
   try {
-    const { profile } = await requireSchoolAdmin()
+    const { user, profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const supabase = await createServerComponentClient()
+    const adminSupabase = createAdminSupabaseClient()
 
     if (!input.id) return { success: false, error: 'Student ID is required' }
 
@@ -581,6 +595,13 @@ export async function updateStudent(input: UpdateStudentInput) {
     }
 
     revalidatePath('/school-admin/students')
+
+    await logAssumptionAwareAudit(adminSupabase, user.id, 'student_updated', 'student', student.id, {
+      schoolId,
+      admissionNumber: student.admission_number,
+      updatedFields: Object.keys(input).filter((key) => key !== 'id' && (input as unknown as Record<string, unknown>)[key] !== undefined),
+    })
+
     return { success: true }
   } catch (error) {
     console.error('Error in updateStudent:', error)
@@ -590,17 +611,17 @@ export async function updateStudent(input: UpdateStudentInput) {
 
 export async function toggleStudentStatus(studentId: string, isActive: boolean) {
   try {
-    const { profile } = await requireSchoolAdmin()
+    const { user, profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const adminSupabase = createAdminSupabaseClient()
 
     const { data: studentRow } = await adminSupabase
       .from('students')
-      .select('id, school_id, user_id')
+      .select('id, school_id, user_id, admission_number')
       .eq('id', studentId)
       .single()
 
-    const student = studentRow as Pick<Student, 'id' | 'school_id' | 'user_id'> | null
+    const student = studentRow as Pick<Student, 'id' | 'school_id' | 'user_id' | 'admission_number'> | null
     if (!student || student.school_id !== schoolId) return { success: false, error: 'Student not found' }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -626,6 +647,13 @@ export async function toggleStudentStatus(studentId: string, isActive: boolean) 
     }
 
     revalidatePath('/school-admin/students')
+
+    await logAssumptionAwareAudit(adminSupabase, user.id, 'student_status_changed', 'student', student.id, {
+      schoolId,
+      admissionNumber: student.admission_number,
+      status: isActive ? 'active' : 'disabled',
+    })
+
     return { success: true }
   } catch (error) {
     console.error('Error in toggleStudentStatus:', error)
@@ -635,17 +663,17 @@ export async function toggleStudentStatus(studentId: string, isActive: boolean) 
 
 export async function deleteStudent(studentId: string) {
   try {
-    const { profile } = await requireSchoolAdmin()
+    const { user, profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const adminSupabase = createAdminSupabaseClient()
 
     const { data: studentRow } = await adminSupabase
       .from('students')
-      .select('id, school_id, user_id')
+      .select('id, school_id, user_id, admission_number')
       .eq('id', studentId)
       .single()
 
-    const student = studentRow as Pick<Student, 'id' | 'school_id' | 'user_id'> | null
+    const student = studentRow as Pick<Student, 'id' | 'school_id' | 'user_id' | 'admission_number'> | null
 
     if (!student || student.school_id !== schoolId) {
       return { success: false, error: 'Student not found' }
@@ -668,6 +696,11 @@ export async function deleteStudent(studentId: string) {
       console.warn('Warning: revalidatePath failed:', revalidateError)
     }
 
+    await logAssumptionAwareAudit(adminSupabase, user.id, 'student_deleted', 'student', student.id, {
+      schoolId,
+      admissionNumber: student.admission_number,
+    })
+
     return { success: true, message: 'Student deleted successfully' }
   } catch (error) {
     console.error('Error in deleteStudent:', error)
@@ -677,7 +710,7 @@ export async function deleteStudent(studentId: string) {
 
 export async function importStudents(formData: FormData): Promise<{ success: boolean; result?: ImportResult; error?: string }> {
   try {
-    const { profile } = await requireSchoolAdmin()
+    const { user, profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const adminSupabase = createAdminSupabaseClient()
 
@@ -717,6 +750,13 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
     const inFileEmails = new Set<string>()
 
     const failures: ImportFailure[] = []
+    const credentials: Array<{
+      row: number
+      full_name: string
+      email: string
+      admission_number: string
+      temp_password: string
+    }> = []
 
     // First pass: validate all rows and collect into batches for processing
     interface ValidatedRow {
@@ -796,6 +836,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
       rowIndex: number
       userId?: string
       error?: string
+      tempPassword?: string
     }
     const authResults: AuthResult[] = await Promise.all(
       validatedRows.map(async ({ rowIndex, payload }) => {
@@ -809,7 +850,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
         if (authError || !authUser.user) {
           return { rowIndex, error: authError?.message || 'Failed to create auth user' }
         }
-        return { rowIndex, userId: authUser.user.id }
+        return { rowIndex, userId: authUser.user.id, tempPassword }
       })
     )
 
@@ -900,15 +941,42 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
           }
 
           successCount = studentInserts.length
+
+          // Build credentials list for successful imports
+          const credentialsList = successfulAuthResults.map((result) => {
+            const validated = validatedRows.find((vr) => vr.rowIndex === result.rowIndex)
+            if (!validated) return null
+            const finalEmail = validated.payload.email || `student.${validated.payload.admission_number}@school.local`
+            return {
+              row: result.rowIndex,
+              full_name: validated.payload.full_name,
+              email: finalEmail,
+              admission_number: validated.payload.admission_number,
+              temp_password: result.tempPassword || '',
+            }
+          }).filter((c) => c !== null) as Array<{
+            row: number
+            full_name: string
+            email: string
+            admission_number: string
+            temp_password: string
+          }>
+          credentials.push(...credentialsList)
         }
       }
     }
 
     if (successCount > 0) {
       revalidatePath('/school-admin/students')
+
+      await logAssumptionAwareAudit(adminSupabase, user.id, 'student_bulk_imported', 'student', undefined, {
+        schoolId,
+        importedCount: successCount,
+        failedCount: failures.length,
+      })
     }
 
-    return { success: true, result: { imported: successCount, failed: failures } }
+    return { success: true, result: { imported: successCount, failed: failures, credentials } }
   } catch (error) {
     console.error('Error in importStudents:', error)
     return { success: false, error: 'Failed to import students' }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -40,25 +40,8 @@ interface GlobalUserMenuProps {
 
 export function GlobalUserMenu({ userName, userEmail, userRole, assumedRole }: GlobalUserMenuProps) {
   const router = useRouter()
-  const [isAssumeActive, setIsAssumeActive] = useState(false)
   const [isClearingAssume, setIsClearingAssume] = useState(false)
-
-  useEffect(() => {
-    if (userRole !== 'super_admin') {
-      setIsAssumeActive(false)
-      return
-    }
-
-    void (async () => {
-      try {
-        const response = await fetch('/api/super-admin/assume-role', { cache: 'no-store' })
-        const payload = (await response.json()) as { active?: boolean }
-        setIsAssumeActive(Boolean(payload.active))
-      } catch {
-        setIsAssumeActive(false)
-      }
-    })()
-  }, [userRole])
+  const isAssumeActive = Boolean(assumedRole)
 
   const handleLogout = async () => {
     try {
@@ -81,7 +64,6 @@ export function GlobalUserMenu({ userName, userEmail, userRole, assumedRole }: G
       if (!response.ok || !payload.success) {
         throw new Error('Failed to clear assumption')
       }
-      setIsAssumeActive(false)
       router.push('/dashboard/super-admin')
       router.refresh()
     } catch (error) {

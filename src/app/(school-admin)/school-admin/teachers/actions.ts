@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import ExcelJS from 'exceljs'
 import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { createServerComponentClient, createAdminSupabaseClient } from '@/lib/supabase'
+import { logAssumptionAwareAudit } from '@/lib/audit'
 import { Teacher } from '@/types'
 
 interface CreateTeacherInput {
@@ -58,7 +59,7 @@ interface ImportResult {
  */
 export async function createTeacher(input: CreateTeacherInput) {
   try {
-    const { profile } = await requireSchoolAdmin()
+    const { user, profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const supabase = await createServerComponentClient()
     const adminSupabase = createAdminSupabaseClient()
@@ -164,6 +165,12 @@ export async function createTeacher(input: CreateTeacherInput) {
     } catch (revalidateError) {
       console.warn('Warning: revalidatePath failed (this may be expected):', revalidateError)
     }
+
+    await logAssumptionAwareAudit(adminSupabase, user.id, 'teacher_created', 'teacher', authUser.user.id, {
+      schoolId,
+      staffId: input.staff_id,
+      email: input.email,
+    })
     
     return { 
       success: true, 
@@ -181,9 +188,10 @@ export async function createTeacher(input: CreateTeacherInput) {
  */
 export async function updateTeacher(input: UpdateTeacherInput) {
   try {
-    const { profile } = await requireSchoolAdmin()
+    const { user, profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const supabase = await createServerComponentClient()
+    const adminSupabase = createAdminSupabaseClient()
 
     if (!input.id) {
       return { success: false, error: 'Teacher ID is required' }
@@ -243,6 +251,13 @@ export async function updateTeacher(input: UpdateTeacherInput) {
     }
 
     revalidatePath('/school-admin/teachers')
+
+    await logAssumptionAwareAudit(adminSupabase, user.id, 'teacher_updated', 'teacher', typedTeacher.id, {
+      schoolId,
+      staffId: input.staff_id || typedTeacher.user_id,
+      updatedFields: Object.keys(input).filter((key) => key !== 'id' && (input as Record<string, unknown>)[key] !== undefined),
+    })
+
     return { success: true, message: 'Teacher updated successfully' }
   } catch (error) {
     console.error('Error in updateTeacher:', error)
@@ -255,9 +270,10 @@ export async function updateTeacher(input: UpdateTeacherInput) {
  */
 export async function toggleTeacherStatus(teacherId: string, isActive: boolean) {
   try {
-    const { profile } = await requireSchoolAdmin()
+    const { user, profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const supabase = await createServerComponentClient()
+    const adminSupabase = createAdminSupabaseClient()
 
     // Verify ownership
     const { data: teacher } = await supabase
@@ -297,6 +313,12 @@ export async function toggleTeacherStatus(teacherId: string, isActive: boolean) 
     }
 
     revalidatePath('/school-admin/teachers')
+
+    await logAssumptionAwareAudit(adminSupabase, user.id, 'teacher_status_changed', 'teacher', typedTeacher.id, {
+      schoolId,
+      status: isActive ? 'active' : 'disabled',
+    })
+
     return { success: true, message: `Teacher ${isActive ? 'activated' : 'deactivated'} successfully` }
   } catch (error) {
     console.error('Error in toggleTeacherStatus:', error)
@@ -309,7 +331,7 @@ export async function toggleTeacherStatus(teacherId: string, isActive: boolean) 
  */
 export async function deleteTeacher(teacherId: string) {
   try {
-    const { profile } = await requireSchoolAdmin()
+    const { user, profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const supabase = await createServerComponentClient()
     const adminSupabase = createAdminSupabaseClient()
@@ -343,6 +365,11 @@ export async function deleteTeacher(teacherId: string) {
     } catch (revalidateError) {
       console.warn('Warning: revalidatePath failed:', revalidateError)
     }
+
+    await logAssumptionAwareAudit(adminSupabase, user.id, 'teacher_deleted', 'teacher', typedTeacher.id, {
+      schoolId,
+      staffId: typedTeacher.id,
+    })
 
     return { success: true, message: 'Teacher deleted successfully' }
   } catch (error) {
@@ -444,7 +471,7 @@ export async function getTeachersTemplate() {
 
 export async function importTeachers(formData: FormData): Promise<{ success: boolean; result?: ImportResult; error?: string }> {
   try {
-    const { profile } = await requireSchoolAdmin()
+    const { user, profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
     const supabase = await createServerComponentClient()
     const adminSupabase = createAdminSupabaseClient()
@@ -619,6 +646,12 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
 
     if (successCount > 0) {
       revalidatePath('/school-admin/teachers')
+
+      await logAssumptionAwareAudit(adminSupabase, user.id, 'teacher_bulk_imported', 'teacher', undefined, {
+        schoolId,
+        importedCount: successCount,
+        failedCount: failures.length,
+      })
     }
 
     return {
