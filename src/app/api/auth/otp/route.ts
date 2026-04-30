@@ -118,17 +118,14 @@ export async function POST(req: NextRequest) {
 
     const supabaseAdmin = createAdminSupabaseClient()
 
-    // Find user by email
+    // Find user by email or phone
     let userQuery = supabaseAdmin.from('user_profiles').select('user_id, id, email, role, school_id, phone')
 
     if (channel === 'email') {
       userQuery = userQuery.ilike('email', normalizedIdentifier)
-    } else {
-      // For SMS, we'd need a phone number field - for now, just email is supported
-      return NextResponse.json(
-        { error: 'SMS channel not yet supported. Please use email.' },
-        { status: 501 }
-      )
+    } else if (channel === 'sms') {
+      // For SMS, match by phone number
+      userQuery = userQuery.eq('phone', normalizedIdentifier)
     }
 
     if (role) {
