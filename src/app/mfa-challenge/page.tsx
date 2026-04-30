@@ -377,11 +377,11 @@ export default function MfaChallengePage() {
       ) : null}
 
       <Tabs defaultValue="authenticator" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 rounded-full bg-gray-200/80 p-1 dark:bg-gray-800">
-          <TabsTrigger value="authenticator" className="rounded-full text-gray-700 data-[state=active]:bg-white data-[state=active]:text-gray-900 dark:text-gray-200 dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-gray-50">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="authenticator">
             Authenticator
           </TabsTrigger>
-          <TabsTrigger value="email" className="rounded-full text-gray-700 data-[state=active]:bg-white data-[state=active]:text-gray-900 dark:text-gray-200 dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-gray-50">
+          <TabsTrigger value="email">
             Email Code
           </TabsTrigger>
         </TabsList>
