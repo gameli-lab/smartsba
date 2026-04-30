@@ -517,6 +517,7 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
 
     const failures: ImportFailure[] = []
     const credentials: ImportResult['credentials'] = []
+    const createdUserIds: string[] = []
     let successCount = 0
 
     // Start from row 2 (row 1 is header)
@@ -635,6 +636,7 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
       }
 
       successCount += 1
+      createdUserIds.push(userId)
       credentials.push({
         row: rowIndex,
         full_name: teacherPayload.full_name,
@@ -651,6 +653,7 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
         schoolId,
         importedCount: successCount,
         failedCount: failures.length,
+        createdUserIds,
       })
     }
 

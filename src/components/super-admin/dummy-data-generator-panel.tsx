@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getClientCsrfHeaders } from '@/lib/csrf'
+import { supabase } from '@/lib/supabase'
 
 type Preset = 'full_school_fixture' | 'report_focused'
 
@@ -20,12 +20,39 @@ type GeneratorPayload = {
   }
 }
 
+type SchoolOption = {
+  id: string
+  name: string
+}
+
 export function DummyDataGeneratorPanel() {
   const [preset, setPreset] = useState<Preset>('full_school_fixture')
   const [schoolId, setSchoolId] = useState('')
+  const [schools, setSchools] = useState<SchoolOption[]>([])
   const [isRunning, setIsRunning] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [result, setResult] = useState<GeneratorPayload['result'] | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadSchools = async () => {
+      const { data } = await supabase
+        .from('schools')
+        .select('id, name')
+        .order('name', { ascending: true })
+
+      if (!cancelled) {
+        setSchools((data || []) as SchoolOption[])
+      }
+    }
+
+    loadSchools()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const runGenerator = async () => {
     setIsRunning(true)
@@ -78,12 +105,23 @@ export function DummyDataGeneratorPanel() {
           </div>
 
           <div className="space-y-2">
-            <Label>Target School ID (optional)</Label>
-            <Input
-              value={schoolId}
-              onChange={(event) => setSchoolId(event.target.value)}
-              placeholder="Leave blank to create a new sandbox school"
-            />
+            <Label>Target School</Label>
+            <Select value={schoolId || '__new__'} onValueChange={(value) => setSchoolId(value === '__new__' ? '' : value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Create a new sandbox school" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__new__">Create a new sandbox school</SelectItem>
+                {schools.map((school) => (
+                  <SelectItem key={school.id} value={school.id}>
+                    {school.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Leave this on the default option to create a fresh sandbox school, or choose an existing school to target.
+            </p>
           </div>
         </div>
 

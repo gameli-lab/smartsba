@@ -105,6 +105,10 @@ function normalizePhone(value?: string | null) {
   return value.replace(/[^0-9+]/g, '')
 }
 
+function normalizeClassNameKey(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '')
+}
+
 type ParentResolutionResult =
   | {
       status: 'created_and_linked'
@@ -114,6 +118,7 @@ type ParentResolutionResult =
   | {
       status: 'linked_existing_parent'
       parentProfileId: string
+      parentUserId?: string
     }
   | {
       status: 'skipped_no_guardian_email' | 'skipped_invalid_guardian_email'
@@ -177,7 +182,6 @@ async function resolveGuardianParentForStudent(params: {
 
     const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() }
     let shouldUpdate = false
-
     if ((!existingProfile.full_name || existingProfile.full_name === 'Parent Guardian') && guardianName) {
       updatePayload.full_name = guardianName
       shouldUpdate = true
@@ -206,7 +210,7 @@ async function resolveGuardianParentForStudent(params: {
         { onConflict: 'user_id' }
       )
 
-    return { status: 'linked_existing_parent', parentProfileId }
+    return { status: 'linked_existing_parent', parentProfileId, parentUserId: existingProfile.user_id }
   }
 
   const parentTempPassword = randomTempPassword('Parent')
@@ -263,6 +267,7 @@ async function resolveGuardianParentForStudent(params: {
   return {
     status: 'created_and_linked',
     parentProfileId: parentProfileData.id as string,
+    parentUserId,
     parentTempPassword,
   }
 }
@@ -483,7 +488,7 @@ export async function createStudent(input: CreateStudentInput) {
       conflict_existing_non_parent_email: 'student_create_parent_resolution_conflict_non_parent_email',
     }
 
-    await logAudit(adminSupabase, user.id, parentAuditActionByStatus[parentResolution.status], 'student', insertedStudent.id, {
+    await logAssumptionAwareAudit(adminSupabase, user.id, parentAuditActionByStatus[parentResolution.status], 'student', insertedStudent.id, {
       schoolId,
       admissionNumber: insertedStudent.admission_number,
       guardianEmail: input.guardian_email || null,
@@ -733,7 +738,12 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
       .eq('school_id', schoolId)
 
     const classMap = new Map<string, string>()
-    ;(classRows || []).forEach((c: { id: string; name: string }) => classMap.set(c.name.trim().toLowerCase(), c.id))
+    ;(classRows || []).forEach((c: { id: string; name: string }) => {
+      const exactKey = c.name.trim().toLowerCase()
+      const compactKey = normalizeClassNameKey(c.name)
+      if (!classMap.has(exactKey)) classMap.set(exactKey, c.id)
+      if (!classMap.has(compactKey)) classMap.set(compactKey, c.id)
+    })
 
     const { data: existingStudents } = await adminSupabase
       .from('students')
@@ -794,7 +804,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
         continue
       }
 
-      const classId = classMap.get(class_name_raw.trim().toLowerCase())
+      const classId = classMap.get(class_name_raw.trim().toLowerCase()) || classMap.get(normalizeClassNameKey(class_name_raw))
       if (!classId) {
         failures.push({ row: rowIndex, reason: `Class not found: ${class_name_raw}` })
         continue
@@ -973,6 +983,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
         schoolId,
         importedCount: successCount,
         failedCount: failures.length,
+        createdUserIds: successfulAuthResults.map((result) => result.userId).filter(Boolean),
       })
     }
 

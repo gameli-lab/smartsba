@@ -122,13 +122,19 @@ export function RoleAssumptionPanel() {
   }
 
   const clearAssumption = async () => {
+    const deletePreviewData = window.confirm(
+      'Return to SysAdmin now?\n\nOK = delete data created during this preview session\nCancel = keep the data and just return'
+    )
+
     setIsSubmitting(true)
     setMessage(null)
 
     try {
       const response = await fetch('/api/super-admin/assume-role', {
         method: 'DELETE',
-        headers: getClientCsrfHeaders(),
+        headers: getClientCsrfHeaders({
+          'X-Preview-Cleanup': deletePreviewData ? 'delete' : 'keep',
+        }),
       })
       const payload = (await response.json()) as { success?: boolean; error?: string }
       if (!response.ok || !payload.success) {

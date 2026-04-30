@@ -18,6 +18,167 @@ const ROLE_TO_PATH: Record<AssumableRole, string> = {
   parent: '/parent',
 }
 
+type PreviewCleanupMetadata = {
+  assumption?: {
+    actor_user_id?: string
+  }
+  createdUserIds?: unknown
+  parentResolution?: {
+    status?: string
+    parentProfileId?: string
+    parentUserId?: string
+  }
+}
+
+async function cleanupAssumedPreviewData(admin: ReturnType<typeof createAdminSupabaseClient>, actorUserId: string, issuedAt: number) {
+  const issuedAtIso = new Date(issuedAt).toISOString()
+  const { data: auditRows, error } = await (admin as any)
+    .from('audit_logs')
+    .select('created_at, action_type, entity_type, entity_id, metadata')
+    .eq('actor_user_id', actorUserId)
+    .gte('created_at', issuedAtIso)
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const studentUserIds = new Set<string>()
+  const teacherUserIds = new Set<string>()
+  const parentUserIds = new Set<string>()
+
+  const studentEntityIds = new Set<string>()
+  const parentProfileIds = new Set<string>()
+
+  for (const row of (auditRows || []) as Array<{ action_type: string; entity_id: string | null; metadata: PreviewCleanupMetadata | null }>) {
+    if (row.metadata?.assumption?.actor_user_id !== actorUserId) continue
+
+    if (row.action_type === 'student_created' && row.entity_id) {
+      studentEntityIds.add(row.entity_id)
+      const parentResolution = row.metadata?.parentResolution
+      if (parentResolution?.status === 'created_and_linked') {
+        if (parentResolution.parentUserId) parentUserIds.add(parentResolution.parentUserId)
+      }
+    }
+
+    if (row.action_type === 'teacher_created' && row.entity_id) {
+      teacherUserIds.add(row.entity_id)
+    }
+
+    if (row.action_type === 'student_bulk_imported') {
+      const createdUserIds = Array.isArray(row.metadata?.createdUserIds) ? row.metadata?.createdUserIds : []
+      createdUserIds.forEach((value) => {
+        if (typeof value === 'string' && value) studentUserIds.add(value)
+      })
+    }
+
+    if (row.action_type === 'teacher_bulk_imported') {
+      const createdUserIds = Array.isArray(row.metadata?.createdUserIds) ? row.metadata?.createdUserIds : []
+      createdUserIds.forEach((value) => {
+        if (typeof value === 'string' && value) teacherUserIds.add(value)
+      })
+    }
+
+    if (row.action_type === 'student_create_auto_parent_created') {
+      const parentResolution = row.metadata?.parentResolution
+      if (parentResolution?.status === 'created_and_linked') {
+        if (parentResolution.parentUserId) parentUserIds.add(parentResolution.parentUserId)
+        if (parentResolution.parentProfileId) parentProfileIds.add(parentResolution.parentProfileId)
+      }
+    }
+  }
+
+  if (studentEntityIds.size > 0) {
+    const { data: studentRows } = await (admin as any)
+      .from('students')
+      .select('id, user_id')
+      .in('id', Array.from(studentEntityIds))
+
+    ;(studentRows || []).forEach((student: { id: string; user_id: string }) => {
+      studentUserIds.add(student.user_id)
+      studentEntityIds.add(student.id)
+    })
+  }
+
+  const studentUserIdList = Array.from(studentUserIds)
+  if (studentUserIdList.length > 0) {
+    const { data: studentRowsByUser } = await (admin as any)
+      .from('students')
+      .select('id, user_id')
+      .in('user_id', studentUserIdList)
+
+    const studentIds = Array.from(new Set([
+      ...Array.from(studentEntityIds),
+      ...(studentRowsByUser || []).map((student: { id: string }) => student.id),
+    ]))
+
+    if (studentIds.length > 0) {
+      await (admin as any).from('parent_student_links').delete().in('student_id', studentIds)
+      await (admin as any).from('students').delete().in('user_id', studentUserIdList)
+    }
+  }
+
+  const teacherIds = Array.from(teacherUserIds)
+  if (teacherIds.length > 0) {
+    await (admin as any).from('teachers').delete().in('user_id', teacherIds)
+  }
+
+  const parentIds = Array.from(parentUserIds)
+  if (parentIds.length > 0) {
+    const { data: parentProfiles } = await (admin as any)
+      .from('user_profiles')
+      .select('id, user_id')
+      .in('user_id', parentIds)
+      .eq('role', 'parent')
+
+    const parentProfileIdList = Array.from(new Set([
+      ...parentProfileIds,
+      ...(parentProfiles || []).map((profile: { id: string }) => profile.id),
+    ]))
+
+    if (parentProfileIdList.length > 0) {
+      await (admin as any).from('parent_student_links').delete().in('parent_id', parentProfileIdList)
+      await (admin as any).from('parents').delete().in('user_id', parentIds)
+      await (admin as any).from('user_profiles').delete().in('user_id', parentIds).eq('role', 'parent')
+      await Promise.all(parentIds.map((userId) => admin.auth.admin.deleteUser(userId)))
+    }
+  }
+
+  if (studentUserIds.size > 0) {
+    const studentUserIdList = Array.from(studentUserIds)
+    const { data: studentProfiles } = await (admin as any)
+      .from('user_profiles')
+      .select('user_id')
+      .in('user_id', studentUserIdList)
+      .eq('role', 'student')
+
+    if ((studentProfiles || []).length > 0) {
+      await (admin as any).from('user_profiles').delete().in('user_id', studentUserIdList).eq('role', 'student')
+      await Promise.all(studentUserIdList.map((userId) => admin.auth.admin.deleteUser(userId)))
+    }
+  }
+
+  if (teacherUserIds.size > 0) {
+    const teacherUserIdList = Array.from(teacherUserIds)
+    const { data: teacherProfiles } = await (admin as any)
+      .from('user_profiles')
+      .select('user_id')
+      .in('user_id', teacherUserIdList)
+      .eq('role', 'teacher')
+
+    if ((teacherProfiles || []).length > 0) {
+      await (admin as any).from('user_profiles').delete().in('user_id', teacherUserIdList).eq('role', 'teacher')
+      await Promise.all(teacherUserIdList.map((userId) => admin.auth.admin.deleteUser(userId)))
+    }
+  }
+
+  return {
+    studentCount: studentUserIds.size,
+    teacherCount: teacherUserIds.size,
+    parentCount: parentUserIds.size,
+  }
+}
+
 async function requireSuperAdminContext() {
   const supabase = await createServerComponentClient()
   const { data: { user }, error } = await supabase.auth.getUser()
@@ -164,12 +325,19 @@ export async function POST(req: NextRequest) {
   return response
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const contextResult = await requireSuperAdminContext()
   if ('error' in contextResult) return contextResult.error
 
   const { user, admin } = contextResult
   const assumeContext = await getAssumeRoleContextForActor(user.id)
+  const cleanupMode = req.headers.get('x-preview-cleanup') === 'delete'
+
+  let cleanupResult: { studentCount: number; teacherCount: number; parentCount: number } | null = null
+
+  if (cleanupMode && assumeContext) {
+    cleanupResult = await cleanupAssumedPreviewData(admin, user.id, assumeContext.issuedAt)
+  }
 
   if (assumeContext) {
     await writeAuditLog(admin as any, {
@@ -181,11 +349,13 @@ export async function DELETE() {
       metadata: {
         assumed_role: assumeContext.assumedRole,
         assumed_user_id: assumeContext.assumedUserId,
+        cleanup: cleanupMode ? 'deleted' : 'kept',
+        cleanup_result: cleanupResult,
       },
     })
   }
 
-  const response = NextResponse.json({ success: true })
+  const response = NextResponse.json({ success: true, cleanup: cleanupMode ? 'deleted' : 'kept', cleanupResult })
   response.cookies.set(ASSUME_ROLE_COOKIE_NAME, '', {
     path: '/',
     expires: new Date(0),

@@ -54,11 +54,17 @@ export function GlobalUserMenu({ userName, userEmail, userRole, assumedRole }: G
   }
 
   const handleReturnToSysAdmin = async () => {
+    const deletePreviewData = window.confirm(
+      'Return to SysAdmin now?\n\nOK = delete data created during this preview session\nCancel = keep the data and just return'
+    )
+
     setIsClearingAssume(true)
     try {
       const response = await fetch('/api/super-admin/assume-role', {
         method: 'DELETE',
-        headers: getClientCsrfHeaders(),
+        headers: getClientCsrfHeaders({
+          'X-Preview-Cleanup': deletePreviewData ? 'delete' : 'keep',
+        }),
       })
       const payload = (await response.json()) as { success?: boolean }
       if (!response.ok || !payload.success) {
