@@ -7,6 +7,7 @@ import { createAdminSupabaseClient } from '@/lib/supabase'
 import { buildOtpCookieValue, OTP_VERIFIED_COOKIE_NAME } from '@/lib/otp-session'
 import { recordSecurityEvent } from '@/lib/security-monitor'
 import { sendLoginOtpEmail } from '@/services/emailService'
+import { sendSms } from '@/services/smsService'
 import { applyRateLimit, getClientIp } from '@/lib/rate-limit'
 
 const OTP_LENGTH = 6
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest) {
     const supabaseAdmin = createAdminSupabaseClient()
 
     // Find user by email
-    let userQuery = supabaseAdmin.from('user_profiles').select('user_id, id, email, role, school_id')
+    let userQuery = supabaseAdmin.from('user_profiles').select('user_id, id, email, role, school_id, phone')
 
     if (channel === 'email') {
       userQuery = userQuery.ilike('email', normalizedIdentifier)
@@ -227,7 +228,18 @@ export async function POST(req: NextRequest) {
             sendError = result.error || 'Failed to send email'
           }
         }
-        // SMS would go here
+        if (channel === 'sms') {
+          const phone = profile['phone'] as string | undefined
+          if (!phone) {
+            sendError = 'User does not have a phone number on record.'
+            sendSuccess = false
+          } else {
+            const smsBody = `Your SmartSBA OTP code is: ${otpCode}. It expires in ${OTP_TTL_MINUTES} minutes.`
+            const smsResult = await sendSms(phone, smsBody)
+            sendSuccess = smsResult.success
+            if (!sendSuccess) sendError = smsResult.error || 'Failed to send SMS'
+          }
+        }
       } catch (err) {
         console.error('Failed to send OTP:', err)
         sendError = 'Failed to deliver OTP code'
