@@ -12,6 +12,8 @@ export type SecurityEventType =
   | 'bulk_export'
   | 'mfa_challenge'
   | 'mfa_verified'
+  | 'otp_challenge'
+  | 'otp_verified'
 
 export type SecurityEventMetadata = Record<string, unknown>
 
@@ -34,6 +36,10 @@ function estimateRiskScore(eventType: SecurityEventType, metadata: SecurityEvent
     case 'mfa_challenge':
       return 25
     case 'mfa_verified':
+      return 10
+    case 'otp_challenge':
+      return 25
+    case 'otp_verified':
       return 10
     case 'login_success':
     default:

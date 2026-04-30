@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { supabase, createServerComponentClient, createAdminSupabaseClient, getMfaVerificationState } from './supabase'
 import { UserProfile, Teacher, TeacherAssignment, Student } from '@/types'
-import { isMfaCookieVerified, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
+import { MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
+import { isOtpCookieVerified, OTP_VERIFIED_COOKIE_NAME } from '@/lib/otp-session'
 import { getAssumeRoleContextForActor } from '@/lib/assume-role'
 import type { AuthResult } from './auth'
 
@@ -37,12 +38,32 @@ type RoleGuardContext = {
 
 async function requirePrivilegedMfa(userId: string): Promise<void> {
   const cookieStore = await cookies()
-  const providedCookie = cookieStore.get(MFA_VERIFIED_COOKIE_NAME)?.value
-  const verificationState = await getMfaVerificationState(userId, providedCookie)
+  const providedMfaCookie = cookieStore.get(MFA_VERIFIED_COOKIE_NAME)?.value
+  const verificationState = await getMfaVerificationState(userId, providedMfaCookie)
 
-  if (!verificationState.enabled || !verificationState.lastUsedAt || !verificationState.verified) {
-    redirect('/mfa-challenge')
+  if (verificationState.enabled && verificationState.lastUsedAt && verificationState.verified) {
+    return
   }
+
+  const providedOtpCookie = cookieStore.get(OTP_VERIFIED_COOKIE_NAME)?.value
+
+  if (providedOtpCookie) {
+    const adminSupabase = createAdminSupabaseClient()
+    const { data: latestOtpChallenge, error } = await adminSupabase
+      .from('login_otp_challenges')
+      .select('verified_at')
+      .eq('user_id', userId)
+      .not('verified_at', 'is', null)
+      .order('verified_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!error && latestOtpChallenge?.verified_at && isOtpCookieVerified(userId, latestOtpChallenge.verified_at, providedOtpCookie)) {
+      return
+    }
+  }
+
+  redirect('/mfa-challenge')
 }
 
 async function resolveRoleGuardContext(requiredRole: GuardRole): Promise<RoleGuardContext> {

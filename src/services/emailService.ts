@@ -11,7 +11,7 @@ import { emailTemplates } from '@/lib/email-templates'
 interface SendEmailOptions {
   to: string
   userId?: string
-  type: 'school_created' | 'user_created' | 'role_changed' | 'school_status_changed'
+  type: 'school_created' | 'user_created' | 'role_changed' | 'school_status_changed' | 'login_otp'
   data: unknown
   metadata?: Record<string, unknown>
 }
@@ -336,6 +336,39 @@ export async function sendSchoolStatusChangedEmail(data: {
     metadata: {
       school_id: data.schoolId,
       new_status: data.newStatus,
+    },
+  })
+}
+
+/**
+ * Send login OTP code email
+ * Sends a one-time password for email-based authentication
+ */
+export async function sendLoginOtpEmail(data: {
+  userEmail: string
+  userId: string
+  userName: string
+  code: string
+  expiresMinutes: number
+  loginUrl: string
+  schoolId?: string
+}): Promise<EmailResult> {
+  return sendEmail({
+    to: data.userEmail,
+    userId: data.userId,
+    type: 'login_otp',
+    data: {
+      userEmail: data.userEmail,
+      userName: data.userName,
+      code: data.code,
+      expiresMinutes: data.expiresMinutes,
+      loginUrl: data.loginUrl,
+      channel: 'email',
+    },
+    metadata: {
+      school_id: data.schoolId || null,
+      delivery_method: 'email',
+      code_length: data.code.length,
     },
   })
 }

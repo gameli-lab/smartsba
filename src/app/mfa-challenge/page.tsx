@@ -5,6 +5,10 @@ import { useSearchParams } from 'next/navigation'
 import QRCode from 'qrcode'
 import { supabase } from '@/lib/supabase'
 import { getClientCsrfHeaders } from '@/lib/csrf'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 type MfaStatusResponse = {
   role?: string
@@ -56,6 +60,13 @@ export default function MfaChallengePage() {
   const [otpauthUrl, setOtpauthUrl] = useState<string | null>(null)
   const [backupCodes, setBackupCodes] = useState<string[]>([])
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null)
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null)
+  const [otpState, setOtpState] = useState<'send' | 'verify'>('send')
+  const [otpCode, setOtpCode] = useState('')
+  const [otpError, setOtpError] = useState<string | null>(null)
+  const [otpSuccess, setOtpSuccess] = useState<string | null>(null)
+  const [otpIsSubmitting, setOtpIsSubmitting] = useState(false)
+  const [otpAttemptsRemaining, setOtpAttemptsRemaining] = useState<number | null>(null)
 
   const challengeRequired = Boolean(nextPath) || Boolean(status?.requiredForRole)
 
@@ -64,6 +75,7 @@ export default function MfaChallengePage() {
       setError(null)
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
+      setSessionEmail(session?.user?.email ?? null)
 
       if (!token) {
         window.location.href = '/login'
@@ -211,6 +223,94 @@ export default function MfaChallengePage() {
     }
   }
 
+  const handleOtpSend = async (event: FormEvent) => {
+    event.preventDefault()
+    setOtpIsSubmitting(true)
+    setOtpError(null)
+    setOtpSuccess(null)
+
+    try {
+      if (!sessionEmail) {
+        throw new Error('Your session does not include an email address. Please sign in again.')
+      }
+
+      const response = await fetch('/api/auth/otp', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: getClientCsrfHeaders({
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({
+          action: 'send',
+          identifier: sessionEmail,
+          channel: 'email',
+        }),
+      })
+
+      const payload = (await response.json()) as { success?: boolean; message?: string; error?: string }
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Failed to send OTP code')
+      }
+
+      setOtpState('verify')
+      setOtpSuccess(payload.message || 'OTP code sent to your email address.')
+      setOtpAttemptsRemaining(null)
+      setOtpCode('')
+    } catch (sendError) {
+      setOtpError(sendError instanceof Error ? sendError.message : 'Failed to send OTP code')
+    } finally {
+      setOtpIsSubmitting(false)
+    }
+  }
+
+  const handleOtpVerify = async (event: FormEvent) => {
+    event.preventDefault()
+    setOtpIsSubmitting(true)
+    setOtpError(null)
+    setOtpSuccess(null)
+
+    try {
+      if (!sessionEmail) {
+        throw new Error('Your session does not include an email address. Please sign in again.')
+      }
+
+      if (!otpCode || otpCode.length !== 6 || !/^\d+$/.test(otpCode)) {
+        throw new Error('Enter the 6-digit code from your email.')
+      }
+
+      const response = await fetch('/api/auth/otp', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: getClientCsrfHeaders({
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({
+          action: 'verify',
+          identifier: sessionEmail,
+          channel: 'email',
+          code: otpCode.trim(),
+        }),
+      })
+
+      const payload = (await response.json()) as { success?: boolean; message?: string; error?: string; attemptsRemaining?: number }
+
+      if (!response.ok || !payload.success) {
+        if (typeof payload.attemptsRemaining === 'number') {
+          setOtpAttemptsRemaining(payload.attemptsRemaining)
+        }
+        throw new Error(payload.error || 'Failed to verify OTP code')
+      }
+
+      setOtpSuccess(payload.message || 'OTP verification successful. Redirecting...')
+      window.location.href = nextPath || getDefaultRouteByRole(status?.role)
+    } catch (verifyError) {
+      setOtpError(verifyError instanceof Error ? verifyError.message : 'Failed to verify OTP code')
+    } finally {
+      setOtpIsSubmitting(false)
+    }
+  }
+
   const enrollmentPending = status && (!status.enrolled || !status.enabled)
 
   if (isLoading) {
@@ -276,34 +376,122 @@ export default function MfaChallengePage() {
         </div>
       ) : null}
 
-      <form className="space-y-4 rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900" onSubmit={handleVerify}>
-        <h2 className="text-lg font-semibold">Verify Code</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">Enter a 6-digit authenticator code or a backup code.</p>
+      <Tabs defaultValue="authenticator" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 rounded-full bg-gray-200/80 p-1 dark:bg-gray-800">
+          <TabsTrigger value="authenticator" className="rounded-full text-gray-700 data-[state=active]:bg-white data-[state=active]:text-gray-900 dark:text-gray-200 dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-gray-50">
+            Authenticator
+          </TabsTrigger>
+          <TabsTrigger value="email" className="rounded-full text-gray-700 data-[state=active]:bg-white data-[state=active]:text-gray-900 dark:text-gray-200 dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-gray-50">
+            Email Code
+          </TabsTrigger>
+        </TabsList>
 
-        <input
-          type="text"
-          value={verificationCode}
-          onChange={(event) => setVerificationCode(event.target.value)}
-          placeholder="123456"
-          className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
-        />
+        <TabsContent value="authenticator" className="space-y-4 outline-none">
+          <form className="space-y-4 rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900" onSubmit={handleVerify}>
+            <h2 className="text-lg font-semibold">Verify Code</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Enter a 6-digit authenticator code or a backup code.</p>
 
-        <input
-          type="text"
-          value={backupCode}
-          onChange={(event) => setBackupCode(event.target.value)}
-          placeholder="Backup code (optional)"
-          className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
-        />
+            <input
+              type="text"
+              value={verificationCode}
+              onChange={(event) => setVerificationCode(event.target.value)}
+              placeholder="123456"
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+            />
 
-        <button
-          type="submit"
-          className="w-full rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
-          disabled={isSubmitting || (!verificationCode && !backupCode)}
-        >
-          {isSubmitting ? 'Verifying...' : challengeRequired ? 'Verify and Continue' : 'Verify MFA'}
-        </button>
-      </form>
+            <input
+              type="text"
+              value={backupCode}
+              onChange={(event) => setBackupCode(event.target.value)}
+              placeholder="Backup code (optional)"
+              className="w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+            />
+
+            <button
+              type="submit"
+              className="w-full rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
+              disabled={isSubmitting || (!verificationCode && !backupCode)}
+            >
+              {isSubmitting ? 'Verifying...' : challengeRequired ? 'Verify and Continue' : 'Verify MFA'}
+            </button>
+          </form>
+        </TabsContent>
+
+        <TabsContent value="email" className="space-y-4 outline-none">
+          <div className="space-y-4 rounded border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+            <div>
+              <h2 className="text-lg font-semibold">Email Code</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Choose this option if you want a one-time code sent to your email address after password sign-in.</p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {sessionEmail ? `Code will be sent to ${sessionEmail}.` : 'Loading your email address from the active session.'}
+              </p>
+            </div>
+
+            {otpError ? <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">{otpError}</div> : null}
+            {otpSuccess ? <div className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-700 dark:border-green-900 dark:bg-green-950/40 dark:text-green-300">{otpSuccess}</div> : null}
+
+            {otpState === 'send' ? (
+              <form className="space-y-4" onSubmit={handleOtpSend}>
+                <Button
+                  type="submit"
+                  className="w-full rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
+                  disabled={otpIsSubmitting || !sessionEmail}
+                >
+                  {otpIsSubmitting ? 'Sending Code...' : 'Send Email Code'}
+                </Button>
+              </form>
+            ) : (
+              <form className="space-y-4" onSubmit={handleOtpVerify}>
+                <div>
+                  <Label htmlFor="otp-code" className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
+                    Verification Code
+                  </Label>
+                  <Input
+                    id="otp-code"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="123456"
+                    className="mt-2 h-12 rounded border border-gray-300 bg-white px-3 text-center text-lg tracking-[0.4em] text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                  />
+                </div>
+
+                {otpAttemptsRemaining !== null ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {otpAttemptsRemaining} attempt{otpAttemptsRemaining === 1 ? '' : 's'} remaining.
+                  </p>
+                ) : null}
+
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 rounded"
+                    onClick={() => {
+                      setOtpState('send')
+                      setOtpCode('')
+                      setOtpError(null)
+                      setOtpSuccess(null)
+                      setOtpAttemptsRemaining(null)
+                    }}
+                    disabled={otpIsSubmitting}
+                  >
+                    Resend Code
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1 rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600"
+                    disabled={otpIsSubmitting || otpCode.length !== 6 || !sessionEmail}
+                  >
+                    {otpIsSubmitting ? 'Verifying...' : 'Verify Code'}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
