@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AlertCircle, CheckCircle2, KeyRound, Loader2, Settings as SettingsIcon } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { getSystemSettings, updateSystemSetting } from './actions'
+import { getClientCsrfHeaders } from '@/lib/csrf'
 
 interface SystemSetting {
   id: string
@@ -120,6 +121,8 @@ export default function SettingsPage() {
   })
   const [aiDirty, setAIDirty] = useState(false)
   const [savingAI, setSavingAI] = useState(false)
+  const [testingAI, setTestingAI] = useState(false)
+  const [aiTestResult, setAITestResult] = useState<string | null>(null)
 
   // Maintenance mode state
   const [maintenanceValues, setMaintenanceValues] = useState({
@@ -249,6 +252,23 @@ export default function SettingsPage() {
         mfa_failure_spike_threshold_per_hour: toNumberSetting(mfa_failure_spike_threshold_per_hour, 5),
       })
       setSecurityDirty(false)
+
+      // Initialize email form values from settings
+      const smtp_host = result.settings.find(s => s.setting_key === 'email.smtp_host')?.setting_value
+      const smtp_port = result.settings.find(s => s.setting_key === 'email.smtp_port')?.setting_value
+      const smtp_user = result.settings.find(s => s.setting_key === 'email.smtp_user')?.setting_value
+      const sender_name = result.settings.find(s => s.setting_key === 'email.sender_name')?.setting_value
+      const sender_email = result.settings.find(s => s.setting_key === 'email.sender_email')?.setting_value
+
+      setEmailValues({
+        smtp_host: typeof smtp_host === 'string' ? smtp_host : '',
+        smtp_port: toNumberSetting(smtp_port, 587),
+        smtp_user: typeof smtp_user === 'string' ? smtp_user : '',
+        smtp_password: '',
+        sender_name: typeof sender_name === 'string' ? sender_name : 'SmartSBA System',
+        sender_email: typeof sender_email === 'string' ? sender_email : 'noreply@smartsba.local',
+      })
+      setEmailDirty(false)
 
       // Initialize AI provider configuration from settings
       const ai_default_provider = result.settings.find(s => s.setting_key === 'ai.default_provider')?.setting_value || 'anthropic'
@@ -540,9 +560,12 @@ export default function SettingsPage() {
       await updateSystemSetting('email.smtp_host', emailValues.smtp_host, userId, userRole)
       await updateSystemSetting('email.smtp_port', emailValues.smtp_port, userId, userRole)
       await updateSystemSetting('email.smtp_user', emailValues.smtp_user, userId, userRole)
-      await updateSystemSetting('email.smtp_password', emailValues.smtp_password, userId, userRole)
       await updateSystemSetting('email.sender_name', emailValues.sender_name, userId, userRole)
       await updateSystemSetting('email.sender_email', emailValues.sender_email, userId, userRole)
+
+      if (emailValues.smtp_password.trim()) {
+        await updateSystemSetting('email.smtp_password', emailValues.smtp_password.trim(), userId, userRole)
+      }
       
       setSuccess('Email settings saved successfully')
       setEmailDirty(false)
@@ -613,6 +636,56 @@ export default function SettingsPage() {
       console.error('Error saving AI settings:', err)
     } finally {
       setSavingAI(false)
+    }
+  }
+
+  async function testAISettings() {
+    setTestingAI(true)
+    setError(null)
+    setAITestResult(null)
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session) {
+        throw new Error('Not authenticated')
+      }
+
+      const response = await fetch('/api/super-admin/ai/test', {
+        method: 'POST',
+        headers: getClientCsrfHeaders({
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        }),
+        body: JSON.stringify({
+          providers: Array.from(new Set([aiValues.default_provider, 'anthropic', 'openai', 'gemini'])),
+        }),
+      })
+
+      const payload = await response.json()
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'AI key test failed')
+      }
+
+      const summary = (payload.results || [])
+        .map((result: { provider: string; success: boolean; error?: string; response?: string }) => {
+          if (result.success) {
+            return `${result.provider}: OK${result.response ? ` (${result.response})` : ''}`
+          }
+
+          return `${result.provider}: ${result.error || 'failed'}`
+        })
+        .join(' | ')
+
+      setAITestResult(summary || 'No providers were tested')
+      setSuccess('AI key test completed successfully')
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'AI key test failed')
+    } finally {
+      setTestingAI(false)
     }
   }
 
@@ -1438,6 +1511,22 @@ export default function SettingsPage() {
               >
                 {savingAI ? 'Saving...' : 'Save AI Settings'}
               </Button>
+
+              <Button
+                variant="outline"
+                onClick={testAISettings}
+                disabled={savingAI || testingAI}
+                className="w-full"
+              >
+                {testingAI ? 'Testing AI Keys...' : 'Test AI Keys'}
+              </Button>
+
+              {aiTestResult && (
+                <Alert>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <AlertDescription>{aiTestResult}</AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -37,6 +37,15 @@ export interface LLMSecurityFinding {
 
 export type AIAssistantMode = 'school_admin' | 'general' | 'coding' | 'cyber' | 'auditor'
 
+export interface AIProviderTestResult {
+  provider: AIProvider
+  model: string
+  enabled: boolean
+  success: boolean
+  response?: string
+  error?: string
+}
+
 let anthropic: Anthropic | null = null
 let cachedConfig: { loadedAt: number; config: AIServiceConfig } | null = null
 
@@ -346,6 +355,56 @@ async function generateWithFallbackInternal(prompt: string, maxTokens: number, a
 
   const errorSummary = providerErrors.map(({ provider }) => provider).join(', ')
   throw new Error(errorSummary ? `No configured AI providers succeeded: ${errorSummary}` : 'No AI provider is configured')
+}
+
+export async function testConfiguredAIProviders(providers?: AIProvider[]): Promise<AIProviderTestResult[]> {
+  const config = await getAIServiceConfig()
+  const targetProviders = providers?.length ? providers : config.providerOrder
+  const probePrompt = 'Reply with the single word OK.'
+
+  const results: AIProviderTestResult[] = []
+
+  for (const provider of targetProviders) {
+    const providerConfig = config.providers[provider]
+
+    if (!providerConfig.enabled || !providerConfig.apiKey) {
+      results.push({
+        provider,
+        model: providerConfig.model,
+        enabled: false,
+        success: false,
+        error: 'Provider is not configured',
+      })
+      continue
+    }
+
+    try {
+      const response =
+        provider === 'anthropic'
+          ? await callAnthropic(probePrompt, 16, providerConfig.model, 'You are a concise API key tester.', providerConfig.apiKey)
+          : provider === 'openai'
+            ? await callOpenAI(probePrompt, 16, providerConfig.model, 'You are a concise API key tester.', providerConfig.apiKey)
+            : await callGemini(probePrompt, 16, providerConfig.model, 'You are a concise API key tester.', providerConfig.apiKey)
+
+      results.push({
+        provider,
+        model: providerConfig.model,
+        enabled: true,
+        success: true,
+        response: response.slice(0, 120),
+      })
+    } catch (error) {
+      results.push({
+        provider,
+        model: providerConfig.model,
+        enabled: true,
+        success: false,
+        error: error instanceof Error ? error.message : 'AI provider test failed',
+      })
+    }
+  }
+
+  return results
 }
 
 export async function generateWithFallback(
