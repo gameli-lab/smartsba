@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Users, GraduationCap, BookOpen, Shapes, CheckCircle2, ArrowUpCircle, AlertCircle, AlertTriangle, Clock, UserCheck, ChevronRight, Layers, Settings, BarChart3, Lock, Unlock, FileText, Eye, EyeOff, Megaphone, TrendingUp, TrendingDown, UserMinus, UserPlus, Calendar, Award, Scale, Shield, History } from 'lucide-react'
 import { Suspense } from 'react'
+import { getResultsCompletion, getPendingPromotionsCount } from '@/lib/school-metrics'
 
 /**
  * School Command Center - School Admin Dashboard
@@ -157,10 +158,24 @@ async function OperationalKPIs({ schoolId, currentTerm }: { schoolId: string; cu
   ])
 
   // TODO: Implement results completion calculation
-  const resultsCompletion = 0
+  // Calculate results completion and pending promotions using helpers
+  let resultsCompletion = 0
+  let pendingPromotions = 0
 
-  // TODO: Implement pending promotions calculation (Term 3 only)
-  const pendingPromotions = 0
+  try {
+    const rc = await getResultsCompletion(schoolId, String(currentTerm))
+    resultsCompletion = rc.percent
+  } catch (err) {
+    console.error('Failed to compute results completion:', err)
+    resultsCompletion = 0
+  }
+
+  try {
+    pendingPromotions = await getPendingPromotionsCount(schoolId, String(currentTerm))
+  } catch (err) {
+    console.error('Failed to compute pending promotions:', err)
+    pendingPromotions = 0
+  }
 
   return (
     <div>

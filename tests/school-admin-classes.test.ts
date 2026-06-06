@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 
 dotenv.config()
 
+// Increase Jest timeout for potentially slow DB operations
+jest.setTimeout(30000)
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!

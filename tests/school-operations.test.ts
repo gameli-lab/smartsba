@@ -18,6 +18,9 @@ const testSupabase = createClient(
   }
 );
 
+// Increase Jest timeout for DB operations involving auth admin and RPCs
+jest.setTimeout(30000)
+
 describe('School Operations - Cascade Delete', () => {
   let testSchoolId: string;
   let testUserId: string;

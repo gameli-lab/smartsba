@@ -8,8 +8,8 @@ import {
   getRequestFingerprintFromHeaders,
 } from '@/lib/assume-role'
 import { writeAuditLog } from '@/lib/audit-log'
-import { buildMfaCookieValue, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
-import { createAdminSupabaseClient, createServerComponentClient } from '@/lib/supabase'
+import { MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
+import { createAdminSupabaseClient, createServerComponentClient, getMfaVerificationState } from '@/lib/supabase'
 
 const ROLE_TO_PATH: Record<AssumableRole, string> = {
   school_admin: '/school-admin',
@@ -202,26 +202,21 @@ async function requireSuperAdminContext() {
 }
 
 async function enforceSuperAdminMfa(admin: ReturnType<typeof createAdminSupabaseClient>, userId: string, presentedCookie: string | undefined) {
-  const { data: enrollment, error } = await admin
-    .from('mfa_enrollments')
-    .select('enabled, last_used_at')
-    .eq('user_id', userId)
-    .eq('enabled', true)
-    .order('last_used_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  try {
+    const state = await getMfaVerificationState(userId, presentedCookie)
 
-  const lastUsedAt = (enrollment as { enabled?: boolean; last_used_at?: string | null } | null)?.last_used_at
-  if (error || !lastUsedAt) {
+    if (!state.enabled) {
+      return NextResponse.json({ error: 'MFA verification required to start role preview' }, { status: 403 })
+    }
+
+    if (!state.verified) {
+      return NextResponse.json({ error: 'Re-authenticate with MFA before assuming a role' }, { status: 403 })
+    }
+
+    return null
+  } catch (err) {
     return NextResponse.json({ error: 'MFA verification required to start role preview' }, { status: 403 })
   }
-
-  const expectedCookie = buildMfaCookieValue(userId, lastUsedAt)
-  if (!presentedCookie || presentedCookie !== expectedCookie) {
-    return NextResponse.json({ error: 'Re-authenticate with MFA before assuming a role' }, { status: 403 })
-  }
-
-  return null
 }
 
 export async function GET() {

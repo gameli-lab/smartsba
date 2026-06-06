@@ -302,8 +302,42 @@ export default function MfaChallengePage() {
         throw new Error(payload.error || 'Failed to verify OTP code')
       }
 
-      setOtpSuccess(payload.message || 'OTP verification successful. Redirecting...')
-      window.location.href = nextPath || getDefaultRouteByRole(status?.role)
+      setOtpSuccess(payload.message || 'OTP verification successful. Finalizing trusted session...')
+
+      // Poll MFA status endpoint until verified or timeout to avoid redirect races
+      const maxAttempts = 8
+      const delayMs = 500
+      let verified = false
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        // Fetch fresh MFA state
+        try {
+          const resp = await fetch('/api/auth/mfa', {
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          })
+
+          if (resp.ok) {
+            const state = await resp.json() as MfaStatusResponse & { error?: string }
+            setStatus(state)
+            if (state.verified) {
+              verified = true
+              const redirectTo = nextPath || getDefaultRouteByRole(state.role)
+              window.location.href = redirectTo
+              break
+            }
+          }
+        } catch (pollErr) {
+          // ignore and retry
+        }
+
+        await new Promise((r) => setTimeout(r, delayMs))
+      }
+
+      if (!verified) {
+        setOtpSuccess('OTP verification completed. Finalizing trusted session, please wait a moment and refresh.')
+      }
     } catch (verifyError) {
       setOtpError(verifyError instanceof Error ? verifyError.message : 'Failed to verify OTP code')
     } finally {

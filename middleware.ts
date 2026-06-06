@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { CSRF_COOKIE_NAME, createCsrfToken } from '@/lib/csrf'
-import { isMfaCookieVerified, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
+import { MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
+import { getMfaVerificationState } from '@/lib/supabase'
 
 const SESSION_ACTIVITY_COOKIE = 'smartsba_session_activity'
 const STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -130,31 +131,7 @@ function finalizeResponse(req: NextRequest, response: NextResponse): NextRespons
   return response
 }
 
-async function getMfaEnrollment(userId: string) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!url || !serviceRoleKey) {
-    console.error('Missing service role environment variables for MFA middleware checks')
-    return null
-  }
-
-  const admin = createClient(url, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false,
-    },
-  })
-
-  const { data } = await (admin as any)
-    .from('mfa_enrollments')
-    .select('enabled, last_used_at')
-    .eq('user_id', userId)
-    .maybeSingle()
-
-  return data as { enabled?: boolean; last_used_at?: string | null } | null
-}
+// Use centralized MFA verification state helper from src/lib/supabase
 
 async function getPasswordChangeRequirement(userId: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -357,14 +334,10 @@ export async function middleware(req: NextRequest) {
 
   if (user && profile?.role && isPrivilegedRole(profile.role) && isPrivilegedPath(pathname)) {
     if (!pathname.startsWith('/mfa-challenge') && !pathname.startsWith('/api/auth/mfa')) {
-      const enrollmentRow = await getMfaEnrollment(user.id)
-
       const providedCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value
-      const verified = enrollmentRow?.enabled
-        ? isMfaCookieVerified(user.id, enrollmentRow.last_used_at, providedCookie)
-        : false
+      const mfaState = await getMfaVerificationState(user.id, providedCookie)
 
-      if (!verified) {
+      if (!mfaState.verified) {
         const challengeUrl = new URL('/mfa-challenge', req.url)
         const nextPath = `${pathname}${req.nextUrl.search || ''}`
         challengeUrl.searchParams.set('next', nextPath)
@@ -377,13 +350,10 @@ export async function middleware(req: NextRequest) {
   if (user && pathname.startsWith('/login') && profile?.role) {
     const targetPath = getRoleRedirectPath(profile.role)
     if (isPrivilegedRole(profile.role)) {
-      const enrollmentRow = await getMfaEnrollment(user.id)
       const providedCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value
-      const verified = enrollmentRow?.enabled
-        ? isMfaCookieVerified(user.id, enrollmentRow.last_used_at, providedCookie)
-        : false
+      const mfaState = await getMfaVerificationState(user.id, providedCookie)
 
-      if (!verified) {
+      if (!mfaState.verified) {
         const challengeUrl = new URL('/mfa-challenge', req.url)
         challengeUrl.searchParams.set('next', targetPath)
         return finalizeResponse(req, NextResponse.redirect(challengeUrl))
