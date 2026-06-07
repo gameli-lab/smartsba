@@ -10,6 +10,7 @@ type AuthedUser = {
   userId: string
   role: string
   schoolId: string | null
+  phone: string | null  // ← added
 }
 
 function isPrivilegedRole(role: string): boolean {
@@ -29,7 +30,6 @@ async function getMfaTrustedSessionHours(supabaseAdmin: ReturnType<typeof create
     const value = (data as { setting_value?: unknown }).setting_value
     const parsed = typeof value === 'number' ? value : parseInt(String(value || ''), 10)
     if (!Number.isFinite(parsed)) return 12
-
     return Math.max(1, Math.min(168, Math.floor(parsed)))
   } catch {
     return 12
@@ -39,11 +39,7 @@ async function getMfaTrustedSessionHours(supabaseAdmin: ReturnType<typeof create
 function getAnonSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!url || !anonKey) {
-    throw new Error('Missing Supabase auth environment variables')
-  }
-
+  if (!url || !anonKey) throw new Error('Missing Supabase auth environment variables')
   return createClient(url, anonKey)
 }
 
@@ -57,15 +53,16 @@ async function requireAuthenticatedUser(req: NextRequest): Promise<{ user: Authe
 
   const supabase = getAnonSupabaseClient()
   const supabaseAdmin = createAdminSupabaseClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
 
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token)
   if (authError || !user) {
     return { error: NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 }) }
   }
 
+  // ← Added phone to the select
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('user_profiles')
-    .select('role, school_id')
+    .select('role, school_id, phone')
     .eq('user_id', user.id)
     .single()
 
@@ -78,6 +75,7 @@ async function requireAuthenticatedUser(req: NextRequest): Promise<{ user: Authe
       userId: user.id,
       role: profile.role,
       schoolId: profile.school_id,
+      phone: (profile as { phone?: string | null }).phone ?? null,  // ← added
     },
   }
 }
@@ -89,9 +87,7 @@ function hashBackupCode(code: string): string {
 export async function GET(req: NextRequest) {
   try {
     const authResult = await requireAuthenticatedUser(req)
-    if ('error' in authResult) {
-      return authResult.error
-    }
+    if ('error' in authResult) return authResult.error
 
     const { user } = authResult
     const supabaseAdmin = createAdminSupabaseClient()
@@ -114,14 +110,21 @@ export async function GET(req: NextRequest) {
       ? buildMfaCookieValue(user.userId, enrollmentRow.last_used_at)
       : null
 
-    const providedCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value || null
+    // Check OTP cookie as fallback for email/SMS verified sessions
+    const otpCookie = req.cookies.get('otp_verified')?.value || null
+    const mfaCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value || null
+
+    const totpVerified = Boolean(expectedCookie && mfaCookie && expectedCookie === mfaCookie)
+    // OTP cookie is set by /api/auth/otp on successful verify — treat it as verified too
+    const otpVerified = Boolean(otpCookie)
 
     return NextResponse.json({
       role: user.role,
       schoolId: user.schoolId,
+      phone: user.phone,   // ← returned to page so SMS tab can populate
       enrolled: Boolean(enrollmentRow),
       enabled: Boolean(enrollmentRow?.enabled),
-      verified: Boolean(expectedCookie && providedCookie && expectedCookie === providedCookie),
+      verified: totpVerified || otpVerified,  // ← either TOTP or OTP cookie satisfies
       backupCodesRemaining: Array.isArray(enrollmentRow?.backup_codes_hashed)
         ? enrollmentRow?.backup_codes_hashed.length
         : 0,
@@ -137,13 +140,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const authResult = await requireAuthenticatedUser(req)
-    if ('error' in authResult) {
-      return authResult.error
-    }
+    if ('error' in authResult) return authResult.error
 
     const { user } = authResult
     const supabaseAdmin = createAdminSupabaseClient()
     const trustedSessionHours = await getMfaTrustedSessionHours(supabaseAdmin)
+
     const body = (await req.json()) as { action?: 'enroll' | 'verify'; code?: string; backupCode?: string }
 
     if (body.action === 'enroll') {
@@ -188,12 +190,7 @@ export async function POST(req: NextRequest) {
         metadata: { action: 'enroll_started' },
       })
 
-      return NextResponse.json({
-        success: true,
-        secret: secretBase32,
-        otpauthUrl,
-        backupCodes: codes,
-      })
+      return NextResponse.json({ success: true, secret: secretBase32, otpauthUrl, backupCodes: codes })
     }
 
     if (body.action === 'verify') {
@@ -236,11 +233,11 @@ export async function POST(req: NextRequest) {
           eventType: 'mfa_challenge',
           metadata: { action: 'verify_failed' },
         })
-
         return NextResponse.json({ error: 'Invalid verification code' }, { status: 400 })
       }
 
       const lastUsedAt = new Date().toISOString()
+
       const { error: updateError } = await (supabaseAdmin as any)
         .from('mfa_enrollments')
         .update({
