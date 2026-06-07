@@ -1,7 +1,7 @@
 'use server'
 
 import { createHash } from 'crypto'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase'
 import { buildOtpCookieValue, OTP_VERIFIED_COOKIE_NAME } from '@/lib/otp-session'
@@ -149,6 +149,7 @@ export async function POST(req: NextRequest) {
       email: string
       role: string
       school_id: string | null
+      phone?: string
     } | undefined
 
     if (!profile) {
