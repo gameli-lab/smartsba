@@ -184,6 +184,8 @@ function getEmailTemplate(type: string, data: unknown) {
       return emailTemplates.roleChanged(data)
     case 'school_status_changed':
       return emailTemplates.schoolStatusChanged(data)
+		case 'login_otp':
+			return emailTemplates.loginOtp(data)
     default:
       throw new Error(`Unknown email type: ${type}`)
   }
