@@ -302,7 +302,7 @@ async function generatePreset(admin: ReturnType<typeof createAdminSupabaseClient
           session_id: sessionId,
           ca_score: ca,
           exam_score: exam,
-          total_score: total,
+          // total_score: total,
           grade: gradeFromScore(total),
           entered_by: teacherProfileIds[0],
         })
