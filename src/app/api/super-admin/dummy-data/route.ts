@@ -132,8 +132,8 @@ async function generatePreset(admin: ReturnType<typeof createAdminSupabaseClient
 
   const classCount = preset === 'full_school_fixture' ? 2 : 1
   const subjectNames = preset === 'full_school_fixture'
-    ? ['English', 'Mathematics', 'Integrated Science', 'Social Studies', 'ICT']
-    : ['English', 'Mathematics', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Computing']
+    ? ['English Language', 'Mathematics', 'Integrated Science', 'Social Studies', 'ICT']
+    : ['English Language', 'Mathematics', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Computing']
 
   const classIds: string[] = []
   for (let i = 1; i <= classCount; i += 1) {
