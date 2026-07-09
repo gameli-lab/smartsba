@@ -23,11 +23,12 @@ type ClassMetadata = Pick<ReportMetadata, 'students'>
 interface Props {
   sessions: AcademicSession[]
   classes: Class[]
+  initialSessionId?: string
 }
 
-export function ReportsClient({ sessions, classes }: Props) {
+export function ReportsClient({ sessions, classes, initialSessionId }: Props) {
   const [reportType, setReportType] = useState<'student' | 'class'>('student')
-  const [selectedSession, setSelectedSession] = useState(sessions[0]?.id || '')
+  const [selectedSession, setSelectedSession] = useState(initialSessionId || sessions[0]?.id || '')
   const [selectedClass, setSelectedClass] = useState(classes[0]?.id || '')
   const [selectedStudent, setSelectedStudent] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -45,6 +46,7 @@ export function ReportsClient({ sessions, classes }: Props) {
 
     if (reportType === 'student') {
       setIsLoading(true)
+      setClassMetadata(null)
       const result = await getReportMetadata(classId)
       setIsLoading(false)
 

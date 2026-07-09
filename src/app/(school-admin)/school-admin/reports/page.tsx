@@ -28,6 +28,7 @@ export default async function ReportsPage() {
 
   const sessions = (sessionsData || []) as AcademicSession[]
   const classes = (classesData || []) as Class[]
+  const initialSessionId = sessions.find((session) => session.is_current)?.id ?? sessions[0]?.id ?? ''
 
   return (
     <div className="p-8 space-y-8">
@@ -49,7 +50,7 @@ export default async function ReportsPage() {
           </CardContent>
         </Card>
       ) : (
-        <ReportsClient sessions={sessions} classes={classes} />
+        <ReportsClient sessions={sessions} classes={classes} initialSessionId={initialSessionId} />
       )}
     </div>
   )
