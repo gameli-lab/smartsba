@@ -220,7 +220,7 @@ export function DummyDataGeneratorPanel() {
     try {
       const res = await fetch('/api/super-admin/dummy-data', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getClientCsrfHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'same-origin',
         body: JSON.stringify({ preset: selected }),
       })
