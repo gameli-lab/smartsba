@@ -1,4 +1,4 @@
-"use client"
+/**"use client"
 
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -163,6 +163,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { getClientCsrfHeaders } from '@/lib/csrf'
 import { Loader2, Database, FileText, CheckCircle2, XCircle } from 'lucide-react'
 
 type Preset = 'full_school_fixture' | 'report_focused'
