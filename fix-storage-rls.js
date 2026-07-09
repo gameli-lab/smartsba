@@ -4,8 +4,8 @@
 
 const https = require('https');
 
-const SUPABASE_URL = 'https://mxgcchhyjzgfyrbzwzon.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14Z2NjaGh5anpnZnlyYnp3em9uIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODQxMTA4OCwiZXhwIjoyMDczOTg3MDg4fQ.OHgr5qTHkSuEmxuVnw4YYD2CeVcvtfP0pgXFZ0-LMVE';
+const SUPABASE_URL = process.env.SUPABASE_URL
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 const queries = [
   `DROP POLICY IF EXISTS "school_assets_upload" ON storage.objects`,
@@ -76,6 +76,10 @@ const queries = [
 
 async function executeQuery(query) {
   return new Promise((resolve, reject) => {
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+      throw new Error('Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables before running this script.')
+    }
+
     const parsedSupabaseUrl = new URL(SUPABASE_URL);
     const data = JSON.stringify({ query });
     

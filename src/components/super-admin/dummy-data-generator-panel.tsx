@@ -1,4 +1,4 @@
-'use client'
+/**'use client'
 
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -148,5 +148,194 @@ export function DummyDataGeneratorPanel() {
         ) : null}
       </CardContent>
     </Card>
+  )
+}
+**/
+
+
+
+
+
+
+'use client'
+
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, Database, FileText, CheckCircle2, XCircle } from 'lucide-react'
+
+type Preset = 'full_school_fixture' | 'report_focused'
+
+type CreatedCounts = {
+  users: number
+  profiles: number
+  classes: number
+  subjects: number
+  students: number
+  teachers: number
+  scores: number
+  attendance: number
+  remarks: number
+  assignments: number
+}
+
+type GeneratorResult = {
+  schoolId: string
+  schoolName: string
+  createdCounts: CreatedCounts
+}
+
+type ApiResponse = {
+  success?: boolean
+  result?: GeneratorResult
+  error?: string
+}
+
+const PRESET_CONFIG = {
+  full_school_fixture: {
+    label: 'Full School Fixture',
+    description: '3 classes · 4 teachers · 30 students · all subjects · complete scores, attendance, remarks & rankings',
+    icon: Database,
+  },
+  report_focused: {
+    label: 'Report Focused',
+    description: '1 class · 2 teachers · 15 students · core + 2 electives · complete term-end report data',
+    icon: FileText,
+  },
+} satisfies Record<Preset, { label: string; description: string; icon: React.ElementType }>
+
+export function DummyDataGeneratorPanel() {
+  const [selected, setSelected]   = useState<Preset | null>(null)
+  const [loading, setLoading]     = useState(false)
+  const [result, setResult]       = useState<GeneratorResult | null>(null)
+  const [error, setError]         = useState<string | null>(null)
+
+  async function handleGenerate() {
+    if (!selected) return
+    setLoading(true)
+    setResult(null)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/super-admin/dummy-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ preset: selected }),
+      })
+
+      const data = (await res.json()) as ApiResponse
+
+      if (!res.ok || !data.success || !data.result) {
+        throw new Error(data.error || 'Generation failed')
+      }
+
+      setResult(data.result)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Dummy Data Generator</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Generate a complete term-end dataset — scores, attendance, class teacher remarks, and rankings — ready for report preview.
+        </p>
+      </div>
+
+      {/* Preset selector */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {(Object.entries(PRESET_CONFIG) as [Preset, typeof PRESET_CONFIG[Preset]][]).map(([key, cfg]) => {
+          const Icon = cfg.icon
+          const isSelected = selected === key
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => { setSelected(key); setResult(null); setError(null) }}
+              className={[
+                'flex items-start gap-3 rounded-lg border p-4 text-left transition-colors',
+                isSelected
+                  ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-950/30'
+                  : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-gray-600 dark:hover:bg-gray-800/60',
+              ].join(' ')}
+            >
+              <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} />
+              <div>
+                <p className={`font-medium ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-gray-100'}`}>
+                  {cfg.label}
+                </p>
+                <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{cfg.description}</p>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Generate button */}
+      <Button
+        onClick={handleGenerate}
+        disabled={!selected || loading}
+        className="w-full sm:w-auto"
+      >
+        {loading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Generating data…
+          </>
+        ) : (
+          'Generate Dataset'
+        )}
+      </Button>
+
+      {/* Error */}
+      {error && (
+        <Card className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30">
+          <CardContent className="flex items-start gap-3 pt-4">
+            <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+            <div>
+              <p className="font-medium text-red-700 dark:text-red-400">Generation failed</p>
+              <p className="mt-0.5 text-sm text-red-600 dark:text-red-300">{error}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Success result */}
+      {result && (
+        <Card className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <CardTitle className="text-base text-green-700 dark:text-green-300">Dataset generated successfully</CardTitle>
+            </div>
+            <CardDescription className="text-green-600 dark:text-green-400">
+              {result.schoolName}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+              {(Object.entries(result.createdCounts) as [keyof CreatedCounts, number][]).map(([key, val]) => (
+                <div key={key} className="rounded-md border border-green-200 bg-white px-3 py-2 dark:border-green-900 dark:bg-gray-900">
+                  <p className="text-xs capitalize text-gray-500 dark:text-gray-400">{key}</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{val}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+              School ID: <span className="font-mono">{result.schoolId}</span>
+            </p>
+            <p className="mt-1 text-xs text-green-700 dark:text-green-400">
+              All student report cards are ready to preview. Log in as any generated student to verify.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }

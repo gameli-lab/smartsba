@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Download, X, Printer } from 'lucide-react'
 import type { ReportCardData } from '@/types'
+import { exportReportCardToPDF } from '@/lib/pdf-export'
 
 interface Props {
   report: ReportCardData | null
@@ -59,6 +60,10 @@ export function StudentReportPreview({ report, open, onOpenChange }: Props) {
     win.close()
   }
 
+  const handleDownload = async () => {
+    await exportReportCardToPDF(report)
+  }
+
   const isSignedUrl = (url?: string | null) =>
     url ? url.startsWith('http://') || url.startsWith('https://') : false
 
@@ -75,7 +80,7 @@ export function StudentReportPreview({ report, open, onOpenChange }: Props) {
               <Printer className="mr-1.5 h-3.5 w-3.5" />
               Print
             </Button>
-            <Button size="sm" variant="default">
+            <Button size="sm" variant="default" onClick={handleDownload}>
               <Download className="mr-1.5 h-3.5 w-3.5" />
               Download PDF
             </Button>

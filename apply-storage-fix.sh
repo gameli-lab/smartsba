@@ -1,84 +1,31 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Script to fix storage policies without custom JWT claims
+MIGRATION_FILE="/home/torvex/smartsba/supabase/migrations/999_fix_storage_policies_without_custom_claims.sql"
+DATABASE_URL="${SUPABASE_DB_URL:-${DATABASE_URL:-}}"
 
-SQL_QUERY=$(cat <<'EOF'
--- Drop existing policies
-DROP POLICY IF EXISTS "school_assets_upload" ON storage.objects;
-DROP POLICY IF EXISTS "school_assets_select" ON storage.objects;
-DROP POLICY IF EXISTS "school_assets_update" ON storage.objects;
-DROP POLICY IF EXISTS "school_assets_delete" ON storage.objects;
+if [[ -z "$DATABASE_URL" ]]; then
+  cat <<'EOF'
+Missing database connection string.
 
--- 1. UPLOAD Policy
-CREATE POLICY "school_assets_upload" ON storage.objects
-  FOR INSERT WITH CHECK (
-    bucket_id = 'school-assets' AND
-    (
-      EXISTS (SELECT 1 FROM user_profiles WHERE user_id = auth.uid() AND role = 'super_admin') OR
-      EXISTS (
-        SELECT 1 FROM user_profiles
-        WHERE user_id = auth.uid()
-        AND role = 'school_admin'
-        AND school_id::text = split_part(name, '/', 1)
-        AND name !~ '\.\.' AND name !~ '/\./' AND name !~ '^\./'
-      )
-    ) AND
-    (storage.extension(name) = ANY(ARRAY['jpg', 'jpeg', 'png', 'webp', 'gif']))
-  );
+To automate this locally or in CI, set one of:
+  - SUPABASE_DB_URL
+  - DATABASE_URL
 
--- 2. SELECT Policy
-CREATE POLICY "school_assets_select" ON storage.objects
-  FOR SELECT USING (
-    bucket_id = 'school-assets' AND
-    (
-      EXISTS (SELECT 1 FROM user_profiles WHERE user_id = auth.uid() AND role = 'super_admin') OR
-      EXISTS (
-        SELECT 1 FROM user_profiles
-        WHERE user_id = auth.uid()
-        AND school_id::text = split_part(name, '/', 1)
-        AND name !~ '\.\.' AND name !~ '/\./' AND name !~ '^\./'
-      )
-    )
-  );
+Example:
+  export SUPABASE_DB_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres"
+  ./apply-storage-fix.sh
 
--- 3. UPDATE Policy
-CREATE POLICY "school_assets_update" ON storage.objects
-  FOR UPDATE USING (
-    bucket_id = 'school-assets' AND
-    (
-      EXISTS (SELECT 1 FROM user_profiles WHERE user_id = auth.uid() AND role = 'super_admin') OR
-      EXISTS (
-        SELECT 1 FROM user_profiles
-        WHERE user_id = auth.uid()
-        AND role = 'school_admin'
-        AND school_id::text = split_part(name, '/', 1)
-        AND name !~ '\.\.' AND name !~ '/\./' AND name !~ '^\./'
-      )
-    )
-  );
-
--- 4. DELETE Policy
-CREATE POLICY "school_assets_delete" ON storage.objects
-  FOR DELETE USING (
-    bucket_id = 'school-assets' AND
-    (
-      EXISTS (SELECT 1 FROM user_profiles WHERE user_id = auth.uid() AND role = 'super_admin') OR
-      EXISTS (
-        SELECT 1 FROM user_profiles
-        WHERE user_id = auth.uid()
-        AND role = 'school_admin'
-        AND school_id::text = split_part(name, '/', 1)
-        AND name !~ '\.\.' AND name !~ '/\./' AND name !~ '^\./'
-      )
-    )
-  );
 EOF
-)
+  exit 1
+fi
 
-echo "=== Applying Storage Policy Fix ==="
-echo ""
-echo "Please run this SQL in your Supabase Dashboard > SQL Editor:"
-echo ""
-echo "$SQL_QUERY"
-echo ""
-echo "Or copy the SQL from: supabase/migrations/999_fix_storage_policies_without_custom_claims.sql"
+if ! command -v psql >/dev/null 2>&1; then
+  echo "psql is required but was not found in PATH."
+  exit 1
+fi
+
+echo "Applying storage policy migration: $MIGRATION_FILE"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_FILE"
+
+echo "Done. Next, verify the school-assets bucket policies and get_school_asset_url function in Supabase."

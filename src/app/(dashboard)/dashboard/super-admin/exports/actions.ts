@@ -1,6 +1,6 @@
 "use server"
 
-import { supabase } from '@/lib/supabase'
+import { createAdminSupabaseClient } from '@/lib/supabase'
 import { recordSecurityEvent } from '@/lib/security-monitor'
 
 interface ExportResult {
@@ -70,7 +70,8 @@ interface AuditRpcClient {
   rpc(functionName: 'log_audit_action', params: LogAuditActionParams): Promise<unknown>
 }
 
-const auditRpcClient = supabase as unknown as AuditRpcClient
+const admin = createAdminSupabaseClient()
+const auditRpcClient = admin as unknown as AuditRpcClient
 
 function getSchoolName(schools: UserProfileExportRow['schools']): string {
   if (Array.isArray(schools)) {
@@ -99,7 +100,7 @@ export async function exportSchoolsToCSV(
 ): Promise<ExportResult> {
   try {
     // Verify user is super_admin
-    const profileResponse = (await supabase
+    const profileResponse = (await admin
       .from('user_profiles')
       .select('role')
       .eq('user_id', userId)
@@ -112,7 +113,7 @@ export async function exportSchoolsToCSV(
     }
 
     // Fetch schools data
-    let query = supabase
+    let query = admin
       .from('schools')
       .select(`
         id,
@@ -261,7 +262,7 @@ export async function exportUsersToCSV(
 
     // Get emails from auth.users
     const usersData = (users ?? []) as UserProfileExportRow[]
-    const { data: authUsers } = await supabase.auth.admin.listUsers()
+    const { data: authUsers } = await admin.auth.admin.listUsers()
     const emailMap = new Map(authUsers?.users.map((u) => [u.id, u.email]))
 
     // Generate CSV content
@@ -338,7 +339,7 @@ export async function exportAuditLogsToCSV(
   }
 ): Promise<ExportResult> {
   try {
-    const profileResponse = (await supabase
+    const profileResponse = (await admin
       .from('user_profiles')
       .select('role')
       .eq('user_id', userId)
@@ -351,7 +352,7 @@ export async function exportAuditLogsToCSV(
     }
 
     // Fetch audit logs
-    let query = supabase
+    let query = admin
       .from('audit_logs')
       .select(`
         id,
@@ -463,7 +464,7 @@ export async function exportAnalyticsToCSV(
   userRole: string
 ): Promise<ExportResult> {
   try {
-    const profileResponse = (await supabase
+    const profileResponse = (await admin
       .from('user_profiles')
       .select('role')
       .eq('user_id', userId)
@@ -476,7 +477,7 @@ export async function exportAnalyticsToCSV(
     }
 
     // Fetch analytics data
-    const { data: schools } = await supabase
+    const { data: schools } = await admin
       .from('schools')
       .select(`
         id,
@@ -486,7 +487,7 @@ export async function exportAnalyticsToCSV(
       `)
       .order('created_at', { ascending: false })
 
-    const { data: users } = await supabase
+    const { data: users } = await admin
       .from('user_profiles')
       .select('role, school_id')
 

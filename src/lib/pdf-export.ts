@@ -2,6 +2,7 @@
 
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import type { ClassReportData, ReportCardData } from '@/types'
 
 interface SchoolPDFRow {
   name: string
@@ -58,6 +59,21 @@ interface FeatureAdoptionRow {
   total_schools: number
   adoption_rate: number
   usage_count: number
+}
+
+function saveDocument(doc: jsPDF, filenamePrefix: string) {
+  const timestamp = new Date().toISOString().split('T')[0]
+  doc.save(`${filenamePrefix}_${timestamp}.pdf`)
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return '-'
+
+  try {
+    return new Date(value).toLocaleDateString()
+  } catch {
+    return value
+  }
 }
 
 export async function exportSchoolsToPDF(
@@ -538,12 +554,122 @@ export async function exportFeatureAdoptionToPDF(
       )
     }
 
-    const timestamp = new Date().toISOString().split('T')[0]
-    doc.save(`feature_adoption_${timestamp}.pdf`)
+    saveDocument(doc, 'feature_adoption')
 
     return { success: true }
   } catch (err) {
     console.error('Error generating PDF:', err)
     return { success: false, error: 'Failed to generate PDF' }
+  }
+}
+
+export async function exportReportCardToPDF(
+  report: ReportCardData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const doc = new jsPDF('landscape')
+    const { school, student, class: klass, session, scores, totals, attendance, class_teacher_remark } = report
+
+    doc.setFontSize(18)
+    doc.text('Student Report Card', 14, 18)
+    doc.setFontSize(10)
+    doc.text(`School: ${school.name}`, 14, 26)
+    doc.text(`Student: ${student.user_profile.full_name}`, 14, 32)
+    doc.text(`Class: ${klass.name}`, 14, 38)
+    doc.text(`Session: ${session.academic_year} Term ${session.term}`, 14, 44)
+
+    doc.setFontSize(11)
+    doc.text('Summary', 14, 54)
+    doc.setFontSize(9)
+    doc.text(`Total CA Score: ${totals.total_ca}`, 14, 60)
+    doc.text(`Total Exam Score: ${totals.total_exam}`, 14, 66)
+    doc.text(`Grand Total: ${totals.grand_total}`, 14, 72)
+    doc.text(`Average: ${totals.average.toFixed(2)}`, 14, 78)
+    doc.text(`Aggregate: ${totals.aggregate}`, 14, 84)
+    doc.text(`Position: ${totals.position} of ${totals.out_of}`, 14, 90)
+    doc.text(`Attendance: ${attendance.present_days ?? '-'} / ${attendance.total_days ?? '-'}`, 14, 96)
+    doc.text(`Class Teacher Remark: ${class_teacher_remark?.remark || '-'}`, 14, 102)
+
+    autoTable(doc, {
+      startY: 110,
+      head: [['Subject', 'CA', 'Exam', 'Total', 'Grade', 'Remark']],
+      body: scores.map((score) => [
+        score.subject.name,
+        score.ca_score ?? '',
+        score.exam_score ?? '',
+        score.total_score ?? '',
+        score.grade ?? '',
+        score.subject_remark ?? '',
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [26, 58, 107] },
+      styles: { fontSize: 8 },
+    })
+
+    saveDocument(doc, `${student.user_profile.full_name.replace(/\s+/g, '_')}_report_card`)
+    return { success: true }
+  } catch (err) {
+    console.error('Error generating report card PDF:', err)
+    return { success: false, error: 'Failed to generate report card PDF' }
+  }
+}
+
+export async function exportClassReportToPDF(
+  report: ClassReportData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const doc = new jsPDF('landscape')
+    const { class: klass, session, students, subjects, school } = report
+
+    doc.setFontSize(18)
+    doc.text('Class Report', 14, 18)
+    doc.setFontSize(10)
+    doc.text(`School: ${school.name}`, 14, 26)
+    doc.text(`Class: ${klass.name}`, 14, 32)
+    doc.text(`Session: ${session.academic_year} Term ${session.term}`, 14, 38)
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 44)
+
+    const avgScore = students.length > 0
+      ? students.reduce((sum, student) => sum + (student.totals.total_score || 0), 0) / students.length
+      : 0
+
+    doc.setFontSize(11)
+    doc.text('Summary', 14, 54)
+    doc.setFontSize(9)
+    doc.text(`Total Students: ${students.length}`, 14, 60)
+    doc.text(`Total Subjects: ${subjects.length}`, 14, 66)
+    doc.text(`Average Score: ${avgScore.toFixed(2)}`, 14, 72)
+
+    autoTable(doc, {
+      startY: 80,
+      head: [['Rank', 'Name', 'Admission', 'Total', 'Average']],
+      body: [...students]
+        .sort((a, b) => (b.totals.total_score || 0) - (a.totals.total_score || 0))
+        .map((student, index) => [
+          `#${index + 1}`,
+          student.user_profile.full_name,
+          student.admission_number,
+          student.totals.total_score,
+          student.totals.average.toFixed(2),
+        ]),
+      theme: 'grid',
+      headStyles: { fillColor: [26, 58, 107] },
+      styles: { fontSize: 8 },
+    })
+
+    autoTable(doc, {
+      startY: (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ? (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable!.finalY! + 10 : 120,
+      head: [['Subject', 'Code']],
+      body: subjects.map((subject) => [subject.name, subject.code || '-']),
+      theme: 'grid',
+      headStyles: { fillColor: [99, 102, 241] },
+      styles: { fontSize: 8 },
+    })
+
+    saveDocument(doc, `${klass.name.replace(/\s+/g, '_')}_class_report`)
+    return { success: true }
+  } catch (err) {
+    console.error('Error generating class report PDF:', err)
+    return { success: false, error: 'Failed to generate class report PDF' }
   }
 }

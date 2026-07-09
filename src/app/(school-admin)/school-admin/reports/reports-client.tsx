@@ -13,7 +13,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Loader2 } from 'lucide-react'
 import { generateStudentReportCard, generateClassReport, getReportMetadata, type ReportMetadata } from './actions'
+import { StudentReportPreview } from './student-report-preview'
+import { ClassReportPreview } from './class-report-preview'
 import type { AcademicSession, Class } from '@/types'
+import type { ClassReportData, ReportCardData } from '@/types'
 
 type ClassMetadata = Pick<ReportMetadata, 'students'>
 
@@ -30,6 +33,10 @@ export function ReportsClient({ sessions, classes }: Props) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [classMetadata, setClassMetadata] = useState<ClassMetadata | null>(null)
+  const [studentReport, setStudentReport] = useState<ReportCardData | null>(null)
+  const [classReport, setClassReport] = useState<ClassReportData | null>(null)
+  const [studentPreviewOpen, setStudentPreviewOpen] = useState(false)
+  const [classPreviewOpen, setClassPreviewOpen] = useState(false)
 
   const handleClassChange = async (classId: string) => {
     setSelectedClass(classId)
@@ -70,6 +77,10 @@ export function ReportsClient({ sessions, classes }: Props) {
       return
     }
 
+    setClassReport(null)
+    setStudentReport(result.data ?? null)
+    setStudentPreviewOpen(true)
+
   }
 
   const handleGenerateClassReport = async () => {
@@ -87,6 +98,10 @@ export function ReportsClient({ sessions, classes }: Props) {
       setError(result.error || 'Failed to generate report')
       return
     }
+
+    setStudentReport(null)
+    setClassReport(result.data ?? null)
+    setClassPreviewOpen(true)
 
   }
 
@@ -206,6 +221,18 @@ export function ReportsClient({ sessions, classes }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      <StudentReportPreview
+        report={studentReport}
+        open={studentPreviewOpen}
+        onOpenChange={setStudentPreviewOpen}
+      />
+
+      <ClassReportPreview
+        report={classReport}
+        open={classPreviewOpen}
+        onOpenChange={setClassPreviewOpen}
+      />
     </div>
   )
 }

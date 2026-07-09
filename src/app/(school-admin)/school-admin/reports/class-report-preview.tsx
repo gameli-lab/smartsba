@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Download, X } from 'lucide-react'
 import type { ClassReportData } from '@/types'
+import { exportClassReportToPDF } from '@/lib/pdf-export'
 
 interface Props {
   report: ClassReportData | null
@@ -47,6 +48,10 @@ export function ClassReportPreview({ report, open, onOpenChange }: Props) {
     const bTotal = b.totals.total_score || 0
     return bTotal - aTotal
   })
+
+  const handleDownload = async () => {
+    await exportClassReportToPDF(report)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -174,7 +179,7 @@ export function ClassReportPreview({ report, open, onOpenChange }: Props) {
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Close
             </Button>
-            <Button>
+            <Button onClick={handleDownload}>
               <Download className="mr-2 h-4 w-4" />
               Download PDF
             </Button>

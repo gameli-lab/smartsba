@@ -1,7 +1,7 @@
 'use server'
 
 import { requireSchoolAdmin } from '@/lib/auth-guards'
-import { supabase, createServerComponentClient } from '@/lib/supabase'
+import { createAdminSupabaseClient, createServerComponentClient } from '@/lib/supabase'
 import { getSchoolAssetSignedUrl } from '@/lib/storage'
 import type { ReportCardData, ClassReportData, Score, AcademicSession } from '@/types'
 
@@ -103,8 +103,10 @@ export async function generateStudentReportCard(
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
 
+    const admin = createAdminSupabaseClient()
+
     // Fetch student with profile
-    const { data: studentRow } = await supabase
+    const { data: studentRow } = await admin
       .from('students')
       .select(
         `
@@ -122,14 +124,14 @@ export async function generateStudentReportCard(
     }
 
     // Fetch user profile
-    const { data: profileRow } = await supabase
+    const { data: profileRow } = await admin
       .from('user_profiles')
       .select('id, full_name, email, phone, address, gender, date_of_birth')
       .eq('user_id', student.user_id)
       .single()
 
     // Fetch session
-    const { data: sessionRow } = await supabase
+    const { data: sessionRow } = await admin
       .from('academic_sessions')
       .select('id, school_id, academic_year, term, start_date, end_date, vacation_date, reopening_date, is_current')
       .eq('id', sessionId)
@@ -141,14 +143,14 @@ export async function generateStudentReportCard(
     }
 
     // Fetch class
-    const { data: classRow } = await supabase
+    const { data: classRow } = await admin
       .from('classes')
       .select('id, name, level, stream')
       .eq('id', student.class_id)
       .single()
 
     // Fetch school
-    const { data: schoolRow } = await supabase
+    const { data: schoolRow } = await admin
       .from('schools')
       .select('id, name, address, phone, logo_url, stamp_url, head_signature_url')
       .eq('id', schoolId)
@@ -167,7 +169,7 @@ export async function generateStudentReportCard(
       : null
 
     // Fetch scores
-    const { data: scoresData } = await supabase
+    const { data: scoresData } = await admin
       .from('scores')
       .select(`
         id, ca_score, exam_score, total_score, grade, subject_remark,
@@ -188,7 +190,7 @@ export async function generateStudentReportCard(
     })) as Array<Score & { subject: SubjectRow }>
 
     // Fetch class teacher remark
-    const { data: remarkRow } = await supabase
+    const { data: remarkRow } = await admin
       .from('class_teacher_remarks')
       .select('id, remark, promotion_status, next_class_id')
       .eq('student_id', studentId)
@@ -203,7 +205,7 @@ export async function generateStudentReportCard(
     const aggregate = scores.reduce((sum, s) => sum + (s.total_score || 0), 0)
 
     // Calculate class position
-    const { data: classStudentsData } = await supabase
+    const { data: classStudentsData } = await admin
       .from('students')
       .select('id')
       .eq('class_id', student.class_id)
@@ -214,7 +216,7 @@ export async function generateStudentReportCard(
     let position = 0
 
     if (classStudentIds.length > 1) {
-      const { data: allClassScores } = await supabase
+      const { data: allClassScores } = await admin
         .from('scores')
         .select('student_id, total_score')
         .eq('session_id', sessionId)
@@ -232,7 +234,7 @@ export async function generateStudentReportCard(
     }
 
     // Fetch attendance
-    const { data: attendanceRow } = await supabase
+    const { data: attendanceRow } = await admin
       .from('attendance')
       .select('id, student_id, session_id, present_days, total_days, percentage')
       .eq('student_id', studentId)
@@ -280,7 +282,7 @@ export async function generateClassReport(
     const schoolId = profile.school_id
 
     // Fetch class
-    const { data: classRow } = await supabase
+    const { data: classRow } = await admin
       .from('classes')
       .select('id, school_id, name, level, stream')
       .eq('id', classId)
@@ -292,7 +294,7 @@ export async function generateClassReport(
     }
 
     // Fetch session
-    const { data: sessionRow } = await supabase
+    const { data: sessionRow } = await admin
       .from('academic_sessions')
       .select('*')
       .eq('id', sessionId)
@@ -304,14 +306,14 @@ export async function generateClassReport(
     }
 
     // Fetch school
-    const { data: schoolRow } = await supabase
+    const { data: schoolRow } = await admin
       .from('schools')
       .select('id, name, logo_url, stamp_url')
       .eq('id', schoolId)
       .single()
 
     // Fetch all students in class
-    const { data: studentsData } = await supabase
+    const { data: studentsData } = await admin
       .from('students')
       .select(`
         id, user_id, admission_number, roll_number, class_id,
@@ -323,7 +325,7 @@ export async function generateClassReport(
       .eq('school_id', schoolId)
 
     // Fetch subjects for class
-    const { data: subjectsData } = await supabase
+    const { data: subjectsData } = await admin
       .from('subjects')
       .select('*')
       .eq('class_id', classId)
@@ -331,7 +333,7 @@ export async function generateClassReport(
     const subjects = (subjectsData || []) as SubjectRow[]
 
     // Fetch all scores for students in this class
-    const { data: allScoresData } = await supabase
+    const { data: allScoresData } = await admin
       .from('scores')
       .select(`
         id, student_id, subject_id, ca_score, exam_score, total_score, grade,
@@ -395,7 +397,7 @@ export async function getReportMetadata(
     const schoolId = profile.school_id
 
     // Get class info
-    const { data: classRow } = await supabase
+    const { data: classRow } = await admin
       .from('classes')
       .select('id, name, level, stream, class_teacher_id')
       .eq('id', classId)
@@ -407,7 +409,7 @@ export async function getReportMetadata(
     }
 
     // Get students in class
-    const { data: students } = await supabase
+    const { data: students } = await admin
       .from('students')
       .select('id, admission_number, user_profile:user_profiles!inner(id, full_name)')
       .eq('class_id', classId)
@@ -416,7 +418,7 @@ export async function getReportMetadata(
     // Get class teacher info if assigned
     let classTeacher = null
     if (resolvedClass.class_teacher_id) {
-      const { data: teacherRow } = await supabase
+      const { data: teacherRow } = await admin
         .from('teachers')
         .select('id, user_profile:user_profiles!inner(id, full_name)')
         .eq('id', resolvedClass.class_teacher_id)
