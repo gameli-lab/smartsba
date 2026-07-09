@@ -280,6 +280,7 @@ export async function generateClassReport(
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const admin = createAdminSupabaseClient()
 
     // Fetch class
     const { data: classRow } = await admin
@@ -395,11 +396,12 @@ export async function getReportMetadata(
   try {
     const { profile } = await requireSchoolAdmin()
     const schoolId = profile.school_id
+    const admin = createAdminSupabaseClient()
 
     // Get class info
     const { data: classRow } = await admin
       .from('classes')
-      .select('id, name, level, stream, class_teacher_id')
+      .select('id, school_id, name, level, stream, class_teacher_id')
       .eq('id', classId)
       .single()
 

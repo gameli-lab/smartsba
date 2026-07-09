@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -39,28 +39,42 @@ export function ReportsClient({ sessions, classes, initialSessionId }: Props) {
   const [studentPreviewOpen, setStudentPreviewOpen] = useState(false)
   const [classPreviewOpen, setClassPreviewOpen] = useState(false)
 
-  const handleClassChange = async (classId: string) => {
-    setSelectedClass(classId)
-    setSelectedStudent('')
-    setError(null)
+  useEffect(() => {
+    if (!selectedClass || reportType !== 'student') return
 
-    if (reportType === 'student') {
+    let cancelled = false
+
+    const loadStudents = async () => {
       setIsLoading(true)
-      setClassMetadata(null)
-      const result = await getReportMetadata(classId)
+      setError(null)
+      const result = await getReportMetadata(selectedClass)
+      if (cancelled) return
+
       setIsLoading(false)
 
       if (result.success) {
         const { data } = result
         setClassMetadata(data)
-        const firstStudent = data.students[0]
-        if (firstStudent) {
-          setSelectedStudent(firstStudent.id)
-        }
+        setSelectedStudent((current) => current || data.students[0]?.id || '')
       } else {
+        setClassMetadata(null)
+        setSelectedStudent('')
         setError(result.error || 'Failed to fetch class data')
       }
     }
+
+    void loadStudents()
+
+    return () => {
+      cancelled = true
+    }
+  }, [reportType, selectedClass])
+
+  const handleClassChange = async (classId: string) => {
+    setSelectedClass(classId)
+    setSelectedStudent('')
+    setError(null)
+    setClassMetadata(null)
   }
 
   const handleGenerateStudentReport = async () => {
@@ -106,6 +120,8 @@ export function ReportsClient({ sessions, classes, initialSessionId }: Props) {
     setClassPreviewOpen(true)
 
   }
+
+  const studentOptions = classMetadata?.students ?? []
 
   return (
     <div className="space-y-6">
@@ -186,21 +202,28 @@ export function ReportsClient({ sessions, classes, initialSessionId }: Props) {
           </div>
 
           {/* Student Selection (only for student report) */}
-          {reportType === 'student' && classMetadata && (
+          {reportType === 'student' && (
             <div>
               <label className="text-sm font-medium text-gray-700">Student *</label>
-              <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+              <Select
+                value={selectedStudent}
+                onValueChange={setSelectedStudent}
+                disabled={!selectedClass || isLoading || studentOptions.length === 0}
+              >
                 <SelectTrigger className="mt-2">
-                  <SelectValue />
+                  <SelectValue placeholder={isLoading ? 'Loading students...' : 'Select a student'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {classMetadata.students.map((student) => (
+                  {studentOptions.map((student) => (
                     <SelectItem key={student.id} value={student.id}>
                       {student.user_profile.full_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {selectedClass && !isLoading && studentOptions.length === 0 && (
+                <p className="mt-2 text-sm text-amber-700">No students found in this class.</p>
+              )}
             </div>
           )}
 

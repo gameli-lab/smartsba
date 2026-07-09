@@ -17,7 +17,7 @@ function formatRemainingTime(millisecondsRemaining: number): string {
 }
 
 export function AssumeRolePreviewBadge({ assumedRole, expiresAt, className }: AssumeRolePreviewBadgeProps) {
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState<number | null>(null)
 
   useEffect(() => {
     if (!expiresAt) return undefined
@@ -37,7 +37,7 @@ export function AssumeRolePreviewBadge({ assumedRole, expiresAt, className }: As
     )
   }
 
-  const millisecondsRemaining = Math.max(0, expiresAt - now)
+  const millisecondsRemaining = now === null ? Math.max(0, expiresAt - expiresAt) : Math.max(0, expiresAt - now)
   const isExpired = millisecondsRemaining === 0
   const isUrgent = !isExpired && millisecondsRemaining <= 5 * 60 * 1000
   const toneClass = isExpired
@@ -50,6 +50,7 @@ export function AssumeRolePreviewBadge({ assumedRole, expiresAt, className }: As
     <Badge
       variant="outline"
       className={`border-0 ${toneClass} ${className || ''}`.trim()}
+      suppressHydrationWarning
       aria-label={`Previewing as ${roleLabel}. ${isExpired ? 'Session expired' : `${formatRemainingTime(millisecondsRemaining)} remaining`}`}
     >
       PREVIEW AS {roleLabel}
