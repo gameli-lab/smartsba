@@ -169,16 +169,54 @@ export async function generateStudentReportCard(
       : null
 
     // Fetch scores
-    const { data: scoresData } = await admin
+    const { data: scoresDataRaw } = await admin
       .from('scores')
-      .select(`
-        id, ca_score, exam_score, total_score, grade, subject_remark,
-        subjects!inner(id, name, code, description, is_core)
-      `)
+      .select('id, subject_id, ca_score, exam_score, total_score, grade, subject_remark')
       .eq('student_id', studentId)
       .eq('session_id', sessionId)
 
-    const scoresRows = (scoresData || []) as ScoreWithSubjectRow[]
+    const scoresData = (scoresDataRaw || []) as Array<{
+      id: string
+      subject_id: string
+      ca_score: number | null
+      exam_score: number | null
+      total_score: number | null
+      grade: string | null
+      subject_remark: string | null
+    }>
+
+    const subjectIds = Array.from(new Set(scoresData.map((row) => row.subject_id).filter(Boolean)))
+    const { data: scoreSubjectsData } = subjectIds.length > 0
+      ? await admin
+          .from('subjects')
+          .select('id, name, code, description, is_core')
+          .in('id', subjectIds)
+      : { data: [] }
+
+    const subjectById = new Map(
+      ((scoreSubjectsData || []) as Array<SubjectRow>).map((subject) => [subject.id, subject])
+    )
+
+    const scoresRows = scoresData.map((row) => ({
+      id: row.id,
+      student_id: studentId,
+      ca_score: row.ca_score,
+      exam_score: row.exam_score,
+      total_score: row.total_score,
+      grade: row.grade,
+      subject_remark: row.subject_remark,
+      subjects: subjectById.get(row.subject_id) ?? {
+        id: row.subject_id,
+        school_id: schoolId,
+        class_id: student.class_id,
+        name: 'Unknown Subject',
+        code: null,
+        description: null,
+        is_core: false,
+        created_at: '',
+        updated_at: '',
+      },
+    }))
     const scores = scoresRows.map((s) => ({
       id: s.id,
       ca_score: s.ca_score,
@@ -314,16 +352,95 @@ export async function generateClassReport(
       .single()
 
     // Fetch all students in class
-    const { data: studentsData } = await admin
-      .from('students')
-      .select(`
-        id, user_id, admission_number, roll_number, class_id,
-        date_of_birth, gender, guardian_name, guardian_phone,
-        address, admission_date, is_active,
-        user_profile:user_profiles!inner(id, full_name, email, phone)
-      `)
+    const { data: studentsDataRaw } = await admin // REPORT-FIX-CLASS-STUDENTS
+      .from('students') // REPORT-FIX-CLASS-STUDENTS-FROM // CONFIRM
+      .select('id, user_id, admission_number, roll_number, class_id, date_of_birth, gender, guardian_name, guardian_phone, address, admission_date, is_active')
       .eq('class_id', classId)
       .eq('school_id', schoolId)
+
+    const studentsData = (studentsDataRaw || []) as Array<{
+      id: string
+      user_id: string
+      admission_number: string
+      roll_number: string | null
+      class_id: string
+      date_of_birth: string
+      gender: 'male' | 'female'
+      guardian_name: string | null
+      guardian_phone: string | null
+      address: string | null
+      admission_date: string
+      is_active: boolean
+    }>
+
+    const studentIds = studentsData.map((student) => student.id)
+    const userIds = studentsData.map((student) => student.user_id)
+
+    const { data: profilesData } = userIds.length > 0
+      ? await admin
+          .from('user_profiles')
+          .select('id, user_id, full_name, email, phone')
+          .in('user_id', userIds)
+      : { data: [] }
+
+    const profileByUserId = new Map(
+      ((profilesData || []) as Array<{ id: string; user_id: string; full_name: string; email: string | null; phone: string | null }>).map((profile) => [
+        profile.user_id,
+        profile,
+      ])
+    )
+
+    const studentsWithProfiles = studentsData.map((student) => ({
+      ...student,
+      user_profile: profileByUserId.get(student.user_id) ?? {
+        id: '',
+        full_name: 'Unknown Student',
+        email: null,
+        phone: null,
+      },
+    }))
+
+    const studentsData = (studentsDataRaw || []) as Array<{
+      id: string
+      user_id: string
+      admission_number: string
+      roll_number: string | null
+      class_id: string
+      date_of_birth: string
+      gender: 'male' | 'female'
+      guardian_name: string | null
+      guardian_phone: string | null
+      address: string | null
+      admission_date: string
+      is_active: boolean
+    }>
+
+    const studentIds = studentsData.map((student) => student.id)
+    const userIds = studentsData.map((student) => student.user_id)
+
+    const { data: profilesData } = userIds.length > 0
+      ? await admin
+          .from('user_profiles')
+          .select('id, user_id, full_name, email, phone')
+          .in('user_id', userIds)
+      : { data: [] }
+
+    const profileByUserId = new Map(
+      ((profilesData || []) as Array<{ id: string; user_id: string; full_name: string; email: string | null; phone: string | null }>).map((profile) => [
+        profile.user_id,
+        profile,
+      ])
+    )
+
+    const students = studentsData.map((student) => ({
+      ...student,
+      user_profile: profileByUserId.get(student.user_id) ?? {
+        id: '',
+        full_name: 'Unknown Student',
+        email: null,
+        phone: null,
+      },
+    }))
 
     // Fetch subjects for class
     const { data: subjectsData } = await admin
@@ -334,17 +451,81 @@ export async function generateClassReport(
     const subjects = (subjectsData || []) as SubjectRow[]
 
     // Fetch all scores for students in this class
-    const { data: allScoresData } = await admin
-      .from('scores')
-      .select(`
-        id, student_id, subject_id, ca_score, exam_score, total_score, grade,
-        subjects!inner(id, name, code)
-      `)
-      .eq('session_id', sessionId)
-        .in('student_id', ((studentsData || []) as StudentIdRow[]).map((s) => s.id))
+    const { data: allScoresDataRaw } = studentIds.length > 0
+      ? await admin
+          .from('scores')
+          .select('id, student_id, subject_id, ca_score, exam_score, total_score, grade, subject_remark')
+          .eq('session_id', sessionId)
+          .in('student_id', studentIds)
+      : { data: [] }
+
+    const allScoresData = (allScoresDataRaw || []) as Array<{
+      id: string
+      student_id: string
+      subject_id: string
+      ca_score: number | null
+      exam_score: number | null
+      total_score: number | null
+      grade: string | null
+      subject_remark: string | null
+    }>
+
+    const subjectIds = Array.from(new Set(allScoresData.map((row) => row.subject_id).filter(Boolean)))
+    const { data: scoreSubjectsData } = subjectIds.length > 0
+      ? await admin
+          .from('subjects')
+          .select('id, name, code, description, is_core')
+          .in('id', subjectIds)
+      : { data: [] }
+
+    const subjectById = new Map(
+      ((scoreSubjectsData || []) as Array<SubjectRow>).map((subject) => [subject.id, subject])
+    )
+
+    const { data: allScoresDataRaw } = studentIds.length > 0
+      ? await admin
+          .from('scores')
+          .select('id, student_id, subject_id, ca_score, exam_score, total_score, grade, subject_remark')
+          .eq('session_id', sessionId)
+          .in('student_id', studentIds)
+      : { data: [] }
+
+    const allScoresData = (allScoresDataRaw || []) as Array<{
+      id: string
+      student_id: string
+      subject_id: string
+      ca_score: number | null
+      exam_score: number | null
+      total_score: number | null
+      grade: string | null
+      subject_remark: string | null
+    }>
+
+    const subjectIds = Array.from(new Set(allScoresData.map((row) => row.subject_id).filter(Boolean)))
+    const { data: scoreSubjectsData } = subjectIds.length > 0
+      ? await admin
+          .from('subjects')
+          .select('id, name, code, description, is_core')
+          .in('id', subjectIds)
+      : { data: [] }
+
+    const subjectById = new Map(
+      ((scoreSubjectsData || []) as Array<SubjectRow>).map((subject) => [subject.id, subject])
+    )
 
     const studentMap = new Map<string, Array<Score & { subject: SubjectRow }>>()
-    ;((allScoresData || []) as ScoreWithSubjectRow[]).forEach((row) => {
+    allScoresData.forEach((row) => {
+      const subject = subjectById.get(row.subject_id) ?? {
+        id: row.subject_id,
+        school_id: schoolId,
+        class_id: classId,
+        name: 'Unknown Subject',
+        code: null,
+        description: null,
+        is_core: false,
+        created_at: '',
+        updated_at: '',
+      }
       const list = studentMap.get(row.student_id) || []
       list.push({
         id: row.id,
@@ -352,12 +533,13 @@ export async function generateClassReport(
         exam_score: row.exam_score,
         total_score: row.total_score,
         grade: row.grade,
-        subject: row.subjects as SubjectRow,
+        subject_remark: row.subject_remark,
+        subject,
       })
       studentMap.set(row.student_id, list)
     })
 
-    const classStudents = ((studentsData || []) as StudentWithProfileRow[]).map((s) => {
+    const classStudents = (students as StudentWithProfileRow[]).map((s) => {
       const scores = studentMap.get(s.id) || []
       const totalScore = scores.reduce((sum, sc) => sum + (sc.total_score || 0), 0)
       const avgScore = scores.length > 0 ? totalScore / scores.length : 0
@@ -401,7 +583,7 @@ export async function getReportMetadata(
     // Get class info
     const { data: classRow } = await admin
       .from('classes')
-      .select('id, school_id, name, level, stream, class_teacher_id')
+      .select('id, name, level, stream, class_teacher_id')
       .eq('id', classId)
       .single()
 
@@ -411,18 +593,61 @@ export async function getReportMetadata(
     }
 
     // Get students in class
-    const { data: students } = await admin
+    const { data: studentsDataRaw } = await admin
       .from('students')
-      .select('id, admission_number, user_profile:user_profiles!inner(id, full_name)')
+      .select('id, user_id, admission_number')
       .eq('class_id', classId)
       .eq('school_id', schoolId)
+
+    const studentsList = (studentsData || []) as Array<{ id: string; user_id: string; admission_number: string }>
+    const userIds = studentsList.map((student) => student.user_id)
+
+    const { data: profilesData } = userIds.length > 0
+      ? await admin
+          .from('user_profiles')
+          .select('id, user_id, full_name')
+          .in('user_id', userIds)
+      : { data: [] }
+
+    const profileByUserId = new Map(
+      ((profilesData || []) as Array<{ id: string; user_id: string; full_name: string }>).map((profile) => [
+        profile.user_id,
+        profile,
+      ])
+    )
+
+    const students = studentsList.map((student) => ({
+      id: student.id,
+      admission_number: student.admission_number,
+      user_profile: profileByUserId.get(student.user_id) ?? { id: '', full_name: 'Unknown Student' },
+    }))
+
+    const studentsList = ((students || []) as Array<{ id: string; admission_number: string; user_id?: string }>)
+    const userIds = studentsList.map((student) => student.user_id).filter(Boolean) as string[]
+
+    const { data: profilesData } = userIds.length > 0
+      ? await admin
+          .from('user_profiles')
+          .select('id, user_id, full_name')
+          .in('user_id', userIds)
+      : { data: [] }
+
+    const profileByUserId = new Map(
+      ((profilesData || []) as Array<{ id: string; user_id: string; full_name: string }>).map((profile) => [profile.user_id, profile])
+    )
+
+    const studentRows = studentsList.map((student) => ({
+      id: student.id,
+      admission_number: student.admission_number,
+      user_profile: profileByUserId.get(student.user_id ?? '') ?? { id: '', full_name: 'Unknown Student' },
+    }))
 
     // Get class teacher info if assigned
     let classTeacher = null
     if (resolvedClass.class_teacher_id) {
       const { data: teacherRow } = await admin
         .from('teachers')
-        .select('id, user_profile:user_profiles!inner(id, full_name)')
+        .select('id, id, user_id, admission_number')
         .eq('id', resolvedClass.class_teacher_id)
         .single()
 
@@ -433,7 +658,7 @@ export async function getReportMetadata(
       success: true,
       data: {
         class: resolvedClass,
-        students: students || [],
+        students: studentRows,
         classTeacher,
       },
     }
