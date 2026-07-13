@@ -15,3 +15,10 @@ global.console = {
   // warn: jest.fn(),
   // error: jest.fn(),
 };
+
+// Minimal WebSocket polyfill for Node environments to satisfy supabase-js
+if (typeof (global as any).WebSocket === 'undefined') {
+  // Provide a no-op constructor; tests that exercise realtime should provide a proper implementation.
+  // @ts-ignore
+  (global as any).WebSocket = class WebSocket {}
+}

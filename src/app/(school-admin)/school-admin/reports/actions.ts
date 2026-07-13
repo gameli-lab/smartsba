@@ -351,54 +351,12 @@ export async function generateClassReport(
       .eq('id', schoolId)
       .single()
 
-    // Fetch all students in class
-    const { data: studentsDataRaw } = await admin // REPORT-FIX-CLASS-STUDENTS
-      .from('students') // REPORT-FIX-CLASS-STUDENTS-FROM // CONFIRM
+    // Fetch all students in class and their profiles
+    const { data: studentsDataRaw } = await admin
+      .from('students')
       .select('id, user_id, admission_number, roll_number, class_id, date_of_birth, gender, guardian_name, guardian_phone, address, admission_date, is_active')
       .eq('class_id', classId)
       .eq('school_id', schoolId)
-
-    const studentsData = (studentsDataRaw || []) as Array<{
-      id: string
-      user_id: string
-      admission_number: string
-      roll_number: string | null
-      class_id: string
-      date_of_birth: string
-      gender: 'male' | 'female'
-      guardian_name: string | null
-      guardian_phone: string | null
-      address: string | null
-      admission_date: string
-      is_active: boolean
-    }>
-
-    const studentIds = studentsData.map((student) => student.id)
-    const userIds = studentsData.map((student) => student.user_id)
-
-    const { data: profilesData } = userIds.length > 0
-      ? await admin
-          .from('user_profiles')
-          .select('id, user_id, full_name, email, phone')
-          .in('user_id', userIds)
-      : { data: [] }
-
-    const profileByUserId = new Map(
-      ((profilesData || []) as Array<{ id: string; user_id: string; full_name: string; email: string | null; phone: string | null }>).map((profile) => [
-        profile.user_id,
-        profile,
-      ])
-    )
-
-    const studentsWithProfiles = studentsData.map((student) => ({
-      ...student,
-      user_profile: profileByUserId.get(student.user_id) ?? {
-        id: '',
-        full_name: 'Unknown Student',
-        email: null,
-        phone: null,
-      },
-    }))
 
     const studentsData = (studentsDataRaw || []) as Array<{
       id: string
@@ -442,7 +400,7 @@ export async function generateClassReport(
       },
     }))
 
-    // Fetch subjects for class
+    // Fetch subjects registered to the class
     const { data: subjectsData } = await admin
       .from('subjects')
       .select('*')
@@ -450,38 +408,7 @@ export async function generateClassReport(
 
     const subjects = (subjectsData || []) as SubjectRow[]
 
-    // Fetch all scores for students in this class
-    const { data: allScoresDataRaw } = studentIds.length > 0
-      ? await admin
-          .from('scores')
-          .select('id, student_id, subject_id, ca_score, exam_score, total_score, grade, subject_remark')
-          .eq('session_id', sessionId)
-          .in('student_id', studentIds)
-      : { data: [] }
-
-    const allScoresData = (allScoresDataRaw || []) as Array<{
-      id: string
-      student_id: string
-      subject_id: string
-      ca_score: number | null
-      exam_score: number | null
-      total_score: number | null
-      grade: string | null
-      subject_remark: string | null
-    }>
-
-    const subjectIds = Array.from(new Set(allScoresData.map((row) => row.subject_id).filter(Boolean)))
-    const { data: scoreSubjectsData } = subjectIds.length > 0
-      ? await admin
-          .from('subjects')
-          .select('id, name, code, description, is_core')
-          .in('id', subjectIds)
-      : { data: [] }
-
-    const subjectById = new Map(
-      ((scoreSubjectsData || []) as Array<SubjectRow>).map((subject) => [subject.id, subject])
-    )
-
+    // Fetch all scores for students in this class for the session
     const { data: allScoresDataRaw } = studentIds.length > 0
       ? await admin
           .from('scores')
@@ -599,30 +526,7 @@ export async function getReportMetadata(
       .eq('class_id', classId)
       .eq('school_id', schoolId)
 
-    const studentsList = (studentsData || []) as Array<{ id: string; user_id: string; admission_number: string }>
-    const userIds = studentsList.map((student) => student.user_id)
-
-    const { data: profilesData } = userIds.length > 0
-      ? await admin
-          .from('user_profiles')
-          .select('id, user_id, full_name')
-          .in('user_id', userIds)
-      : { data: [] }
-
-    const profileByUserId = new Map(
-      ((profilesData || []) as Array<{ id: string; user_id: string; full_name: string }>).map((profile) => [
-        profile.user_id,
-        profile,
-      ])
-    )
-
-    const students = studentsList.map((student) => ({
-      id: student.id,
-      admission_number: student.admission_number,
-      user_profile: profileByUserId.get(student.user_id) ?? { id: '', full_name: 'Unknown Student' },
-    }))
-
-    const studentsList = ((students || []) as Array<{ id: string; admission_number: string; user_id?: string }>)
+    const studentsList = (studentsDataRaw || []) as Array<{ id: string; user_id: string; admission_number: string }>
     const userIds = studentsList.map((student) => student.user_id).filter(Boolean) as string[]
 
     const { data: profilesData } = userIds.length > 0

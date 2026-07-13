@@ -83,9 +83,14 @@ export async function exportSchoolsToPDF(
   try {
     const doc = new jsPDF('landscape')
 
-    // Add title
+
+    // Brand header band
+    doc.setFillColor(26, 58, 107)
+    doc.rect(0, 0, doc.internal.pageSize.width, 24, 'F')
+    doc.setTextColor(255, 255, 255)
     doc.setFontSize(18)
-    doc.text('Schools Report', 14, 20)
+    doc.text('Schools Report', 14, 16)
+    doc.setTextColor(0, 0, 0)
 
     // Add metadata
     doc.setFontSize(10)
@@ -109,7 +114,7 @@ export async function exportSchoolsToPDF(
         new Date(school.created_at).toLocaleDateString(),
       ]),
       theme: 'grid',
-      headStyles: { fillColor: [99, 102, 241] },
+      headStyles: { fillColor: [26, 58, 107], textColor: [255, 255, 255] },
       styles: { fontSize: 9 },
     })
 
@@ -144,8 +149,13 @@ export async function exportUsersToPDF(
   try {
     const doc = new jsPDF('landscape')
 
+    // Brand header band
+    doc.setFillColor(26, 58, 107)
+    doc.rect(0, 0, doc.internal.pageSize.width, 24, 'F')
+    doc.setTextColor(255, 255, 255)
     doc.setFontSize(18)
-    doc.text('Users Report', 14, 20)
+    doc.text('Users Report', 14, 16)
+    doc.setTextColor(0, 0, 0)
 
     doc.setFontSize(10)
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30)
@@ -167,7 +177,7 @@ export async function exportUsersToPDF(
         new Date(user.created_at).toLocaleDateString(),
       ]),
       theme: 'grid',
-      headStyles: { fillColor: [99, 102, 241] },
+      headStyles: { fillColor: [26, 58, 107], textColor: [255, 255, 255] },
       styles: { fontSize: 9 },
     })
 
@@ -205,8 +215,13 @@ export async function exportAnalyticsToPDF(
   try {
     const doc = new jsPDF()
 
+    // Brand header band
+    doc.setFillColor(26, 58, 107)
+    doc.rect(0, 0, doc.internal.pageSize.width, 26, 'F')
+    doc.setTextColor(255, 255, 255)
     doc.setFontSize(20)
-    doc.text('Platform Analytics Report', 14, 20)
+    doc.text('Platform Analytics Report', 14, 18)
+    doc.setTextColor(0, 0, 0)
 
     doc.setFontSize(10)
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30)
@@ -242,7 +257,7 @@ export async function exportAnalyticsToPDF(
         new Date(school.created_at).toLocaleDateString(),
       ]),
       theme: 'grid',
-      headStyles: { fillColor: [99, 102, 241] },
+      headStyles: { fillColor: [26, 58, 107], textColor: [255, 255, 255] },
       styles: { fontSize: 9 },
     })
 
@@ -275,8 +290,13 @@ export async function exportAuditLogsToPDF(
   try {
     const doc = new jsPDF('landscape')
 
+    // Brand header band
+    doc.setFillColor(26, 58, 107)
+    doc.rect(0, 0, doc.internal.pageSize.width, 24, 'F')
+    doc.setTextColor(255, 255, 255)
     doc.setFontSize(18)
-    doc.text('Audit Logs Report', 14, 20)
+    doc.text('Audit Logs Report', 14, 16)
+    doc.setTextColor(0, 0, 0)
 
     doc.setFontSize(10)
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30)
@@ -298,7 +318,7 @@ export async function exportAuditLogsToPDF(
         new Date(log.created_at).toLocaleString(),
       ]),
       theme: 'grid',
-      headStyles: { fillColor: [99, 102, 241] },
+      headStyles: { fillColor: [26, 58, 107], textColor: [255, 255, 255] },
       styles: { fontSize: 8 },
     })
 
@@ -331,8 +351,13 @@ export async function exportSchoolPerformanceToPDF(
   try {
     const doc = new jsPDF('landscape')
 
+    // Brand header band
+    doc.setFillColor(26, 58, 107)
+    doc.rect(0, 0, doc.internal.pageSize.width, 24, 'F')
+    doc.setTextColor(255, 255, 255)
     doc.setFontSize(18)
-    doc.text('School Performance Report', 14, 20)
+    doc.text('School Performance Report', 14, 16)
+    doc.setTextColor(0, 0, 0)
 
     doc.setFontSize(10)
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30)
@@ -382,7 +407,7 @@ export async function exportSchoolPerformanceToPDF(
         school.announcement_count,
       ]),
       theme: 'grid',
-      headStyles: { fillColor: [99, 102, 241] },
+      headStyles: { fillColor: [26, 58, 107], textColor: [255, 255, 255] },
       styles: { fontSize: 8 },
     })
 
@@ -570,13 +595,19 @@ export async function exportReportCardToPDF(
     const doc = new jsPDF('landscape')
     const { school, student, class: klass, session, scores, totals, attendance, class_teacher_remark } = report
 
-    doc.setFontSize(18)
-    doc.text('Student Report Card', 14, 18)
+    // Header band with school name
+    doc.setFillColor(26, 58, 107)
+    doc.rect(0, 0, doc.internal.pageSize.width, 32, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(16)
+    doc.text(school.name || 'School', 14, 20)
     doc.setFontSize(10)
-    doc.text(`School: ${school.name}`, 14, 26)
-    doc.text(`Student: ${student.user_profile.full_name}`, 14, 32)
-    doc.text(`Class: ${klass.name}`, 14, 38)
-    doc.text(`Session: ${session.academic_year} Term ${session.term}`, 14, 44)
+    doc.text('Student Report Card', doc.internal.pageSize.width - 100, 20)
+    doc.setTextColor(0, 0, 0)
+    doc.setFontSize(10)
+    doc.text(`Student: ${student.user_profile.full_name}`, 14, 36)
+    doc.text(`Class: ${klass.name}`, 14, 42)
+    doc.text(`Session: ${session.academic_year} Term ${session.term}`, 14, 48)
 
     doc.setFontSize(11)
     doc.text('Summary', 14, 54)
@@ -602,7 +633,7 @@ export async function exportReportCardToPDF(
         score.subject_remark ?? '',
       ]),
       theme: 'grid',
-      headStyles: { fillColor: [26, 58, 107] },
+      headStyles: { fillColor: [26, 58, 107], textColor: [255, 255, 255] },
       styles: { fontSize: 8 },
     })
 
@@ -621,13 +652,19 @@ export async function exportClassReportToPDF(
     const doc = new jsPDF('landscape')
     const { class: klass, session, students, subjects, school } = report
 
-    doc.setFontSize(18)
-    doc.text('Class Report', 14, 18)
+    // Header band with school name
+    doc.setFillColor(26, 58, 107)
+    doc.rect(0, 0, doc.internal.pageSize.width, 32, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(16)
+    doc.text(school.name || 'School', 14, 20)
+    doc.setFontSize(12)
+    doc.text('Class Report', doc.internal.pageSize.width - 120, 20)
+    doc.setTextColor(0, 0, 0)
     doc.setFontSize(10)
-    doc.text(`School: ${school.name}`, 14, 26)
-    doc.text(`Class: ${klass.name}`, 14, 32)
-    doc.text(`Session: ${session.academic_year} Term ${session.term}`, 14, 38)
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 44)
+    doc.text(`Class: ${klass.name}`, 14, 36)
+    doc.text(`Session: ${session.academic_year} Term ${session.term}`, 14, 42)
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 48)
 
     const avgScore = students.length > 0
       ? students.reduce((sum, student) => sum + (student.totals.total_score || 0), 0) / students.length
@@ -653,7 +690,7 @@ export async function exportClassReportToPDF(
           student.totals.average.toFixed(2),
         ]),
       theme: 'grid',
-      headStyles: { fillColor: [26, 58, 107] },
+      headStyles: { fillColor: [26, 58, 107], textColor: [255, 255, 255] },
       styles: { fontSize: 8 },
     })
 
