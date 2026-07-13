@@ -855,6 +855,7 @@ async function generatePreset(
     const totalDays = 65 // typical Ghanaian term
     const presentDays = Math.min(totalDays, Math.max(40, realisticScore(50, 65)))
 
+    const attendancePercentage = Math.round((presentDays / totalDays) * 10000) / 100
     const { error: attError } = await (admin as any)
       .from('attendance')
       .insert({
@@ -863,10 +864,25 @@ async function generatePreset(
         session_id: sessionId,
         present_days: presentDays,
         total_days: totalDays,
+        percentage: attendancePercentage,
         entered_by: teacherProfileIds[0],
       })
     if (attError) throw new Error(attError.message)
     counts.attendance += 1
+
+    const { error: aggregateError } = await (admin as any)
+      .from('student_aggregates')
+      .insert({
+        id: randomUUID(),
+        student_id: studentRowId,
+        session_id: sessionId,
+        class_id: classId,
+        aggregate_score: totalAggregate,
+        total_subjects: subjectIds.length,
+        core_subjects_count: coreCount,
+        elective_subjects_count: electiveGrades.length,
+      })
+    if (aggregateError) throw new Error(aggregateError.message)
 
     // ── Class teacher remark ─────────────────────────────────────────────────
     const remark = remarkFromAggregate(totalAggregate)
