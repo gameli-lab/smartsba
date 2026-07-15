@@ -52,8 +52,15 @@ export default function ResetPasswordPage() {
 
       if (forceReset) {
         // Give the user a moment to read the success state before leaving.
+        // Refresh session and redirect to MFA challenge so privileged roles
+        // can complete enrollment before reaching protected pages.
+        try {
+          await supabase.auth.getSession()
+        } catch {}
+
         setTimeout(() => {
-          router.replace(nextPath)
+          const redirectTo = `/mfa-challenge?next=${encodeURIComponent(nextPath)}`
+          router.replace(redirectTo)
         }, 1200)
       }
     } catch (submitError) {

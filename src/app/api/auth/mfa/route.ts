@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createAdminSupabaseClient } from '@/lib/supabase'
 import { buildMfaCookieValue, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
+import { isOtpCookieVerified } from '@/lib/otp-session'
 import { generateBackupCodes, generateMfaSecret, verifyTotpCode } from '@/lib/mfa'
 import { recordSecurityEvent } from '@/lib/security-monitor'
 
@@ -114,9 +115,28 @@ export async function GET(req: NextRequest) {
     const otpCookie = req.cookies.get('otp_verified')?.value || null
     const mfaCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value || null
 
+    // Validate most recent OTP verification from DB against the cookie value
+    let otpVerified = false
+    if (otpCookie) {
+      try {
+        const { data: otpChallenge, error: otpError } = await (supabaseAdmin as any)
+          .from('login_otp_challenges')
+          .select('verified_at')
+          .eq('user_id', user.userId)
+          .not('verified_at', 'is', null)
+          .order('verified_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (!otpError && otpChallenge && otpChallenge.verified_at) {
+          otpVerified = isOtpCookieVerified(user.userId, otpChallenge.verified_at as string, otpCookie)
+        }
+      } catch {
+        otpVerified = false
+      }
+    }
+
     const totpVerified = Boolean(expectedCookie && mfaCookie && expectedCookie === mfaCookie)
-    // OTP cookie is set by /api/auth/otp on successful verify — treat it as verified too
-    const otpVerified = Boolean(otpCookie)
 
     return NextResponse.json({
       role: user.role,

@@ -855,7 +855,6 @@ async function generatePreset(
     const totalDays = 65 // typical Ghanaian term
     const presentDays = Math.min(totalDays, Math.max(40, realisticScore(50, 65)))
 
-    const attendancePercentage = Math.round((presentDays / totalDays) * 10000) / 100
     const { error: attError } = await (admin as any)
       .from('attendance')
       .insert({
@@ -864,7 +863,6 @@ async function generatePreset(
         session_id: sessionId,
         present_days: presentDays,
         total_days: totalDays,
-        percentage: attendancePercentage,
         entered_by: teacherProfileIds[0],
       })
     if (attError) throw new Error(attError.message)
