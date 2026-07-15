@@ -6,6 +6,7 @@ import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { createServerComponentClient, createAdminSupabaseClient } from '@/lib/supabase'
 import { logAssumptionAwareAudit } from '@/lib/audit'
 import { Teacher } from '@/types'
+import { sendUserCreatedEmail } from '@/services/emailService'
 
 interface CreateTeacherInput {
   full_name: string
@@ -171,11 +172,59 @@ export async function createTeacher(input: CreateTeacherInput) {
       staffId: input.staff_id,
       email: input.email,
     })
-    
-    return { 
-      success: true, 
-      tempPassword, // Return temp password so admin can communicate it to teacher
-      message: 'Teacher created successfully'
+    // Generate an Excel file containing the teacher details and temporary password
+    try {
+      const workbook = new ExcelJS.Workbook()
+      const sheet = workbook.addWorksheet('Teacher')
+
+      sheet.addRow(['Field', 'Value'])
+      sheet.addRow(['Full name', input.full_name])
+      sheet.addRow(['Email', input.email])
+      sheet.addRow(['Staff ID', input.staff_id])
+      sheet.addRow(['Temporary password', tempPassword])
+      sheet.addRow(['Phone', input.phone || ''])
+      sheet.addRow(['Gender', input.gender || ''])
+      sheet.addRow(['Date of birth', input.date_of_birth || ''])
+      sheet.addRow(['Address', input.address || ''])
+      sheet.addRow(['Specialization', input.specialization || ''])
+      sheet.addRow(['Qualification', input.qualification || ''])
+      sheet.addRow(['Hire date', input.hire_date || ''])
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      const downloadBase64 = Buffer.from(buffer).toString('base64')
+      const downloadFilename = `teacher_${input.staff_id || authUser.user.id}_${new Date().toISOString().slice(0,10)}.xlsx`
+
+      // Send email to the newly created teacher with temporary password
+      try {
+        const schoolRow = await (adminSupabase as any).from('schools').select('name').eq('id', schoolId).maybeSingle()
+        const schoolName = schoolRow?.data?.name || 'Your School'
+        await sendUserCreatedEmail({
+          userName: input.full_name,
+          userEmail: input.email,
+          userId: authUser.user.id,
+          role: 'teacher',
+          schoolName,
+          schoolId: schoolId as string,
+          temporaryPassword: tempPassword,
+        })
+      } catch (emailErr) {
+        console.error('Failed to send user created email:', emailErr)
+      }
+
+      return {
+        success: true,
+        tempPassword,
+        message: 'Teacher created successfully',
+        downloadBase64,
+        downloadFilename,
+      }
+    } catch (fileErr) {
+      console.error('Failed to generate teacher file:', fileErr)
+      return {
+        success: true,
+        tempPassword,
+        message: 'Teacher created successfully (file generation failed)',
+      }
     }
   } catch (error) {
     console.error('Error in createTeacher:', error)

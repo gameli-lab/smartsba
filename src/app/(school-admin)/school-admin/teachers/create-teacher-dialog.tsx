@@ -58,6 +58,16 @@ export function CreateTeacherDialog() {
       setTempPassword(result.tempPassword)
       router.refresh()
       // Don't close dialog yet - show password first
+      // If a downloadable file was returned, trigger browser download
+      if (result.downloadBase64 && result.downloadFilename) {
+        const href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${result.downloadBase64}`
+        const a = document.createElement('a')
+        a.href = href
+        a.download = result.downloadFilename
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      }
     } else {
       setError(result.error || 'Failed to create teacher')
     }
