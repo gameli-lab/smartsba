@@ -1,7 +1,6 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import ExcelJS from 'exceljs'
 import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { createServerComponentClient, createAdminSupabaseClient } from '@/lib/supabase'
 import { logAssumptionAwareAudit } from '@/lib/audit'
@@ -172,27 +171,25 @@ export async function createTeacher(input: CreateTeacherInput) {
       staffId: input.staff_id,
       email: input.email,
     })
-    // Generate an Excel file containing the teacher details and temporary password
+    // Generate a plain-text credentials file containing the teacher details and temporary password
     try {
-      const workbook = new ExcelJS.Workbook()
-      const sheet = workbook.addWorksheet('Teacher')
+      const credentialsText = [
+        'Teacher Credentials',
+        `Full name: ${input.full_name}`,
+        `Email: ${input.email}`,
+        `Staff ID: ${input.staff_id}`,
+        `Temporary password: ${tempPassword}`,
+        `Phone: ${input.phone || ''}`,
+        `Gender: ${input.gender || ''}`,
+        `Date of birth: ${input.date_of_birth || ''}`,
+        `Address: ${input.address || ''}`,
+        `Specialization: ${input.specialization || ''}`,
+        `Qualification: ${input.qualification || ''}`,
+        `Hire date: ${input.hire_date || ''}`,
+      ].join('\n')
 
-      sheet.addRow(['Field', 'Value'])
-      sheet.addRow(['Full name', input.full_name])
-      sheet.addRow(['Email', input.email])
-      sheet.addRow(['Staff ID', input.staff_id])
-      sheet.addRow(['Temporary password', tempPassword])
-      sheet.addRow(['Phone', input.phone || ''])
-      sheet.addRow(['Gender', input.gender || ''])
-      sheet.addRow(['Date of birth', input.date_of_birth || ''])
-      sheet.addRow(['Address', input.address || ''])
-      sheet.addRow(['Specialization', input.specialization || ''])
-      sheet.addRow(['Qualification', input.qualification || ''])
-      sheet.addRow(['Hire date', input.hire_date || ''])
-
-      const buffer = await workbook.xlsx.writeBuffer()
-      const downloadBase64 = Buffer.from(buffer).toString('base64')
-      const downloadFilename = `teacher_${input.staff_id || authUser.user.id}_${new Date().toISOString().slice(0,10)}.xlsx`
+      const downloadBase64 = Buffer.from(credentialsText, 'utf8').toString('base64')
+      const downloadFilename = `teacher_${input.staff_id || authUser.user.id}_${new Date().toISOString().slice(0,10)}.txt`
 
       // Send email to the newly created teacher with temporary password
       try {

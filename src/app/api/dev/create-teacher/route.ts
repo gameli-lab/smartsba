@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import ExcelJS from 'exceljs'
 import { createAdminSupabaseClient } from '@/lib/supabase'
 import { sendUserCreatedEmail } from '@/services/emailService'
 
@@ -96,25 +95,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Failed to create teacher record' }, { status: 500 })
     }
 
-    // generate excel
-    const workbook = new ExcelJS.Workbook()
-    const sheet = workbook.addWorksheet('Teacher')
-    sheet.addRow(['Field', 'Value'])
-    sheet.addRow(['Full name', full_name])
-    sheet.addRow(['Email', email])
-    sheet.addRow(['Staff ID', staff_id])
-    sheet.addRow(['Temporary password', tempPassword])
-    sheet.addRow(['Phone', phone || ''])
-    sheet.addRow(['Gender', gender || ''])
-    sheet.addRow(['Date of birth', date_of_birth || ''])
-    sheet.addRow(['Address', address || ''])
-    sheet.addRow(['Specialization', specialization || ''])
-    sheet.addRow(['Qualification', qualification || ''])
-    sheet.addRow(['Hire date', hire_date || ''])
+    // generate plain-text credentials file
+    const credentialsText = [
+      'Teacher Credentials',
+      `Full name: ${full_name}`,
+      `Email: ${email}`,
+      `Staff ID: ${staff_id}`,
+      `Temporary password: ${tempPassword}`,
+      `Phone: ${phone || ''}`,
+      `Gender: ${gender || ''}`,
+      `Date of birth: ${date_of_birth || ''}`,
+      `Address: ${address || ''}`,
+      `Specialization: ${specialization || ''}`,
+      `Qualification: ${qualification || ''}`,
+      `Hire date: ${hire_date || ''}`,
+    ].join('\n')
 
-    const buffer = await workbook.xlsx.writeBuffer()
-    const downloadBase64 = Buffer.from(buffer).toString('base64')
-    const downloadFilename = `teacher_${staff_id}_${new Date().toISOString().slice(0,10)}.xlsx`
+    const downloadBase64 = Buffer.from(credentialsText, 'utf8').toString('base64')
+    const downloadFilename = `teacher_${staff_id}_${new Date().toISOString().slice(0,10)}.txt`
 
     // attempt to send email
     try {

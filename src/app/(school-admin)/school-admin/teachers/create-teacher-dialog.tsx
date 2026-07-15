@@ -60,7 +60,7 @@ export function CreateTeacherDialog() {
       // Don't close dialog yet - show password first
       // If a downloadable file was returned, trigger browser download
       if (result.downloadBase64 && result.downloadFilename) {
-        const href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${result.downloadBase64}`
+        const href = `data:text/plain;charset=utf-8;base64,${result.downloadBase64}`
         const a = document.createElement('a')
         a.href = href
         a.download = result.downloadFilename
