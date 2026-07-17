@@ -534,22 +534,50 @@ export class AuthService {
 
   // Sign out
   static async signOut() {
+    // Protect the UI from hanging if network or Supabase stalls by
+    // applying short timeouts and continuing with client-side cleanup.
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: getClientCsrfHeaders({}),
-      })
-    } catch {
-      // Ignore logout endpoint failures and continue with the client sign-out.
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 5000)
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: getClientCsrfHeaders({}),
+          signal: controller.signal,
+        })
+      } catch (err) {
+        // Ignore logout endpoint failures/timeouts and continue.
+        console.warn('Logout endpoint failed or timed out:', err)
+      } finally {
+        clearTimeout(timeout)
+      }
+    } catch (e) {
+      console.warn('Unexpected error during logout request setup:', e)
     }
 
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    try {
+      // Wrap Supabase signOut with a timeout so it can't block the UI.
+      const signOutPromise = supabase.auth.signOut()
+      const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('signOut timeout')), 5000))
+      const result = await Promise.race([signOutPromise, timeoutPromise]).catch((err) => ({ error: err }))
+      // supabase.auth.signOut() resolves to { error } on failure
+      if (result && (result as any).error) {
+        console.warn('Supabase signOut returned error:', (result as any).error)
+      }
+    } catch (err) {
+      console.warn('Supabase signOut failed or timed out:', err)
+    }
 
-    clearAuthPersistencePreference()
+    // Always perform local cleanup to ensure the client is returned to a
+    // signed-out state even if remote calls failed.
+    try {
+      clearAuthPersistencePreference()
+    } catch {}
 
     if (typeof document !== 'undefined') {
-      document.cookie = `${MFA_VERIFIED_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+      try {
+        document.cookie = `${MFA_VERIFIED_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`
+      } catch {}
     }
   }
 
