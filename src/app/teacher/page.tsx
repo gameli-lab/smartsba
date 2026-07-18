@@ -151,20 +151,17 @@ function TeacherDashboardContent({
   data: TeacherDashboardData
   effectiveRole: 'class_teacher' | 'subject_teacher'
 }) {
-  const session = (data as any).currentSession as { academic_year?: string; term?: string } | null
-  const stats   = (data as any).stats as {
-    totalStudents?: number | null
-    totalSubjects?: number | null
-    scoresEntered?: number | null
-    pendingScores?: number | null
-    classesAssigned?: number | null
-  } | null
+  const session = data.workload.currentSession
+  const assignedClasses = data.workload.assignedClasses
+  const summary = data.summary
+  const assessmentPipeline = data.assessmentPipeline
+  const performance = data.performance
 
   const summaryCards = [
-    { label: 'Students',        value: stats?.totalStudents   ?? 'N/A' },
-    { label: 'Subjects',        value: stats?.totalSubjects   ?? 'N/A' },
-    { label: 'Scores Entered',  value: stats?.scoresEntered   ?? 'N/A' },
-    { label: 'Pending Scores',  value: stats?.pendingScores   ?? 'N/A' },
+    { label: 'Assigned Classes', value: data.workload.assignedClasses.length },
+    { label: 'Pending Scores', value: summary.pendingScoresToSubmit },
+    { label: 'Attendance Gaps', value: summary.attendanceNotMarked },
+    { label: 'At-Risk Students', value: summary.atRiskStudents },
   ]
 
   return (
@@ -173,7 +170,7 @@ function TeacherDashboardContent({
       {session && (
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Current term: <span className="font-medium text-gray-700 dark:text-gray-200">
-            {session.academic_year} • {formatTerm(session.term)}
+            {session.academicYear} • {formatTerm(String(session.term))}
           </span>
         </p>
       )}
@@ -197,7 +194,7 @@ function TeacherDashboardContent({
       </div>
 
       {/* Assignments summary */}
-      {(data as any).assignments?.length > 0 && (
+      {assignedClasses.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>My Assignments</CardTitle>
@@ -205,20 +202,24 @@ function TeacherDashboardContent({
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {((data as any).assignments as any[]).map((a: any) => (
+              {assignedClasses.map((klass) => (
                 <div
-                  key={a.id ?? `${a.class_name}-${a.subject_name}`}
+                  key={klass.id}
                   className="flex items-center justify-between rounded-lg border bg-gray-50 px-4 py-3 dark:bg-gray-800"
                 >
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {a.subject_name ?? 'Unknown Subject'}
+                      {klass.name}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {a.class_name ?? 'Unknown Class'}{a.stream ? ` – ${a.stream}` : ''}
+                      {klass.level ? `Level ${klass.level}` : 'Level not set'}{klass.stream ? ` – ${klass.stream}` : ''}
                     </p>
                   </div>
-                  {a.is_class_teacher && (
+                  {klass.subjects.length > 0 ? (
+                    <Badge variant="secondary" className="text-xs">
+                      {klass.subjects.length} subject{klass.subjects.length === 1 ? '' : 's'}
+                    </Badge>
+                  ) : (
                     <Badge variant="secondary" className="text-xs">Class Teacher</Badge>
                   )}
                 </div>
@@ -227,6 +228,41 @@ function TeacherDashboardContent({
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Performance Snapshot</CardTitle>
+          <CardDescription>Current dashboard metrics from assigned classes and subjects.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Mean Score</p>
+              <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {performance.meanScore === null ? 'N/A' : performance.meanScore.toFixed(1)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Pass Rate</p>
+              <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {performance.passRate === null ? 'N/A' : `${performance.passRate.toFixed(1)}%`}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Score Pipeline</p>
+              <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {assessmentPipeline.submittedIncomplete} incomplete
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Moderation</p>
+              <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {assessmentPipeline.readyForModeration} ready
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
