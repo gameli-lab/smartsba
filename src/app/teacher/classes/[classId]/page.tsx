@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { requireTeacher } from '@/lib/auth-guards'
-import { createServerComponentClient } from '@/lib/supabase'
+import { createAdminSupabaseClient } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
@@ -19,6 +19,16 @@ interface SubjectRow {
   id: string
   name: string
   class_id: string
+}
+
+interface ClassSubjectRow {
+  subject_id: string
+  is_enabled: boolean
+  subject: {
+    id: string
+    name: string
+    class_id: string
+  }
 }
 
 interface AssignmentRow {
@@ -46,7 +56,7 @@ interface StudentRow {
 
 export default async function ClassDetailPage({ params }: ClassDetailPageProps) {
   const { classId } = params
-  const supabase = await createServerComponentClient()
+  const supabase = createAdminSupabaseClient()
   const { assignments, profile } = await requireTeacher()
 
   const allowedClassIds = new Set(assignments.map((a) => a.class_id))
@@ -57,7 +67,7 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
   const subjectIdsForTeacher = new Set(assignments.filter((a) => a.class_id === classId).map((a) => a.subject_id))
   const isClassTeacher = assignments.some((a) => a.class_id === classId && a.is_class_teacher)
 
-  const [{ data: classRow }, { data: subjectsData }, { data: studentsData }, { data: assignmentsData }] =
+  const [{ data: classRow }, { data: classSubjectRows }, { data: studentsData }, { data: assignmentsData }] =
     await Promise.all([
       supabase
         .from('classes')
@@ -65,9 +75,10 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
         .eq('id', classId)
         .maybeSingle(),
       supabase
-        .from('subjects')
-        .select('id, name, class_id')
-        .eq('class_id', classId),
+        .from('class_subjects')
+        .select('subject_id, is_enabled, subject:subjects!inner(id, name, class_id)')
+        .eq('class_id', classId)
+        .eq('is_enabled', true),
       supabase
         .from('students')
         .select('id, admission_number, gender, user_profile:user_profiles!inner(full_name, email)')
@@ -84,7 +95,8 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
     redirect('/teacher/classes')
   }
 
-  const subjects = (subjectsData || []) as SubjectRow[]
+  const classSubjects = (classSubjectRows || []) as ClassSubjectRow[]
+  const subjects = classSubjects.map((row) => row.subject).filter(Boolean) as SubjectRow[]
   const students = (studentsData || []) as StudentRow[]
   const assignmentsRows = (assignmentsData || []) as AssignmentRow[]
   const assignmentsBySubject = new Map<string, AssignmentRow[]>()

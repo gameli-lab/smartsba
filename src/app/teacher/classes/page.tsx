@@ -1,5 +1,6 @@
 import { requireTeacher } from '@/lib/auth-guards'
-import { createServerComponentClient } from '@/lib/supabase'
+import Link from 'next/link'
+import { createAdminSupabaseClient } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
@@ -18,7 +19,7 @@ interface SubjectRow {
 }
 
 export default async function TeacherClassesPage() {
-  const supabase = await createServerComponentClient()
+  const supabase = createAdminSupabaseClient()
   const { assignments, effectiveRole } = await requireTeacher()
 
   const classIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean)))
@@ -120,7 +121,11 @@ export default async function TeacherClassesPage() {
                     Student count reflects total students in the class.
                   </div>
 
-                  <div className="pt-1 text-sm text-gray-500 dark:text-gray-400">Action: View details (read-only) — TODO link when detail page is added.</div>
+                  <div className="pt-1 text-sm text-gray-500 dark:text-gray-400">
+                    <Link href={`/teacher/classes/${klass.id}`} className="text-green-700 hover:underline dark:text-green-300">
+                      View details (read-only)
+                    </Link>
+                  </div>
                 </CardContent>
               </Card>
             )

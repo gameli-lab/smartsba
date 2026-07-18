@@ -1,5 +1,5 @@
 import { requireTeacher } from '@/lib/auth-guards'
-import { createServerComponentClient } from '@/lib/supabase'
+import { createAdminSupabaseClient } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
@@ -15,8 +15,23 @@ interface SubjectRow {
   }
 }
 
+interface ClassSubjectRow {
+  class_id: string
+  subject: {
+    id: string
+    name: string
+    class_id: string
+    class: {
+      id: string
+      name: string
+      level: number | null
+      stream: string | null
+    }
+  }
+}
+
 export default async function TeacherSubjectsPage() {
-  const supabase = await createServerComponentClient()
+  const supabase = createAdminSupabaseClient()
   const { assignments, effectiveRole } = await requireTeacher()
 
   const subjectIds = Array.from(new Set(assignments.map((a) => a.subject_id).filter(Boolean)))
@@ -39,12 +54,14 @@ export default async function TeacherSubjectsPage() {
     )
   }
 
-  const { data: subjectsData } = await supabase
-    .from('subjects')
-    .select('id, name, class_id, class:classes!inner(id, name, level, stream)')
-    .in('id', subjectIds)
+  const { data: classSubjectData } = await supabase
+    .from('class_subjects')
+    .select('class_id, subject:subjects!inner(id, name, class_id, class:classes!inner(id, name, level, stream))')
+    .in('class_id', Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean))))
+    .eq('is_enabled', true)
 
-  const subjects = (subjectsData || []) as SubjectRow[]
+  const classSubjects = (classSubjectData || []) as ClassSubjectRow[]
+  const subjects = classSubjects.map((row) => row.subject).filter(Boolean) as SubjectRow[]
   const grouped = subjects.reduce<Record<string, SubjectRow[]>>((acc, subj) => {
     const key = subj.class_id
     acc[key] = acc[key] || []
