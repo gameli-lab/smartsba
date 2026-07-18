@@ -1,5 +1,5 @@
 import { requireTeacher } from '@/lib/auth-guards'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
@@ -16,6 +16,7 @@ interface SubjectRow {
 }
 
 export default async function TeacherSubjectsPage() {
+  const supabase = await createServerComponentClient()
   const { assignments, effectiveRole } = await requireTeacher()
 
   const subjectIds = Array.from(new Set(assignments.map((a) => a.subject_id).filter(Boolean)))

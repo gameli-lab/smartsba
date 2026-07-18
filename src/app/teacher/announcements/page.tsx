@@ -1,5 +1,5 @@
 import { requireTeacher } from '@/lib/auth-guards'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,6 +33,7 @@ const deleteAnnouncementAction = async (formData: FormData) => {
 }
 
 export default async function TeacherAnnouncementsPage({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
+  const supabase = await createServerComponentClient()
   const { assignments, effectiveRole, profile } = await requireTeacher()
 
   const classIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean)))

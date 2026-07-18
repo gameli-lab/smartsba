@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { requireTeacher } from '@/lib/auth-guards'
-import { supabase } from '@/lib/supabase'
+import { createServerComponentClient } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
@@ -46,6 +46,7 @@ interface StudentRow {
 
 export default async function ClassDetailPage({ params }: ClassDetailPageProps) {
   const { classId } = params
+  const supabase = await createServerComponentClient()
   const { assignments, profile } = await requireTeacher()
 
   const allowedClassIds = new Set(assignments.map((a) => a.class_id))
