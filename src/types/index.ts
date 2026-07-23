@@ -34,6 +34,7 @@ export interface School {
   stream_type?: 'single' | 'double' | 'cluster'
   stream_count?: number | null
   status: 'active' | 'inactive'
+  academic_config_updated_at?: string
   created_at: string
   updated_at: string
 }
@@ -91,7 +92,8 @@ export interface Class {
 export interface Subject {
   id: string
   school_id: string
-  level_group: 'NURSERY' | 'KG' | 'PRIMARY' | 'JHS'
+  class_id?: string
+  level_group: 'KG' | 'PRIMARY' | 'JHS'
   name: string
   code?: string
   description?: string
@@ -157,7 +159,7 @@ export interface ParentStudentLink {
   created_at: string
 }
 
-// Student Aggregate Entity
+// Student Aggregate Entity (DB uses calculated_at, not updated_at)
 export interface StudentAggregate {
   id: string
   student_id: string
@@ -169,8 +171,7 @@ export interface StudentAggregate {
   elective_subjects_count: number
   class_position?: number
   overall_position?: number
-  created_at: string
-  updated_at: string
+  calculated_at: string
 }
 
 // Score Entity
@@ -321,6 +322,47 @@ export interface TeacherForm {
   qualification?: string
   hire_date?: string
   password: string
+}
+
+// Subject Catalog (from migration 033 - system-wide subject definitions)
+export interface SubjectCatalogEntry {
+  id: string
+  level_group: 'KG' | 'PRIMARY' | 'JHS'
+  subject_key: string
+  subject_name: string
+  is_core: boolean
+  sort_order: number
+  assignment_rule: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+// School Subject Settings (per-school subject configuration)
+export interface SchoolSubjectSetting {
+  id: string
+  school_id: string
+  level_group: 'KG' | 'PRIMARY' | 'JHS'
+  subject_key: string
+  subject_name: string
+  is_enabled: boolean
+  is_core: boolean
+  sort_order: number
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+// Class-Subject Mapping (which subjects are assigned to which classes)
+export interface ClassSubject {
+  id: string
+  class_id: string
+  school_id: string
+  subject_id: string
+  level_group: 'KG' | 'PRIMARY' | 'JHS'
+  source: 'default' | 'override'
+  is_enabled: boolean
+  created_at: string
+  updated_at: string
 }
 
 // API Response Types

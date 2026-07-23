@@ -9,35 +9,36 @@ export interface CoreSubject {
 
 interface SubjectInsert {
   school_id: string
+  level_group: string
   name: string
   code: string
   description: string
   is_core: boolean
+  is_active: boolean
 }
 
-// Core subjects required for every school
-export const CORE_SUBJECTS: CoreSubject[] = [
-  {
-    name: 'English Language',
-    code: 'ENG',
-    description: 'Communication and language skills'
-  },
-  {
-    name: 'Mathematics',
-    code: 'MATH',
-    description: 'Mathematical concepts and problem solving'
-  },
-  {
-    name: 'Science',
-    code: 'SCI',
-    description: 'Basic scientific principles and understanding'
-  },
-  {
-    name: 'Social Studies',
-    code: 'SOC',
-    description: 'Social sciences and civic education'
-  }
-]
+export const CORE_SUBJECTS_BY_LEVEL: Record<string, CoreSubject[]> = {
+  PRIMARY: [
+    { name: 'English Language', code: 'ENG', description: 'Communication and language skills' },
+    { name: 'Mathematics', code: 'MATH', description: 'Mathematical concepts and problem solving' },
+    { name: 'Science', code: 'SCI', description: 'Basic scientific principles and understanding' },
+    { name: 'Ghanaian Language', code: 'GH_LANG', description: 'Ghanaian language and culture' },
+  ],
+  JHS: [
+    { name: 'English Language', code: 'ENG', description: 'Communication and language skills' },
+    { name: 'Mathematics', code: 'MATH', description: 'Mathematical concepts and problem solving' },
+    { name: 'Integrated Science', code: 'SCI', description: 'Integrated science principles' },
+    { name: 'Social Studies', code: 'SOC', description: 'Social sciences and civic education' },
+  ],
+  KG: [
+    { name: 'Language & Literacy', code: 'KG_LANG', description: 'Early language and literacy skills' },
+    { name: 'Numeracy', code: 'KG_NUM', description: 'Early numeracy skills' },
+    { name: 'Ghanaian Language', code: 'KG_GH_LANG', description: 'Ghanaian language and culture' },
+  ],
+}
+
+// Legacy flat list for backward compatibility
+export const CORE_SUBJECTS: CoreSubject[] = Object.values(CORE_SUBJECTS_BY_LEVEL).flat()
 
 /**
  * Creates core subjects for a school if they don't exist
@@ -47,56 +48,61 @@ export const CORE_SUBJECTS: CoreSubject[] = [
  */
 export async function ensureCoreSubjects(
   supabase: ReturnType<typeof createClient>,
-  schoolId: string
+  schoolId: string,
+  levelGroups?: string[]
 ): Promise<{ success: boolean; message: string; created: number }> {
   try {
-    // Check which core subjects already exist
-    const { data: existingSubjects, error: fetchError } = await supabase
-      .from('subjects')
-      .select('code')
-      .eq('school_id', schoolId)
-      .eq('is_core', true)
+    const targetLevels = levelGroups ?? Object.keys(CORE_SUBJECTS_BY_LEVEL)
+    let totalCreated = 0
 
-    if (fetchError) {
-      throw new Error(`Failed to fetch existing subjects: ${fetchError.message}`)
-    }
+    for (const levelGroup of targetLevels) {
+      const subjectsForLevel = CORE_SUBJECTS_BY_LEVEL[levelGroup]
+      if (!subjectsForLevel) continue
 
-    const existingCodes = new Set((existingSubjects as Pick<Subject, 'code'>[])?.map(s => s.code) || [])
-    const subjectsToCreate = CORE_SUBJECTS.filter(subject => !existingCodes.has(subject.code))
+      const { data: existingSubjects, error: fetchError } = await supabase
+        .from('subjects')
+        .select('code')
+        .eq('school_id', schoolId)
+        .eq('level_group', levelGroup)
+        .eq('is_core', true)
 
-    if (subjectsToCreate.length === 0) {
-      return {
-        success: true,
-        message: 'All core subjects already exist',
-        created: 0
+      if (fetchError) {
+        throw new Error(`Failed to fetch existing subjects for ${levelGroup}: ${fetchError.message}`)
       }
+
+      const existingCodes = new Set((existingSubjects as Pick<Subject, 'code'>[])?.map(s => s.code) || [])
+      const subjectsToCreate = subjectsForLevel.filter(subject => !existingCodes.has(subject.code))
+
+      if (subjectsToCreate.length === 0) continue
+
+      const subjectData: SubjectInsert[] = subjectsToCreate.map(subject => ({
+        school_id: schoolId,
+        level_group: levelGroup,
+        name: subject.name,
+        code: subject.code,
+        description: subject.description,
+        is_core: true,
+        is_active: true,
+      }))
+
+      const { error: createError } = await (supabase
+        .from('subjects') as unknown as {
+          insert: (data: SubjectInsert[]) => Promise<{ error: Error | null }>
+        })
+        .insert(subjectData)
+
+      if (createError) {
+        throw new Error(`Failed to create core subjects for ${levelGroup}: ${createError.message}`)
+      }
+
+      totalCreated += subjectsToCreate.length
     }
 
-    // Create missing core subjects
-    const subjectData: SubjectInsert[] = subjectsToCreate.map(subject => ({
-      school_id: schoolId,
-      name: subject.name,
-      code: subject.code,
-      description: subject.description,
-      is_core: true
-    }))
-
-    // Use unknown type assertion to work around Supabase typing issues
-    const { error: createError } = await (supabase
-      .from('subjects') as unknown as {
-        insert: (data: SubjectInsert[]) => Promise<{ error: Error | null }>
-      })
-      .insert(subjectData)
-
-    if (createError) {
-      throw new Error(`Failed to create core subjects: ${createError.message}`)
+    if (totalCreated === 0) {
+      return { success: true, message: 'All core subjects already exist', created: 0 }
     }
 
-    return {
-      success: true,
-      message: `Created ${subjectsToCreate.length} core subjects`,
-      created: subjectsToCreate.length
-    }
+    return { success: true, message: `Created ${totalCreated} core subjects`, created: totalCreated }
 
   } catch (error) {
     console.error('Error ensuring core subjects:', error)

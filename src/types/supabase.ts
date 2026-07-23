@@ -13,6 +13,9 @@ import type {
   ClassTeacherRemark,
   Attendance,
   Announcement,
+  SubjectCatalogEntry,
+  SchoolSubjectSetting,
+  ClassSubject,
   UserRole,
   Gender,
   AcademicTerm,
@@ -70,8 +73,23 @@ export interface Database {
       }
       student_aggregates: {
         Row: StudentAggregate
-        Insert: Omit<StudentAggregate, 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Omit<StudentAggregate, 'id' | 'created_at' | 'updated_at'>>
+        Insert: Omit<StudentAggregate, 'id' | 'calculated_at'>
+        Update: Partial<Omit<StudentAggregate, 'id' | 'calculated_at'>>
+      }
+      subject_catalog: {
+        Row: SubjectCatalogEntry
+        Insert: Omit<SubjectCatalogEntry, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<SubjectCatalogEntry, 'id' | 'created_at' | 'updated_at'>>
+      }
+      school_subject_settings: {
+        Row: SchoolSubjectSetting
+        Insert: Omit<SchoolSubjectSetting, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<SchoolSubjectSetting, 'id' | 'created_at' | 'updated_at'>>
+      }
+      class_subjects: {
+        Row: ClassSubject
+        Insert: Omit<ClassSubject, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<ClassSubject, 'id' | 'created_at' | 'updated_at'>>
       }
       scores: {
         Row: Score

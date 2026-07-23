@@ -19,20 +19,12 @@
  */
 
 export const LEVEL_GROUPS = {
-  NURSERY: {
-    key: 'NURSERY',
-    label: 'Nursery',
-    description: 'Early childhood education',
-    levels: ['Nursery 1', 'Nursery 2'],
-    order: 1,
-    numericLevels: [], // Not currently mapped to numeric storage
-  },
   KG: {
     key: 'KG',
     label: 'Kindergarten',
     description: 'Kindergarten',
     levels: ['KG 1', 'KG 2'],
-    order: 2,
+    order: 1,
     numericLevels: [-1, 0],
   },
   PRIMARY: {
@@ -40,7 +32,7 @@ export const LEVEL_GROUPS = {
     label: 'Primary',
     description: 'Primary education',
     levels: ['Basic 1', 'Basic 2', 'Basic 3', 'Basic 4', 'Basic 5', 'Basic 6'],
-    order: 3,
+    order: 2,
     numericLevels: [1, 2, 3, 4, 5, 6],
   },
   JHS: {
@@ -48,8 +40,24 @@ export const LEVEL_GROUPS = {
     label: 'Junior High School',
     description: 'Junior secondary education',
     levels: ['JHS 1', 'JHS 2', 'JHS 3'],
-    order: 4,
+    order: 3,
     numericLevels: [7, 8, 9],
+  },
+  SHS: {
+    key: 'SHS',
+    label: 'Senior High School',
+    description: 'Senior secondary education',
+    levels: ['SHS 1', 'SHS 2', 'SHS 3'],
+    order: 4,
+    numericLevels: [10, 11, 12] as number[],
+  },
+  SHTS: {
+    key: 'SHTS',
+    label: 'Senior High Technical School',
+    description: 'Senior high technical education',
+    levels: ['SHTS 1', 'SHTS 2', 'SHTS 3'],
+    order: 5,
+    numericLevels: [10, 11, 12] as number[],
   },
 } as const
 

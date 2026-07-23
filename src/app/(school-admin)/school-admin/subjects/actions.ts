@@ -6,7 +6,7 @@ import { createServerComponentClient } from '@/lib/supabase'
 
 interface SubjectInput {
   name: string
-  level_group: 'NURSERY' | 'KG' | 'PRIMARY' | 'JHS'
+  level_group: 'KG' | 'PRIMARY' | 'JHS'
   code?: string
   description?: string
   is_core?: boolean
