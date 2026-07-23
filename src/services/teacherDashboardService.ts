@@ -34,12 +34,23 @@ export async function buildTeacherDashboardData(
     new Set(assignments.filter((a) => a.class_id && a.subject_id).map((a) => `${a.class_id}__${a.subject_id}`))
   )
 
-  const [{ data: classesData }, { data: subjectsData }, { data: sessionsData }, { data: announcementsData }, { data: studentsData }] = await Promise.all([
+  // Query subjects via class_subjects (new schema) or fall back to subjects.class_id (old schema)
+  const [{ data: classesData }, { data: classSubjectsData }, { data: legacySubjectData }, { data: sessionsData }, { data: announcementsData }, { data: studentsData }] = await Promise.all([
     classIds.length
       ? supabase.from('classes').select('id, name, level, stream').in('id', classIds)
       : Promise.resolve({ data: [], error: null } as const),
     classIds.length
-      ? supabase.from('subjects').select('id, name, class_id').in('class_id', classIds)
+      ? supabase
+          .from('class_subjects')
+          .select('class_id, subject_id, subject:subjects!inner(id, name)')
+          .in('class_id', classIds)
+          .eq('is_enabled', true)
+      : Promise.resolve({ data: [], error: null } as const),
+    classIds.length
+      ? supabase
+          .from('subjects')
+          .select('id, name, class_id')
+          .in('class_id', classIds)
       : Promise.resolve({ data: [], error: null } as const),
     supabase
       .from('academic_sessions')
@@ -60,8 +71,37 @@ export async function buildTeacherDashboardData(
       : Promise.resolve({ data: [], error: null } as const),
   ])
 
+  // Build subject list from class_subjects (new schema) or fall back to legacy subjects.class_id
+  const rawClassSubjects = (classSubjectsData || []) as Array<{
+    class_id: string
+    subject_id: string
+    subject: { id: string; name: string } | null
+  }>
+  const rawLegacySubjects = (legacySubjectData || []) as Array<{
+    id: string
+    name: string
+    class_id: string | null
+  }>
+
+  // Prefer class_subjects if it has data, otherwise fall back to subjects with class_id
+  const subjects: Array<{ id: string; name: string; class_id: string }> =
+    rawClassSubjects.length > 0
+      ? rawClassSubjects
+          .filter((row) => row.subject !== null)
+          .map((row) => ({
+            id: row.subject!.id,
+            name: row.subject!.name,
+            class_id: row.class_id,
+          }))
+      : rawLegacySubjects
+          .filter((row) => row.class_id !== null)
+          .map((row) => ({
+            id: row.id,
+            name: row.name,
+            class_id: row.class_id!,
+          }))
+
   const classes = (classesData || []) as Array<{ id: string; name: string; level: number | null; stream: string | null }>
-  const subjects = (subjectsData || []) as Array<{ id: string; name: string; class_id: string }>
   const sessions = (sessionsData || []) as Array<{ id: string; academic_year: string; term: number; is_current: boolean }>
   const announcements = (announcementsData || []) as Array<{
     id: string

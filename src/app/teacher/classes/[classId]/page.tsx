@@ -67,7 +67,7 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
   const subjectIdsForTeacher = new Set(assignments.filter((a) => a.class_id === classId).map((a) => a.subject_id))
   const isClassTeacher = assignments.some((a) => a.class_id === classId && a.is_class_teacher)
 
-  const [{ data: classRow }, { data: classSubjectRows }, { data: studentsData }, { data: assignmentsData }] =
+  const [{ data: classRow }, { data: classSubjectRows }, { data: legacySubjectRows }, { data: studentsData }, { data: assignmentsData }] =
     await Promise.all([
       supabase
         .from('classes')
@@ -79,6 +79,10 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
         .select('subject_id, is_enabled, subject:subjects!inner(id, name, class_id)')
         .eq('class_id', classId)
         .eq('is_enabled', true),
+      supabase
+        .from('subjects')
+        .select('id, name, class_id')
+        .eq('class_id', classId),
       supabase
         .from('students')
         .select('id, admission_number, gender, user_profile:user_profiles!inner(full_name, email)')
@@ -95,8 +99,23 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
     redirect('/teacher/classes')
   }
 
-  const classSubjects = (classSubjectRows || []) as ClassSubjectRow[]
-  const subjects = classSubjects.map((row) => row.subject).filter(Boolean) as SubjectRow[]
+  // Prefer class_subjects (new schema), fall back to legacy subjects.class_id
+  const rawClassSubjects = (classSubjectRows || []) as ClassSubjectRow[]
+  const rawLegacySubjects = (legacySubjectRows || []) as Array<{
+    id: string
+    name: string
+    class_id: string | null
+  }>
+  const subjects: SubjectRow[] =
+    rawClassSubjects.length > 0
+      ? rawClassSubjects.map((row) => row.subject).filter(Boolean) as SubjectRow[]
+      : rawLegacySubjects
+          .filter((row) => row.class_id !== null)
+          .map((row) => ({
+            id: row.id,
+            name: row.name,
+            class_id: row.class_id!,
+          }))
   const students = (studentsData || []) as StudentRow[]
   const assignmentsRows = (assignmentsData || []) as AssignmentRow[]
   const assignmentsBySubject = new Map<string, AssignmentRow[]>()

@@ -25,12 +25,19 @@ export default async function TeacherClassesPage() {
   const classIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean)))
   const classTeacherClassIds = assignments.filter((a) => a.is_class_teacher).map((a) => a.class_id)
 
-  const [{ data: classesData }, { data: subjectsData }, { data: studentCounts }] = await Promise.all([
+  const [{ data: classesData }, { data: classSubjectsData }, { data: legacySubjectData }, { data: studentCounts }] = await Promise.all([
     classIds.length
       ? supabase
           .from('classes')
           .select('id, name, level, stream, class_teacher_id')
           .in('id', classIds)
+      : Promise.resolve({ data: [], error: null } as const),
+    classIds.length
+      ? supabase
+          .from('class_subjects')
+          .select('class_id, subject_id, subject:subjects!inner(id, name)')
+          .in('class_id', classIds)
+          .eq('is_enabled', true)
       : Promise.resolve({ data: [], error: null } as const),
     classIds.length
       ? supabase
@@ -46,7 +53,33 @@ export default async function TeacherClassesPage() {
       : Promise.resolve({ data: [], error: null } as const),
   ])
 
-  const subjects = (subjectsData || []) as SubjectRow[]
+  // Prefer class_subjects (new schema), fall back to subjects.class_id (old schema)
+  const rawClassSubjects = (classSubjectsData || []) as Array<{
+    class_id: string
+    subject_id: string
+    subject: { id: string; name: string } | null
+  }>
+  const rawLegacySubjects = (legacySubjectData || []) as Array<{
+    id: string
+    name: string
+    class_id: string | null
+  }>
+  const subjects: SubjectRow[] =
+    rawClassSubjects.length > 0
+      ? rawClassSubjects
+          .filter((row) => row.subject !== null)
+          .map((row) => ({
+            id: row.subject!.id,
+            name: row.subject!.name,
+            class_id: row.class_id,
+          }))
+      : rawLegacySubjects
+          .filter((row) => row.class_id !== null)
+          .map((row) => ({
+            id: row.id,
+            name: row.name,
+            class_id: row.class_id!,
+          }))
   const classes = (classesData || []) as ClassRow[]
   const studentCountMap = new Map<string, number>()
   ;(studentCounts || []).forEach((s: { class_id: string }) => {

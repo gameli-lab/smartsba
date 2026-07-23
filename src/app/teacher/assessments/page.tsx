@@ -80,8 +80,16 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
   const subjectIdsForClass = assignments.filter((a) => a.class_id === selectedClassId && a.subject_id).map((a) => a.subject_id as string)
   const uniqueSubjectIds = Array.from(new Set(subjectIdsForClass))
 
-  const [{ data: classRows }, { data: subjectRows }, { data: sessionRows }] = await Promise.all([
+  // Get subjects via class_subjects (new schema), fall back to legacy subjects.class_id
+  const [{ data: classRows }, { data: classSubjectRows }, { data: legacySubjectRows }, { data: sessionRows }] = await Promise.all([
     supabase.from('classes').select('id, name, level, stream').in('id', classIds),
+    classIds.length
+      ? supabase
+          .from('class_subjects')
+          .select('class_id, subject_id, subject:subjects!inner(id, name)')
+          .in('class_id', classIds)
+          .eq('is_enabled', true)
+      : Promise.resolve({ data: [], error: null } as const),
     uniqueSubjectIds.length
       ? supabase.from('subjects').select('id, name, class_id').in('id', uniqueSubjectIds)
       : Promise.resolve({ data: [], error: null } as const),
@@ -93,7 +101,32 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
   ])
 
   const classes = (classRows || []) as ClassRow[]
-  const subjects = (subjectRows || []) as SubjectRow[]
+  const rawClassSubjects = (classSubjectRows || []) as Array<{
+    class_id: string
+    subject_id: string
+    subject: { id: string; name: string } | null
+  }>
+  const rawLegacySubjects = (legacySubjectRows || []) as Array<{
+    id: string
+    name: string
+    class_id: string | null
+  }>
+  const subjects: SubjectRow[] =
+    rawClassSubjects.length > 0
+      ? rawClassSubjects
+          .filter((row) => row.subject !== null)
+          .map((row) => ({
+            id: row.subject!.id,
+            name: row.subject!.name,
+            class_id: row.class_id,
+          }))
+      : rawLegacySubjects
+          .filter((row) => row.class_id !== null)
+          .map((row) => ({
+            id: row.id,
+            name: row.name,
+            class_id: row.class_id!,
+          }))
   const sessions = (sessionRows || []) as SessionRow[]
 
   const selectedSubjectId = (typeof searchParams.subjectId === 'string' && searchParams.subjectId) || subjects[0]?.id

@@ -38,17 +38,38 @@ export async function saveScores(formData: FormData) {
     return { success: false, error: 'You are not assigned to this subject for the selected class.' }
   }
 
+  // Verify subject belongs to this school via subjects table or class_subjects junction
   const { data: subjectRowData } = await supabase
     .from('subjects')
     .select('id, class_id, school_id')
     .eq('id', subjectId)
     .maybeSingle()
 
-  const subjectRow = subjectRowData as { id: string; class_id: string; school_id: string } | null
+  const subjectRow = subjectRowData as { id: string; class_id: string | null; school_id: string } | null
 
-  if (!subjectRow || subjectRow.class_id !== classId || subjectRow.school_id !== profile.school_id) {
-    return { success: false, error: 'Subject not found for this class.' }
+  if (!subjectRow) {
+    return { success: false, error: 'Subject not found.' }
   }
+
+  if (subjectRow.school_id !== profile.school_id) {
+    return { success: false, error: 'Subject does not belong to your school.' }
+  }
+
+  // For new schema (class_id nullable), verify via class_subjects junction table
+  if (subjectRow.class_id !== classId) {
+    const { data: linkRow } = await supabase
+      .from('class_subjects')
+      .select('id')
+      .eq('class_id', classId)
+      .eq('subject_id', subjectId)
+      .eq('is_enabled', true)
+      .maybeSingle()
+
+    if (!linkRow) {
+      return { success: false, error: 'Subject not found for this class.' }
+    }
+  }
+  // If class_id matches, the old-schema check passes implicitly
 
   const { data: sessionRowData } = await supabase
     .from('academic_sessions')
