@@ -77,21 +77,14 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
   }
 
   const selectedClassId = (typeof searchParams.classId === 'string' && searchParams.classId) || classIds[0]
+  // Get subjects assigned to this teacher for the selected class
   const subjectIdsForClass = assignments.filter((a) => a.class_id === selectedClassId && a.subject_id).map((a) => a.subject_id as string)
   const uniqueSubjectIds = Array.from(new Set(subjectIdsForClass))
 
-  // Get subjects via class_subjects (new schema), fall back to legacy subjects.class_id
-  const [{ data: classRows }, { data: classSubjectRows }, { data: legacySubjectRows }, { data: sessionRows }] = await Promise.all([
+  const [{ data: classRows }, { data: subjectRows }, { data: sessionRows }] = await Promise.all([
     supabase.from('classes').select('id, name, level, stream').in('id', classIds),
-    classIds.length
-      ? supabase
-          .from('class_subjects')
-          .select('class_id, subject_id, subject:subjects!inner(id, name)')
-          .in('class_id', classIds)
-          .eq('is_enabled', true)
-      : Promise.resolve({ data: [], error: null } as const),
     uniqueSubjectIds.length
-      ? supabase.from('subjects').select('id, name, class_id').in('id', uniqueSubjectIds)
+      ? supabase.from('subjects').select('id, name').in('id', uniqueSubjectIds)
       : Promise.resolve({ data: [], error: null } as const),
     supabase
       .from('academic_sessions')
@@ -101,32 +94,16 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
   ])
 
   const classes = (classRows || []) as ClassRow[]
-  const rawClassSubjects = (classSubjectRows || []) as Array<{
-    class_id: string
-    subject_id: string
-    subject: { id: string; name: string } | null
-  }>
-  const rawLegacySubjects = (legacySubjectRows || []) as Array<{
-    id: string
-    name: string
-    class_id: string | null
-  }>
-  const subjects: SubjectRow[] =
-    rawClassSubjects.length > 0
-      ? rawClassSubjects
-          .filter((row) => row.subject !== null)
-          .map((row) => ({
-            id: row.subject!.id,
-            name: row.subject!.name,
-            class_id: row.class_id,
-          }))
-      : rawLegacySubjects
-          .filter((row) => row.class_id !== null)
-          .map((row) => ({
-            id: row.id,
-            name: row.name,
-            class_id: row.class_id!,
-          }))
+  const rawSubjects = (subjectRows || []) as Array<{ id: string; name: string }>
+  const subjectNameMap = new Map(rawSubjects.map((s) => [s.id, s.name]))
+  // Build subjects from the teacher's actual assignments
+  const subjects: SubjectRow[] = assignments
+    .filter((a) => a.class_id && a.subject_id && subjectNameMap.has(a.subject_id))
+    .map((a) => ({
+      id: a.subject_id!,
+      name: subjectNameMap.get(a.subject_id!)!,
+      class_id: a.class_id!,
+    }))
   const sessions = (sessionRows || []) as SessionRow[]
 
   const selectedSubjectId = (typeof searchParams.subjectId === 'string' && searchParams.subjectId) || subjects[0]?.id
@@ -148,7 +125,7 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
     )
   }
 
-  const [{ data: studentRows }, { data: scoreRows }, { data: subjectRow }] = await Promise.all([
+  const [{ data: studentRows }, { data: scoreRows }] = await Promise.all([
     supabase
       .from('students')
       .select('id, admission_number, gender, user_profile:user_profiles!inner(full_name)')
@@ -160,16 +137,14 @@ export default async function TeacherAssessmentsPage({ searchParams }: { searchP
       .eq('class_id', selectedClassId)
       .eq('subject_id', selectedSubjectId)
       .eq('session_id', selectedSessionId),
-    supabase
-      .from('subjects')
-      .select('id, class_id')
-      .eq('id', selectedSubjectId)
-      .maybeSingle(),
   ])
 
-  const subject = (subjectRow as unknown as { id: string; class_id: string }) || null
+  // Verify the teacher is actually assigned to this subject for this class
+  const isAssigned = assignments.some(
+    (a) => a.class_id === selectedClassId && a.subject_id === selectedSubjectId
+  )
 
-  if (!subject || subject.class_id !== selectedClassId) {
+  if (!isAssigned) {
     return (
       <div className="space-y-6 text-gray-900 dark:text-gray-100">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
