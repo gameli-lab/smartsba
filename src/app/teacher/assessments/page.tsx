@@ -54,9 +54,23 @@ function formatClassName(klass: ClassRow) {
 
 export default async function TeacherAssessmentsPage({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
   const supabase = createAdminSupabaseClient()
-  const { assignments, effectiveRole, profile } = await requireTeacher()
+  const { assignments, effectiveRole, profile, teacher } = await requireTeacher()
 
-  const classIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean)))
+  // Get class IDs from teacher_assignments
+  const assignmentClassIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean)))
+
+  // Also get classes where this teacher is the class teacher (via classes.class_teacher_id)
+  const classTeacherClassIds: string[] = []
+  if (teacher) {
+    const { data: ctClasses } = await supabase
+      .from('classes')
+      .select('id')
+      .eq('class_teacher_id', teacher.id)
+    ctClasses?.forEach((c: { id: string }) => classTeacherClassIds.push(c.id))
+  }
+
+  // Merge both sets of class IDs
+  const classIds = Array.from(new Set([...assignmentClassIds, ...classTeacherClassIds]))
   if (classIds.length === 0) {
     return (
       <div className="space-y-6 text-gray-900 dark:text-gray-100">

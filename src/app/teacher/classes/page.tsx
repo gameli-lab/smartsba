@@ -20,13 +20,27 @@ interface SubjectRow {
 
 export default async function TeacherClassesPage() {
   const supabase = createAdminSupabaseClient()
-  const { assignments, effectiveRole } = await requireTeacher()
+  const { assignments, effectiveRole, teacher } = await requireTeacher()
 
-  const classIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean)))
-  const classTeacherClassIds = assignments.filter((a) => a.is_class_teacher).map((a) => a.class_id)
+  // Get class IDs from teacher_assignments
+  const assignmentClassIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean)))
 
-  // Get the subject IDs the teacher is actually assigned to
+  // Also get classes where this teacher is the class teacher (via classes.class_teacher_id)
+  const { data: classTeacherClasses } = await supabase
+    .from('classes')
+    .select('id')
+    .eq('class_teacher_id', teacher.id)
+
+  const classTeacherClassIds = (classTeacherClasses || []).map((c: { id: string }) => c.id)
+
+  // Merge both sets of class IDs
+  const classIds = Array.from(new Set([...assignmentClassIds, ...classTeacherClassIds]))
+
+  // Subject assignments only come from teacher_assignments
   const assignedSubjectIds = Array.from(new Set(assignments.map((a) => a.subject_id).filter(Boolean))) as string[]
+
+  // Build set of class IDs where teacher has subject assignments
+  const subjectAssignmentClassIds = new Set(assignments.filter((a) => a.subject_id).map((a) => a.class_id))
 
   const [{ data: classesData }, { data: subjectData }, { data: studentCounts }] = await Promise.all([
     classIds.length

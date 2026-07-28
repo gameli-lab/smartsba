@@ -98,6 +98,7 @@ export default async function TeacherPage({
         subjectId: searchParams?.subjectId,
         sessionId: searchParams?.sessionId,
       },
+      teacherId: teacher.id,
     })
   } catch (err) {
     dashError = err instanceof Error ? err.message : 'Failed to load dashboard data'

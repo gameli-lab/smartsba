@@ -11,6 +11,7 @@ interface BuildTeacherDashboardInput {
   assignments: TeacherAssignment[]
   effectiveRole: 'class_teacher' | 'subject_teacher'
   filters?: TeacherDashboardFilters
+  teacherId?: string
 }
 
 function gradeFromScore(score: number): 'A' | 'B' | 'C' | 'D' | 'E' | 'F' {
@@ -25,10 +26,24 @@ function gradeFromScore(score: number): 'A' | 'B' | 'C' | 'D' | 'E' | 'F' {
 export async function buildTeacherDashboardData(
   input: BuildTeacherDashboardInput
 ): Promise<TeacherDashboardBackendData> {
-  const { profile, assignments, effectiveRole, filters } = input
+  const { profile, assignments, effectiveRole, filters, teacherId } = input
   const supabase = await createServerComponentClient()
 
-  const classIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean))) as string[]
+  // Get class IDs from teacher_assignments
+  const assignmentClassIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean))) as string[]
+
+  // Also get classes where this teacher is the class teacher (via classes.class_teacher_id)
+  let classTeacherClassIds: string[] = []
+  if (teacherId) {
+    const { data: ctClasses } = await supabase
+      .from('classes')
+      .select('id')
+      .eq('class_teacher_id', teacherId)
+    classTeacherClassIds = (ctClasses || []).map((c: { id: string }) => c.id)
+  }
+
+  // Merge both sets of class IDs
+  const classIds = Array.from(new Set([...assignmentClassIds, ...classTeacherClassIds])) as string[]
   const subjectIds = Array.from(new Set(assignments.map((a) => a.subject_id).filter(Boolean))) as string[]
   const assignmentPairs = Array.from(
     new Set(assignments.filter((a) => a.class_id && a.subject_id).map((a) => `${a.class_id}__${a.subject_id}`))

@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
       assignments,
       effectiveRole,
       filters: { classId, subjectId, sessionId },
+      teacherId: teacher.id,
     })
 
     return NextResponse.json({ success: true, data })
