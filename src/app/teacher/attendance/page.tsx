@@ -46,9 +46,23 @@ function classLabel(klass: ClassRow) {
 
 export default async function TeacherAttendancePage({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
   const supabase = createAdminSupabaseClient()
-  const { assignments, effectiveRole, profile } = await requireTeacher()
+  const { assignments, effectiveRole, profile, teacher } = await requireTeacher()
 
-  const classIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean))) as string[]
+  // Get class IDs from teacher_assignments
+  const assignmentClassIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean))) as string[]
+
+  // Also get classes where this teacher is the class teacher (via classes.class_teacher_id)
+  let classTeacherClassIds: string[] = []
+  if (teacher) {
+    const { data: ctClasses } = await supabase
+      .from('classes')
+      .select('id')
+      .eq('class_teacher_id', teacher.id)
+    classTeacherClassIds = (ctClasses || []).map((c: { id: string }) => c.id)
+  }
+
+  // Merge both sets of class IDs
+  const classIds = Array.from(new Set([...assignmentClassIds, ...classTeacherClassIds]))
 
   if (classIds.length === 0) {
     return (

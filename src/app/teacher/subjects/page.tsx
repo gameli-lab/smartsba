@@ -32,10 +32,58 @@ interface ClassSubjectRow {
 
 export default async function TeacherSubjectsPage() {
   const supabase = createAdminSupabaseClient()
-  const { assignments, effectiveRole } = await requireTeacher()
+  const { assignments, effectiveRole, teacher } = await requireTeacher()
 
+  // Get class IDs from teacher_assignments
+  const assignmentClassIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean)))
+
+  // Also get classes where this teacher is the class teacher
+  let classTeacherClassIds: string[] = []
+  if (teacher) {
+    const { data: ctClasses } = await supabase
+      .from('classes')
+      .select('id')
+      .eq('class_teacher_id', teacher.id)
+    classTeacherClassIds = (ctClasses || []).map((c: { id: string }) => c.id)
+  }
+
+  // Merge both sets of class IDs
+  const classIds = Array.from(new Set([...assignmentClassIds, ...classTeacherClassIds]))
   const subjectIds = Array.from(new Set(assignments.map((a) => a.subject_id).filter(Boolean)))
-  if (subjectIds.length === 0) {
+
+  // Get subject names for the teacher's assigned subjects
+  const [{ data: subjectRows }, { data: classRows }] = await Promise.all([
+    subjectIds.length
+      ? supabase.from('subjects').select('id, name').in('id', subjectIds)
+      : Promise.resolve({ data: [], error: null } as const),
+    classIds.length
+      ? supabase.from('classes').select('id, name, level, stream').in('id', classIds)
+      : Promise.resolve({ data: [], error: null } as const),
+  ])
+
+  const rawSubjects = (subjectRows || []) as Array<{ id: string; name: string }>
+  const subjectNameMap = new Map(rawSubjects.map((s) => [s.id, s.name]))
+  const classes = (classRows || []) as Array<{ id: string; name: string; level: number | null; stream: string | null }>
+  const classMap = new Map(classes.map((c) => [c.id, c]))
+
+  // Build subjects from the teacher's assignments (source of truth)
+  const subjects = assignments
+    .filter((a) => a.class_id && a.subject_id && subjectNameMap.has(a.subject_id))
+    .map((a) => ({
+      id: a.subject_id!,
+      name: subjectNameMap.get(a.subject_id!)!,
+      class_id: a.class_id!,
+      class: classMap.get(a.class_id!) || { id: a.class_id!, name: 'Unknown', level: null, stream: null },
+    }))
+
+  const grouped = subjects.reduce<Record<string, typeof subjects>>((acc, subj) => {
+    const key = subj.class_id
+    acc[key] = acc[key] || []
+    acc[key].push(subj)
+    return acc
+  }, {})
+
+  if (Object.keys(grouped).length === 0) {
     return (
       <div className="space-y-6 text-gray-900 dark:text-gray-100">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -53,21 +101,6 @@ export default async function TeacherSubjectsPage() {
       </div>
     )
   }
-
-  const { data: classSubjectData } = await supabase
-    .from('class_subjects')
-    .select('class_id, subject:subjects!inner(id, name, class_id, class:classes!inner(id, name, level, stream))')
-    .in('class_id', Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean))))
-    .eq('is_enabled', true)
-
-  const classSubjects = (classSubjectData || []) as ClassSubjectRow[]
-  const subjects = classSubjects.map((row) => row.subject).filter(Boolean) as SubjectRow[]
-  const grouped = subjects.reduce<Record<string, SubjectRow[]>>((acc, subj) => {
-    const key = subj.class_id
-    acc[key] = acc[key] || []
-    acc[key].push(subj)
-    return acc
-  }, {})
 
   return (
     <div className="space-y-6">

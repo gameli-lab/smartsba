@@ -57,17 +57,27 @@ interface StudentRow {
 export default async function ClassDetailPage({ params }: ClassDetailPageProps) {
   const { classId } = params
   const supabase = createAdminSupabaseClient()
-  const { assignments, profile } = await requireTeacher()
+  const { assignments, profile, teacher } = await requireTeacher()
 
-  const allowedClassIds = new Set(assignments.map((a) => a.class_id))
+  // Build allowed class IDs from assignments + class_teacher_id
+  const assignmentClassIds = Array.from(new Set(assignments.map((a) => a.class_id).filter(Boolean)))
+  let classTeacherClassIds: string[] = []
+  if (teacher) {
+    const { data: ctClasses } = await supabase
+      .from('classes')
+      .select('id')
+      .eq('class_teacher_id', teacher.id)
+    classTeacherClassIds = (ctClasses || []).map((c: { id: string }) => c.id)
+  }
+  const allowedClassIds = new Set([...assignmentClassIds, ...classTeacherClassIds])
   if (!allowedClassIds.has(classId)) {
     redirect('/teacher/classes')
   }
 
   const subjectIdsForTeacher = new Set(assignments.filter((a) => a.class_id === classId).map((a) => a.subject_id))
-  const isClassTeacher = assignments.some((a) => a.class_id === classId && a.is_class_teacher)
+  const isClassTeacher = classTeacherClassIds.includes(classId)
 
-  const [{ data: classRow }, { data: classSubjectRows }, { data: legacySubjectRows }, { data: studentsData }, { data: assignmentsData }] =
+  const [{ data: classRow }, { data: subjectData }, { data: studentsData }, { data: assignmentsData }] =
     await Promise.all([
       supabase
         .from('classes')
@@ -75,14 +85,9 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
         .eq('id', classId)
         .maybeSingle(),
       supabase
-        .from('class_subjects')
-        .select('subject_id, is_enabled, subject:subjects!inner(id, name, class_id)')
-        .eq('class_id', classId)
-        .eq('is_enabled', true),
-      supabase
         .from('subjects')
-        .select('id, name, class_id')
-        .eq('class_id', classId),
+        .select('id, name')
+        .in('id', Array.from(subjectIdsForTeacher)),
       supabase
         .from('students')
         .select('id, admission_number, gender, user_profile:user_profiles!inner(full_name, email)')
@@ -99,23 +104,15 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
     redirect('/teacher/classes')
   }
 
-  // Prefer class_subjects (new schema), fall back to legacy subjects.class_id
-  const rawClassSubjects = (classSubjectRows || []) as ClassSubjectRow[]
-  const rawLegacySubjects = (legacySubjectRows || []) as Array<{
-    id: string
-    name: string
-    class_id: string | null
-  }>
-  const subjects: SubjectRow[] =
-    rawClassSubjects.length > 0
-      ? rawClassSubjects.map((row) => row.subject).filter(Boolean) as SubjectRow[]
-      : rawLegacySubjects
-          .filter((row) => row.class_id !== null)
-          .map((row) => ({
-            id: row.id,
-            name: row.name,
-            class_id: row.class_id!,
-          }))
+  const rawSubjects = (subjectData || []) as Array<{ id: string; name: string }>
+  const subjectNameMap = new Map(rawSubjects.map((s) => [s.id, s.name]))
+  const subjects: SubjectRow[] = assignments
+    .filter((a) => a.class_id === classId && a.subject_id && subjectNameMap.has(a.subject_id))
+    .map((a) => ({
+      id: a.subject_id!,
+      name: subjectNameMap.get(a.subject_id!)!,
+      class_id: a.class_id!,
+    }))
   const students = (studentsData || []) as StudentRow[]
   const assignmentsRows = (assignmentsData || []) as AssignmentRow[]
   const assignmentsBySubject = new Map<string, AssignmentRow[]>()
@@ -125,7 +122,7 @@ export default async function ClassDetailPage({ params }: ClassDetailPageProps) 
     assignmentsBySubject.set(a.subject_id, list)
   })
 
-  const visibleSubjects = isClassTeacher
+  const visibleSubjects = isClassTeacher && subjectIdsForTeacher.size === 0
     ? subjects
     : subjects.filter((s) => subjectIdsForTeacher.has(s.id))
 
