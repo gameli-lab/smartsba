@@ -49,14 +49,14 @@ async function requirePrivilegedMfa(userId: string): Promise<void> {
 
   if (providedOtpCookie) {
     const adminSupabase = createAdminSupabaseClient()
-    const { data: latestOtpChallenge, error } = await adminSupabase
+    const { data: latestOtpChallenge, error } = await (adminSupabase
       .from('login_otp_challenges')
       .select('verified_at')
       .eq('user_id', userId)
       .not('verified_at', 'is', null)
       .order('verified_at', { ascending: false })
       .limit(1)
-      .maybeSingle()
+      .maybeSingle() as any)
 
     if (!error && latestOtpChallenge?.verified_at && isOtpCookieVerified(userId, latestOtpChallenge.verified_at, providedOtpCookie)) {
       return

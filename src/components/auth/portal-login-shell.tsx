@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowRight, HelpCircle, Lock, School, Shield, Sparkles, Users } from "lucide-react";
-import { AuthService, MultipleSchoolsFoundError, SchoolOption } from "@/lib/auth";
-import { getClientCsrfHeaders } from "@/lib/csrf";
+import { ArrowRight, HelpCircle, Link2, Lock, Mail, MessageSquareText, School, Shield, Sparkles, Users } from "lucide-react";
+import { AuthService } from "@/lib/auth";
 import { SchoolService } from "@/lib/schools";
 import { SchoolSelectionDialog } from "@/components/auth/SchoolSelectionDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,6 +19,10 @@ import {
 } from "@/components/ui/dialog";
 
 type AuthRole = "student" | "staff" | "parent";
+
+type OtpStage = "send" | "verify";
+
+type DeliveryChannel = "sms" | "email";
 
 const roleCards: Array<{
   role: AuthRole;
@@ -57,198 +60,336 @@ function getIdentifierPlaceholder(role: AuthRole) {
   }
 }
 
+function mapAuthRoleToApiRole(role: AuthRole): "teacher" | "student" | "parent" {
+  if (role === "staff") {
+    return "teacher";
+  }
+
+  return role;
+}
+
+function getRoleRedirectPath(role: string): string {
+  switch (role) {
+    case "super_admin":
+      return "/dashboard/super-admin";
+    case "school_admin":
+      return "/school-admin";
+    case "teacher":
+      return "/teacher";
+    case "student":
+      return "/student";
+    case "parent":
+      return "/parent";
+    default:
+      return "/";
+  }
+}
+
 export function PortalLoginShell() {
   const [selectedTab, setSelectedTab] = useState<"auth" | "admin">("auth");
   const [authRole, setAuthRole] = useState<AuthRole>("student");
   const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [selectedSchool, setSelectedSchool] = useState("");
   const [wardAdmissionNumber, setWardAdmissionNumber] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // OTP state
+  const [otpStage, setOtpStage] = useState<OtpStage>("send");
+  const [deliveryChannel, setDeliveryChannel] = useState<DeliveryChannel>("sms");
+  const [otpRequestId, setOtpRequestId] = useState("");
+  const [otpPrefix, setOtpPrefix] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpExpiresAt, setOtpExpiresAt] = useState<string | null>(null);
+  const [otpAttemptsRemaining, setOtpAttemptsRemaining] = useState<number | null>(null);
+  const [otpMessage, setOtpMessage] = useState("");
+  const [isMagicLinkLoading, setIsMagicLinkLoading] = useState(false);
+  const [magicLinkMessage, setMagicLinkMessage] = useState("");
+
+  // Admin OTP state
+  const [adminOtpStage, setAdminOtpStage] = useState<OtpStage>("send");
+  const [adminDeliveryChannel, setAdminDeliveryChannel] = useState<DeliveryChannel>("sms");
+  const [adminOtpRequestId, setAdminOtpRequestId] = useState("");
+  const [adminOtpPrefix, setAdminOtpPrefix] = useState("");
+  const [adminOtpCode, setAdminOtpCode] = useState("");
+  const [adminOtpAttemptsRemaining, setAdminOtpAttemptsRemaining] = useState<number | null>(null);
+  const [adminOtpMessage, setAdminOtpMessage] = useState("");
+  const [isAdminMagicLinkLoading, setIsAdminMagicLinkLoading] = useState(false);
+  const [adminMagicLinkMessage, setAdminMagicLinkMessage] = useState("");
+
+  // Admin state
   const [adminEmail, setAdminEmail] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
   const [isAdminLoading, setIsAdminLoading] = useState(false);
   const [adminError, setAdminError] = useState("");
 
   const [showSchoolDialog, setShowSchoolDialog] = useState(false);
-  const [availableSchools, setAvailableSchools] = useState<SchoolOption[]>([]);
+  const [availableSchools, setAvailableSchools] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
-  const [forgotRole, setForgotRole] = useState<AuthRole>("student");
-  const [forgotIdentifier, setForgotIdentifier] = useState("");
-  const [forgotSchool, setForgotSchool] = useState("");
-  const [forgotWardAdmissionNumber, setForgotWardAdmissionNumber] = useState("");
-  const [forgotError, setForgotError] = useState("");
-  const [forgotSuccess, setForgotSuccess] = useState("");
-  const [isForgotSubmitting, setIsForgotSubmitting] = useState(false);
 
   const identifierLabel = useMemo(() => getIdentifierLabel(authRole), [authRole]);
   const identifierPlaceholder = useMemo(() => getIdentifierPlaceholder(authRole), [authRole]);
-  const forgotIdentifierLabel = useMemo(() => getIdentifierLabel(forgotRole), [forgotRole]);
-  const forgotIdentifierPlaceholder = useMemo(() => getIdentifierPlaceholder(forgotRole), [forgotRole]);
 
-  const mapAuthRoleToApiRole = (role: AuthRole): "teacher" | "student" | "parent" => {
-    if (role === "staff") {
-      return "teacher";
-    }
-
-    return role;
-  };
-
-  const handleAuthSubmit = async (e?: React.FormEvent, schoolIdOverride?: string) => {
+  const handleSendOtp = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setIsLoading(true);
     setError("");
+    setOtpMessage("");
 
     try {
-      let resolvedSchoolId: string | undefined = schoolIdOverride;
       const trimmedIdentifier = identifier.trim();
       const trimmedWardAdmission = wardAdmissionNumber.trim();
 
-      if (selectedSchool && !schoolIdOverride) {
+      if (!trimmedIdentifier) {
+        throw new Error(`Please enter your ${identifierLabel.toLowerCase()}.`);
+      }
+
+      if (authRole === "parent" && !trimmedWardAdmission) {
+        throw new Error("Ward admission number is required for parent login.");
+      }
+
+      let resolvedSchoolId: string | undefined = undefined;
+
+      if (selectedSchool) {
         resolvedSchoolId = (await SchoolService.resolveSchoolId(selectedSchool)) ?? undefined;
         if (!resolvedSchoolId) {
           throw new Error("School not found. Enter the exact registered school name or ID.");
         }
       }
 
-      const loginResult = await AuthService.login({
+      const result = await AuthService.requestPasswordlessOtp({
         identifier: trimmedIdentifier,
-        password,
         role: mapAuthRoleToApiRole(authRole),
         schoolId: resolvedSchoolId,
         wardAdmissionNumber: authRole === "parent" ? trimmedWardAdmission : undefined,
-        rememberMe,
+        channel: deliveryChannel,
       });
 
-      if (!loginResult?.profile) {
-        throw new Error("Login failed - no profile returned");
+      if (deliveryChannel === "sms") {
+        if (!result.requestId || !result.prefix) {
+          throw new Error("OTP request failed - missing session data.");
+        }
+        setOtpRequestId(result.requestId);
+        setOtpPrefix(result.prefix);
+      } else {
+        // Email OTP doesn't need requestId/prefix
+        setOtpRequestId("");
+        setOtpPrefix("");
       }
 
-      switch (loginResult.profile.role) {
-        case "school_admin":
-          window.location.href = "/mfa-challenge?next=%2Fschool-admin";
-          break;
-        case "teacher":
-          window.location.href = "/teacher";
-          break;
-        case "student":
-          window.location.href = "/student";
-          break;
-        case "parent":
-          window.location.href = "/parent";
-          break;
-        default:
-          window.location.href = "/";
+      if (result.expiresAt) {
+        setOtpExpiresAt(result.expiresAt);
       }
+      setOtpStage("verify");
+      setOtpMessage(
+        deliveryChannel === "sms"
+          ? "A verification code has been sent to your phone via SMS."
+          : "A verification code has been sent to your email address."
+      );
     } catch (err) {
-      if (err instanceof MultipleSchoolsFoundError) {
-        setAvailableSchools(err.schools);
-        setShowSchoolDialog(true);
-      } else {
-        setError(err instanceof Error ? err.message : "Login failed");
-      }
+      setError(err instanceof Error ? err.message : "Failed to send OTP");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSchoolSelected = async (schoolId: string) => {
-    setShowSchoolDialog(false);
-    await handleAuthSubmit(undefined, schoolId);
-  };
-
-  const handleAdminSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsAdminLoading(true);
-    setAdminError("");
+  const handleVerifyOtp = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setIsLoading(true);
+    setError("");
+    setOtpMessage("");
 
     try {
-      const result = await AuthService.login({
-        identifier: adminEmail,
-        password: adminPassword,
-        role: "super_admin",
-        rememberMe,
-      });
-
-      if (!result?.profile) {
-        throw new Error("Login failed - no profile returned");
+      if (deliveryChannel === "sms") {
+        if (!otpCode || otpCode.length !== 4 || !/^\d+$/.test(otpCode)) {
+          throw new Error("Enter the 4-digit code from the SMS.");
+        }
+        if (!otpPrefix || otpPrefix.length !== 4) {
+          throw new Error("Enter the 4-character prefix from the SMS.");
+        }
+      } else {
+        if (!otpCode || otpCode.length !== 6 || !/^\d+$/.test(otpCode)) {
+          throw new Error("Enter the 6-digit code from your email.");
+        }
       }
 
-      window.location.href = "/mfa-challenge?next=%2Fdashboard%2Fsuper-admin";
+      const result = await AuthService.verifyPasswordlessOtp({
+        requestId: deliveryChannel === "sms" ? otpRequestId : undefined,
+        prefix: deliveryChannel === "sms" ? otpPrefix : undefined,
+        code: otpCode,
+        role: mapAuthRoleToApiRole(authRole),
+        identifier: deliveryChannel === "email" ? identifier.trim() : undefined,
+        channel: deliveryChannel,
+      });
+
+      if (!result.user?.role) {
+        throw new Error("Login failed - no role returned.");
+      }
+
+      setOtpMessage("OTP verified! Redirecting...");
+
+      const redirectPath = getRoleRedirectPath(result.user.role);
+      window.location.href = redirectPath;
     } catch (err) {
-      setAdminError(err instanceof Error ? err.message : "Login failed");
+      const typedError = err as Error & { attemptsRemaining?: number };
+      if (typeof typedError.attemptsRemaining === "number") {
+        setOtpAttemptsRemaining(typedError.attemptsRemaining);
+      }
+      setError(typedError.message || "Failed to verify OTP");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setIsLoading(true);
+    setError("");
+    setOtpMessage("");
+
+    try {
+      if (deliveryChannel === "sms") {
+        const result = await AuthService.resendPasswordlessOtp(otpRequestId);
+        setOtpMessage(result.message || "OTP resent to your phone.");
+      } else {
+        // For email resend, just re-trigger the send flow
+        await handleSendOtp();
+        return;
+      }
+      setOtpCode("");
+      setOtpAttemptsRemaining(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resend OTP");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMagicLink = async () => {
+    setIsMagicLinkLoading(true);
+    setError("");
+    setMagicLinkMessage("");
+
+    try {
+      const trimmedIdentifier = identifier.trim();
+      const trimmedWardAdmission = wardAdmissionNumber.trim();
+
+      if (!trimmedIdentifier) {
+        throw new Error(`Please enter your ${identifierLabel.toLowerCase()}.`);
+      }
+
+      if (authRole === "parent" && !trimmedWardAdmission) {
+        throw new Error("Ward admission number is required for parent login.");
+      }
+
+      let resolvedSchoolId: string | undefined = undefined;
+
+      if (selectedSchool) {
+        resolvedSchoolId = (await SchoolService.resolveSchoolId(selectedSchool)) ?? undefined;
+        if (!resolvedSchoolId) {
+          throw new Error("School not found. Enter the exact registered school name or ID.");
+        }
+      }
+
+      const result = await AuthService.requestMagicLink({
+        identifier: trimmedIdentifier,
+        role: mapAuthRoleToApiRole(authRole),
+        schoolId: resolvedSchoolId,
+        wardAdmissionNumber: authRole === "parent" ? trimmedWardAdmission : undefined,
+      });
+
+      setMagicLinkMessage(result.message || "Sign-in link sent to your email address. Check your inbox.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send magic link");
+    } finally {
+      setIsMagicLinkLoading(false);
+    }
+  };
+
+  const handleAdminSendOtp = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setIsAdminLoading(true);
+    setAdminError("");
+    setAdminOtpMessage("");
+
+    try {
+      const trimmedEmail = adminEmail.trim();
+
+      if (!trimmedEmail) {
+        throw new Error("Please enter your admin email.");
+      }
+
+      const result = await AuthService.requestPasswordlessOtp({
+        identifier: trimmedEmail,
+        role: "super_admin",
+      });
+
+      if (!result.requestId || !result.prefix) {
+        throw new Error("OTP request failed - missing session data.");
+      }
+
+      setAdminOtpRequestId(result.requestId);
+      setAdminOtpPrefix(result.prefix);
+      setAdminOtpStage("verify");
+      setAdminOtpMessage("A verification code has been sent to your phone via SMS.");
+    } catch (err) {
+      setAdminError(err instanceof Error ? err.message : "Failed to send OTP");
     } finally {
       setIsAdminLoading(false);
     }
   };
 
-  const resetForgotPasswordForm = () => {
-    setForgotRole("student");
-    setForgotIdentifier("");
-    setForgotSchool("");
-    setForgotWardAdmissionNumber("");
-    setForgotError("");
-    setForgotSuccess("");
-    setIsForgotSubmitting(false);
-  };
-
-  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setForgotError("");
-    setForgotSuccess("");
-    setIsForgotSubmitting(true);
+  const handleAdminVerifyOtp = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setIsAdminLoading(true);
+    setAdminError("");
+    setAdminOtpMessage("");
 
     try {
-      const trimmedSchool = forgotSchool.trim();
-      const trimmedIdentifier = forgotIdentifier.trim();
-      const trimmedWard = forgotWardAdmissionNumber.trim();
-
-      if (!trimmedSchool) {
-        throw new Error("Please enter your school name or ID.");
+      if (!adminOtpCode || adminOtpCode.length !== 4 || !/^\d+$/.test(adminOtpCode)) {
+        throw new Error("Enter the 4-digit code from the SMS.");
       }
 
-      if (!trimmedIdentifier) {
-        throw new Error("Please enter your identifier.");
-      }
-
-      if (forgotRole === "parent" && !trimmedWard) {
-        throw new Error("Ward admission number is required for parent password reset requests.");
-      }
-
-      const resolvedSchoolId = await SchoolService.resolveSchoolId(trimmedSchool);
-
-      if (!resolvedSchoolId) {
-        throw new Error("School not found. Enter the exact registered school name or ID.");
-      }
-
-      const response = await fetch("/api/password-reset/request", {
-        method: "POST",
-        headers: getClientCsrfHeaders({
-          "Content-Type": "application/json",
-        }),
-        body: JSON.stringify({
-          identifier: trimmedIdentifier,
-          role: mapAuthRoleToApiRole(forgotRole),
-          schoolId: resolvedSchoolId,
-          wardAdmissionNumber: forgotRole === "parent" ? trimmedWard : undefined,
-        }),
+      const result = await AuthService.verifyPasswordlessOtp({
+        requestId: adminOtpRequestId,
+        prefix: adminOtpPrefix,
+        code: adminOtpCode,
+        role: "super_admin",
       });
 
-      const payload = (await response.json()) as { message?: string; error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to submit password reset request.");
+      if (!result.user?.role) {
+        throw new Error("Login failed - no role returned.");
       }
 
-      setForgotSuccess(payload.message || "Password reset request submitted for admin approval.");
+      setAdminOtpMessage("OTP verified! Redirecting...");
+
+      const redirectPath = getRoleRedirectPath(result.user.role);
+      window.location.href = redirectPath;
     } catch (err) {
-      setForgotError(err instanceof Error ? err.message : "An unexpected error occurred.");
+      const typedError = err as Error & { attemptsRemaining?: number };
+      if (typeof typedError.attemptsRemaining === "number") {
+        setAdminOtpAttemptsRemaining(typedError.attemptsRemaining);
+      }
+      setAdminError(typedError.message || "Failed to verify OTP");
     } finally {
-      setIsForgotSubmitting(false);
+      setIsAdminLoading(false);
+    }
+  };
+
+  const handleAdminResendOtp = async () => {
+    setIsAdminLoading(true);
+    setAdminError("");
+    setAdminOtpMessage("");
+
+    try {
+      const result = await AuthService.resendPasswordlessOtp(adminOtpRequestId);
+      setAdminOtpMessage(result.message || "OTP resent to your phone.");
+      setAdminOtpCode("");
+      setAdminOtpAttemptsRemaining(null);
+    } catch (err) {
+      setAdminError(err instanceof Error ? err.message : "Failed to resend OTP");
+    } finally {
+      setIsAdminLoading(false);
     }
   };
 
@@ -286,6 +427,15 @@ export function PortalLoginShell() {
               </div>
               <div className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white/70 p-4 backdrop-blur dark:border-white/10 dark:bg-white/5">
                 <div className="rounded-xl bg-sky-400/15 p-2 text-sky-700 dark:text-sky-300">
+                  <MessageSquareText className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Passwordless Access</h3>
+                  <p className="text-xs text-slate-600 dark:text-white/55">Secure SMS verification. No passwords to remember.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white/70 p-4 backdrop-blur dark:border-white/10 dark:bg-white/5">
+                <div className="rounded-xl bg-emerald-400/15 p-2 text-emerald-700 dark:text-emerald-300">
                   <Shield className="h-5 w-5" />
                 </div>
                 <div>
@@ -322,161 +472,237 @@ export function PortalLoginShell() {
                           <HelpCircle className="mr-1 h-4 w-4" /> Need Help?
                         </Button>
                       </div>
-                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Select your account role to proceed</p>
+                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                        {otpStage === "send"
+                          ? "Select your account role to receive a one-time SMS code"
+                          : "Enter the code sent to your phone"}
+                      </p>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                      {roleCards.map((item) => {
-                        const active = authRole === item.role;
-                        return (
-                          <button
-                            key={item.role}
-                            type="button"
-                            onClick={() => setAuthRole(item.role)}
-                            className={`flex flex-col items-center gap-3 rounded-2xl border-2 p-4 transition-all duration-300 ${
-                              active
-                                ? "border-slate-900 bg-slate-900/5 dark:border-slate-200 dark:bg-slate-200/10"
-                                : "border-transparent bg-slate-50 hover:border-slate-300 hover:bg-slate-100 dark:bg-slate-800 dark:hover:border-slate-500 dark:hover:bg-slate-700"
-                            }`}
-                          >
-                            <div className={`flex h-12 w-12 items-center justify-center rounded-full transition-transform ${active ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"}`}>
-                              {item.icon}
-                            </div>
-                            <span className={`text-[11px] font-bold uppercase tracking-wider ${active ? "text-slate-900 dark:text-slate-100" : "text-slate-700 dark:text-slate-200"}`}>
-                              {item.label}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    {otpStage === "send" && (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        {roleCards.map((item) => {
+                          const active = authRole === item.role;
+                          return (
+                            <button
+                              key={item.role}
+                              type="button"
+                              onClick={() => setAuthRole(item.role)}
+                              className={`flex flex-col items-center gap-3 rounded-2xl border-2 p-4 transition-all duration-300 ${
+                                active
+                                  ? "border-slate-900 bg-slate-900/5 dark:border-slate-200 dark:bg-slate-200/10"
+                                  : "border-transparent bg-slate-50 hover:border-slate-300 hover:bg-slate-100 dark:bg-slate-800 dark:hover:border-slate-500 dark:hover:bg-slate-700"
+                              }`}
+                            >
+                              <div className={`flex h-12 w-12 items-center justify-center rounded-full transition-transform ${active ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"}`}>
+                                {item.icon}
+                              </div>
+                              <span className={`text-[11px] font-bold uppercase tracking-wider ${active ? "text-slate-900 dark:text-slate-100" : "text-slate-700 dark:text-slate-200"}`}>
+                                {item.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
-                  <form className="space-y-5" onSubmit={handleAuthSubmit}>
-                    {error ? (
-                      <Alert variant="destructive">
-                        <AlertDescription>{error}</AlertDescription>
-                      </Alert>
-                    ) : null}
+                  {otpStage === "send" ? (
+                    <form className="space-y-5" onSubmit={handleSendOtp}>
+                      {error ? (
+                        <Alert variant="destructive">
+                          <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                      ) : null}
 
-                    <div className="space-y-2">
-                      <Label htmlFor="school" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                        School Name or ID <span className="font-normal normal-case tracking-normal text-slate-400 dark:text-slate-400">(Optional)</span>
-                      </Label>
-                      <div className="flex items-center rounded-2xl border border-slate-300 bg-slate-100 px-4 shadow-sm focus-within:ring-2 focus-within:ring-slate-900/20 dark:border-slate-600 dark:bg-slate-800 dark:focus-within:ring-slate-200/20">
-                        <School className="mr-3 h-4 w-4 text-slate-500 dark:text-slate-300" />
-                        <Input
-                          id="school"
-                          value={selectedSchool}
-                          onChange={(e) => setSelectedSchool(e.target.value)}
-                          placeholder="Enter institution name"
-                          className="h-12 border-0 bg-transparent px-0 text-slate-900 placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500"
-                        />
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">If left blank, the system will attempt to auto-detect the school after identity verification.</p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="identifier" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                        {identifierLabel}
-                      </Label>
-                      <div className="flex items-center rounded-2xl border border-slate-300 bg-slate-100 px-4 shadow-sm focus-within:ring-2 focus-within:ring-slate-900/20 dark:border-slate-600 dark:bg-slate-800 dark:focus-within:ring-slate-200/20">
-                        <Users className="mr-3 h-4 w-4 text-slate-500 dark:text-slate-300" />
-                        <Input
-                          id="identifier"
-                          value={identifier}
-                          onChange={(e) => setIdentifier(e.target.value)}
-                          placeholder={identifierPlaceholder}
-                          className="h-12 border-0 bg-transparent px-0 text-slate-900 placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500"
-                        />
-                      </div>
-                    </div>
-
-                    {authRole === "parent" && (
                       <div className="space-y-2">
-                        <Label htmlFor="ward" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                          Ward Admission Number
+                        <Label htmlFor="school" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                          School Name or ID <span className="font-normal normal-case tracking-normal text-slate-400 dark:text-slate-400">(Optional)</span>
                         </Label>
                         <div className="flex items-center rounded-2xl border border-slate-300 bg-slate-100 px-4 shadow-sm focus-within:ring-2 focus-within:ring-slate-900/20 dark:border-slate-600 dark:bg-slate-800 dark:focus-within:ring-slate-200/20">
                           <School className="mr-3 h-4 w-4 text-slate-500 dark:text-slate-300" />
                           <Input
-                            id="ward"
-                            value={wardAdmissionNumber}
-                            onChange={(e) => setWardAdmissionNumber(e.target.value)}
-                            placeholder="ADM-000-000"
+                            id="school"
+                            value={selectedSchool}
+                            onChange={(e) => setSelectedSchool(e.target.value)}
+                            placeholder="Enter institution name"
+                            className="h-12 border-0 bg-transparent px-0 text-slate-900 placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500"
+                          />
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">If left blank, the system will attempt to auto-detect the school.</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="identifier" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                          {identifierLabel}
+                        </Label>
+                        <div className="flex items-center rounded-2xl border border-slate-300 bg-slate-100 px-4 shadow-sm focus-within:ring-2 focus-within:ring-slate-900/20 dark:border-slate-600 dark:bg-slate-800 dark:focus-within:ring-slate-200/20">
+                          <Users className="mr-3 h-4 w-4 text-slate-500 dark:text-slate-300" />
+                          <Input
+                            id="identifier"
+                            value={identifier}
+                            onChange={(e) => setIdentifier(e.target.value)}
+                            placeholder={identifierPlaceholder}
                             className="h-12 border-0 bg-transparent px-0 text-slate-900 placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500"
                           />
                         </div>
                       </div>
-                    )}
 
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                          Password
+                      {authRole === "parent" && (
+                        <div className="space-y-2">
+                          <Label htmlFor="ward" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                            Ward Admission Number
+                          </Label>
+                          <div className="flex items-center rounded-2xl border border-slate-300 bg-slate-100 px-4 shadow-sm focus-within:ring-2 focus-within:ring-slate-900/20 dark:border-slate-600 dark:bg-slate-800 dark:focus-within:ring-slate-200/20">
+                            <School className="mr-3 h-4 w-4 text-slate-500 dark:text-slate-300" />
+                            <Input
+                              id="ward"
+                              value={wardAdmissionNumber}
+                              onChange={(e) => setWardAdmissionNumber(e.target.value)}
+                              placeholder="ADM-000-000"
+                              className="h-12 border-0 bg-transparent px-0 text-slate-900 placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="pt-3">
+                        <Button
+                          type="submit"
+                          disabled={isLoading}
+                          className="h-14 w-full rounded-full bg-gradient-to-br from-slate-900 to-slate-700 text-base font-bold text-white shadow-lg shadow-slate-900/20 transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                        >
+                          <span className="flex items-center justify-center gap-3">
+                            {isLoading ? "Sending Code..." : "Send OTP via SMS"}
+                            <ArrowRight className="h-4 w-4" />
+                          </span>
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <form className="space-y-5" onSubmit={handleVerifyOtp}>
+                      {error ? (
+                        <Alert variant="destructive">
+                          <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                      ) : null}
+
+                      {otpMessage ? (
+                        <Alert className="border-green-200 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">
+                          <AlertDescription>{otpMessage}</AlertDescription>
+                        </Alert>
+                      ) : null}
+
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">
+                          Your SMS contains a <span className="font-bold text-slate-900 dark:text-slate-100">4-character prefix</span> followed by a{" "}
+                          <span className="font-bold text-slate-900 dark:text-slate-100">4-digit code</span>.
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          Example: <span className="font-mono font-bold">ZDSQ 3824</span>
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="otp-code" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                          Verification Code (4 digits)
                         </Label>
+                        <div className="flex items-center rounded-2xl border border-slate-300 bg-slate-100 px-4 shadow-sm focus-within:ring-2 focus-within:ring-slate-900/20 dark:border-slate-600 dark:bg-slate-800 dark:focus-within:ring-slate-200/20">
+                          <Lock className="mr-3 h-4 w-4 text-slate-500 dark:text-slate-300" />
+                          <Input
+                            id="otp-code"
+                            type="text"
+                            value={otpCode}
+                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                            placeholder="0000"
+                            inputMode="numeric"
+                            maxLength={4}
+                            className="h-12 border-0 bg-transparent px-0 text-center text-2xl font-bold tracking-widest text-slate-900 placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="otp-prefix" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                          Prefix (4 characters from SMS)
+                        </Label>
+                        <div className="flex items-center rounded-2xl border border-slate-300 bg-slate-100 px-4 shadow-sm focus-within:ring-2 focus-within:ring-slate-900/20 dark:border-slate-600 dark:bg-slate-800 dark:focus-within:ring-slate-200/20">
+                          <MessageSquareText className="mr-3 h-4 w-4 text-slate-500 dark:text-slate-300" />
+                          <Input
+                            id="otp-prefix"
+                            type="text"
+                            value={otpPrefix}
+                            onChange={(e) => setOtpPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4))}
+                            placeholder="ZDSQ"
+                            maxLength={4}
+                            className="h-12 border-0 bg-transparent px-0 text-center text-xl font-bold tracking-widest text-slate-900 placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500"
+                          />
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">The prefix and code were both sent to your phone.</p>
+                      </div>
+
+                      {otpAttemptsRemaining !== null && (
+                        <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">
+                          <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+                            {otpAttemptsRemaining} attempt{otpAttemptsRemaining === 1 ? "" : "s"} remaining
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      <div className="flex gap-3 pt-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleResendOtp}
+                          disabled={isLoading}
+                          className="flex-1 h-12 rounded-full"
+                        >
+                          Resend Code
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={isLoading || otpCode.length !== 4 || otpPrefix.length !== 4}
+                          className="flex-1 h-12 rounded-full bg-gradient-to-br from-slate-900 to-slate-700 text-white font-bold hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                        >
+                          <span className="flex items-center justify-center gap-2">
+                            {isLoading ? "Verifying..." : "Verify & Sign In"}
+                            <ArrowRight className="h-4 w-4" />
+                          </span>
+                        </Button>
+                      </div>
+
+                      <div className="text-center">
                         <button
                           type="button"
-                          className="text-[10px] font-bold uppercase tracking-[0.3em] text-sky-700 hover:text-slate-900 dark:text-sky-300 dark:hover:text-slate-100"
+                          className="text-xs font-bold uppercase tracking-[0.3em] text-sky-700 hover:text-slate-900 dark:text-sky-300 dark:hover:text-slate-100"
                           onClick={() => {
-                            setForgotError("");
-                            setForgotSuccess("");
-                            setShowForgotPasswordModal(true);
+                            setOtpStage("send");
+                            setOtpCode("");
+                            setOtpPrefix("");
+                            setError("");
+                            setOtpMessage("");
+                            setOtpAttemptsRemaining(null);
                           }}
                         >
-                          Forgot?
+                          ← Back to Identifier
                         </button>
                       </div>
-                      <div className="flex items-center rounded-2xl border border-slate-300 bg-slate-100 px-4 shadow-sm focus-within:ring-2 focus-within:ring-slate-900/20 dark:border-slate-600 dark:bg-slate-800 dark:focus-within:ring-slate-200/20">
-                        <Lock className="mr-3 h-4 w-4 text-slate-500 dark:text-slate-300" />
-                        <Input
-                          id="password"
-                          type="password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="h-12 border-0 bg-transparent px-0 text-slate-900 placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500"
-                        />
-                      </div>
-                    </div>
-
-                    <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(event) => setRememberMe(event.target.checked)}
-                        className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 dark:border-slate-600 dark:text-slate-100 dark:focus:ring-slate-100"
-                      />
-                      <span>
-                        Remember Me
-                        <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
-                          Keep me signed in on this device after browser restart.
-                        </span>
-                      </span>
-                    </label>
-
-                    <div className="pt-3">
-                      <Button
-                        type="submit"
-                        disabled={isLoading}
-                        className="h-14 w-full rounded-full bg-gradient-to-br from-slate-900 to-slate-700 text-base font-bold text-white shadow-lg shadow-slate-900/20 transition-transform hover:scale-[1.01] active:scale-[0.99]"
-                      >
-                        <span className="flex items-center justify-center gap-3">
-                          {isLoading ? "Signing In..." : "Access Portal"}
-                          <ArrowRight className="h-4 w-4" />
-                        </span>
-                      </Button>
-                    </div>
-                  </form>
+                    </form>
+                  )}
 
                   <div className="text-center text-xs font-medium text-slate-500 dark:text-slate-400">
-                    Don&apos;t have access? <a className="font-bold text-sky-700 hover:underline dark:text-sky-300" href="#">Contact System Administrator</a>
+                    Don't have access? <a className="font-bold text-sky-700 hover:underline dark:text-sky-300" href="#">Contact System Administrator</a>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="admin" className="space-y-6 outline-none">
                   <div className="space-y-2 text-center lg:text-left">
                     <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">SysAdmin Login</h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-300">Email-based access for platform administrators</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-300">
+                      {adminOtpStage === "send"
+                        ? "Enter your email to receive a one-time SMS code"
+                        : "Enter the code sent to your phone"}
+                    </p>
                   </div>
 
                   {adminError ? (
@@ -485,66 +711,132 @@ export function PortalLoginShell() {
                     </Alert>
                   ) : null}
 
-                  <form className="space-y-5" onSubmit={handleAdminSubmit}>
-                    <div className="space-y-2">
-                      <Label htmlFor="adminEmail" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                        Email
-                      </Label>
-                      <Input
-                        id="adminEmail"
-                        type="email"
-                        value={adminEmail}
-                        onChange={(e) => setAdminEmail(e.target.value)}
-                        placeholder="admin@example.com"
-                        className="h-12 rounded-2xl border-slate-300 bg-slate-100 text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
-                      />
-                    </div>
+                  {adminOtpMessage ? (
+                    <Alert className="border-green-200 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">
+                      <AlertDescription>{adminOtpMessage}</AlertDescription>
+                    </Alert>
+                  ) : null}
 
-                    <div className="space-y-2">
-                      <Label htmlFor="adminPassword" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                        Password
-                      </Label>
-                      <Input
-                        id="adminPassword"
-                        type="password"
-                        value={adminPassword}
-                        onChange={(e) => setAdminPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="h-12 rounded-2xl border-slate-300 bg-slate-100 text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
-                      />
-                    </div>
+                  {adminOtpStage === "send" ? (
+                    <form className="space-y-5" onSubmit={handleAdminSendOtp}>
+                      <div className="space-y-2">
+                        <Label htmlFor="adminEmail" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                          Email
+                        </Label>
+                        <Input
+                          id="adminEmail"
+                          type="email"
+                          value={adminEmail}
+                          onChange={(e) => setAdminEmail(e.target.value)}
+                          placeholder="admin@example.com"
+                          className="h-12 rounded-2xl border-slate-300 bg-slate-100 text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+                        />
+                      </div>
 
-                    <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(event) => setRememberMe(event.target.checked)}
-                        className="mt-1 h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 dark:border-slate-600 dark:text-slate-100 dark:focus:ring-slate-100"
-                      />
-                      <span>
-                        Remember Me
-                        <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
-                          Keep me signed in on this device after browser restart.
+                      <Button
+                        type="submit"
+                        disabled={isAdminLoading}
+                        className="h-14 w-full rounded-full bg-gradient-to-br from-slate-900 to-slate-700 text-base font-bold text-white shadow-lg shadow-slate-900/20 transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                      >
+                        <span className="flex items-center justify-center gap-3">
+                          {isAdminLoading ? "Sending Code..." : "Send OTP via SMS"}
+                          <ArrowRight className="h-4 w-4" />
                         </span>
-                      </span>
-                    </label>
+                      </Button>
+                    </form>
+                  ) : (
+                    <form className="space-y-5" onSubmit={handleAdminVerifyOtp}>
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">
+                          Your SMS contains a <span className="font-bold text-slate-900 dark:text-slate-100">4-character prefix</span> followed by a{" "}
+                          <span className="font-bold text-slate-900 dark:text-slate-100">4-digit code</span>.
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                          Example: <span className="font-mono font-bold">ZDSQ 3824</span>
+                        </p>
+                      </div>
 
-                    <Button
-                      type="submit"
-                      disabled={isAdminLoading}
-                      className="h-14 w-full rounded-full bg-gradient-to-br from-slate-900 to-slate-700 text-base font-bold text-white shadow-lg shadow-slate-900/20 transition-transform hover:scale-[1.01] active:scale-[0.99]"
-                    >
-                      <span className="flex items-center justify-center gap-3">
-                        {isAdminLoading ? "Signing In..." : "Access Portal"}
-                        <ArrowRight className="h-4 w-4" />
-                      </span>
-                    </Button>
-                  </form>
+                      <div className="space-y-2">
+                        <Label htmlFor="admin-otp-code" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                          Verification Code (4 digits)
+                        </Label>
+                        <Input
+                          id="admin-otp-code"
+                          type="text"
+                          value={adminOtpCode}
+                          onChange={(e) => setAdminOtpCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                          placeholder="0000"
+                          inputMode="numeric"
+                          maxLength={4}
+                          className="h-12 rounded-2xl border-slate-300 bg-slate-100 text-center text-2xl font-bold tracking-widest text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="admin-otp-prefix" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                          Prefix (4 characters from SMS)
+                        </Label>
+                        <Input
+                          id="admin-otp-prefix"
+                          type="text"
+                          value={adminOtpPrefix}
+                          onChange={(e) => setAdminOtpPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4))}
+                          placeholder="ZDSQ"
+                          maxLength={4}
+                          className="h-12 rounded-2xl border-slate-300 bg-slate-100 text-center text-xl font-bold tracking-widest text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+                        />
+                      </div>
+
+                      {adminOtpAttemptsRemaining !== null && (
+                        <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">
+                          <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+                            {adminOtpAttemptsRemaining} attempt{adminOtpAttemptsRemaining === 1 ? "" : "s"} remaining
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      <div className="flex gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleAdminResendOtp}
+                          disabled={isAdminLoading}
+                          className="flex-1 h-12 rounded-full"
+                        >
+                          Resend Code
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={isAdminLoading || adminOtpCode.length !== 4 || adminOtpPrefix.length !== 4}
+                          className="flex-1 h-12 rounded-full bg-gradient-to-br from-slate-900 to-slate-700 text-white font-bold"
+                        >
+                          {isAdminLoading ? "Verifying..." : "Verify & Sign In"}
+                        </Button>
+                      </div>
+
+                      <div className="text-center">
+                        <button
+                          type="button"
+                          className="text-xs font-bold uppercase tracking-[0.3em] text-sky-700 hover:text-slate-900 dark:text-sky-300 dark:hover:text-slate-100"
+                          onClick={() => {
+                            setAdminOtpStage("send");
+                            setAdminOtpCode("");
+                            setAdminOtpPrefix("");
+                            setAdminError("");
+                            setAdminOtpMessage("");
+                            setAdminOtpAttemptsRemaining(null);
+                          }}
+                        >
+                          ← Back to Email
+                        </button>
+                      </div>
+                    </form>
+                  )}
 
                   <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4 text-sm text-purple-900 dark:border-purple-500/30 dark:bg-purple-500/10 dark:text-purple-200">
-                    <p className="mb-2 font-semibold">Need to reset your password?</p>
+                    <p className="mb-2 font-semibold">Passwordless Security</p>
                     <p>
-                      SysAdmins must reset their password via the Supabase project dashboard.
+                      SysAdmins verify their identity with a one-time SMS code sent to their registered phone number.
                     </p>
                   </div>
                 </TabsContent>
@@ -557,7 +849,10 @@ export function PortalLoginShell() {
       {showSchoolDialog && (
         <SchoolSelectionDialog
           schools={availableSchools}
-          onSelect={handleSchoolSelected}
+          onSelect={(schoolId) => {
+            setShowSchoolDialog(false);
+            void handleSendOtp();
+          }}
           isLoading={isLoading}
         />
       )}
@@ -567,134 +862,17 @@ export function PortalLoginShell() {
           <DialogHeader>
             <DialogTitle>Login help</DialogTitle>
             <DialogDescription className="text-slate-600 dark:text-slate-300">
-              Use your assigned identifier and password. If you are a student, teacher, or parent, the system can auto-detect your school after identity verification.
+              Use your assigned identifier to receive a one-time SMS code. No passwords needed.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
-            <p>• Students: Admission number + password</p>
-            <p>• Staff (Teacher / School Admin): Staff ID + password</p>
-            <p>• Parents: Parent name or email + ward admission number + password</p>
-            <p>• SysAdmin: Email + password</p>
+            <p>• Students: Admission number → SMS code</p>
+            <p>• Staff (Teacher / School Admin): Staff ID → SMS code</p>
+            <p>• Parents: Parent name or email + ward admission number → SMS code</p>
+            <p>• SysAdmin: Email → SMS code</p>
+            <p className="font-semibold text-slate-800 dark:text-slate-200">Your SMS will contain a 4-character prefix and a 4-digit code.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">If SMS delivery fails, dial *713*90# from your registered phone as a backup to view your code.</p>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={showForgotPasswordModal}
-        onOpenChange={(open) => {
-          setShowForgotPasswordModal(open);
-          if (!open) {
-            resetForgotPasswordForm();
-          }
-        }}
-      >
-        <DialogContent className="border-slate-200 bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 sm:max-w-[520px]">
-          <DialogHeader>
-            <DialogTitle>Reset Your Password</DialogTitle>
-            <DialogDescription className="text-slate-600 dark:text-slate-300">
-              Enter your details to request a password reset. Your school admin will approve the request before a reset link is sent to your email.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form className="space-y-4" onSubmit={handleForgotPasswordSubmit}>
-            {forgotError ? (
-              <Alert variant="destructive">
-                <AlertDescription>{forgotError}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            {forgotSuccess ? (
-              <Alert className="border-green-200 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">
-                <AlertDescription>{forgotSuccess}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">Role</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {roleCards.map((item) => {
-                  const active = forgotRole === item.role;
-                  return (
-                    <button
-                      key={`forgot-${item.role}`}
-                      type="button"
-                      onClick={() => {
-                        setForgotRole(item.role);
-                        setForgotError("");
-                        setForgotSuccess("");
-                      }}
-                      className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-colors ${
-                        active
-                          ? "border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900"
-                          : "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="forgot-school" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                School Name or ID
-              </Label>
-              <Input
-                id="forgot-school"
-                value={forgotSchool}
-                onChange={(e) => setForgotSchool(e.target.value)}
-                placeholder="Enter your school name or code"
-                className="h-11 rounded-xl border-slate-300 bg-slate-100 text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="forgot-identifier" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                {forgotIdentifierLabel}
-              </Label>
-              <Input
-                id="forgot-identifier"
-                value={forgotIdentifier}
-                onChange={(e) => setForgotIdentifier(e.target.value)}
-                placeholder={forgotIdentifierPlaceholder}
-                className="h-11 rounded-xl border-slate-300 bg-slate-100 text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
-                required
-              />
-            </div>
-
-            {forgotRole === "parent" ? (
-              <div className="space-y-2">
-                <Label htmlFor="forgot-ward" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                  Ward Admission Number
-                </Label>
-                <Input
-                  id="forgot-ward"
-                  value={forgotWardAdmissionNumber}
-                  onChange={(e) => setForgotWardAdmissionNumber(e.target.value)}
-                  placeholder="ADM-000-000"
-                  className="h-11 rounded-xl border-slate-300 bg-slate-100 text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
-                  required
-                />
-              </div>
-            ) : null}
-
-            <div className="flex gap-2 pt-1">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 flex-1 rounded-xl"
-                onClick={() => setShowForgotPasswordModal(false)}
-                disabled={isForgotSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" className="h-11 flex-1 rounded-xl" disabled={isForgotSubmitting}>
-                {isForgotSubmitting ? "Requesting..." : "Request Reset"}
-              </Button>
-            </div>
-          </form>
         </DialogContent>
       </Dialog>
     </div>

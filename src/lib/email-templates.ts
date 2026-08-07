@@ -45,6 +45,13 @@ interface LoginOtpData {
   channel: 'email' | 'sms'
 }
 
+interface MagicLinkData {
+  userName: string
+  userEmail: string
+  magicLinkUrl: string
+  expiresMinutes: number
+}
+
 export const emailTemplates = {
   schoolCreated: (data: SchoolCreatedData): EmailTemplate => ({
     subject: `Welcome to SmartSBA - ${data.schoolName}`,
@@ -380,6 +387,95 @@ Best regards,
 SmartSBA Team
 
 ---
+© ${new Date().getFullYear()} SmartSBA. All rights reserved.
+    `,
+  }),
+
+  magicLink: (data: MagicLinkData): EmailTemplate => ({
+    subject: 'Your SmartSBA Secure Sign-In Link',
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-top: none; }
+            .button { display: inline-block; background: #667eea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: 600; }
+            .expiry { color: #f59e0b; font-weight: 600; }
+            .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px; margin: 20px 0; }
+            .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
+            .security-note { font-size: 12px; color: #6b7280; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🔗 Your SmartSBA Sign-In Link</h1>
+            </div>
+            <div class="content">
+              <p>Hello <strong>${data.userName}</strong>,</p>
+              
+              <p>You requested a secure sign-in link to access your SmartSBA account. Click the button below to sign in instantly:</p>
+              
+              <div style="text-align: center;">
+                <a href="${data.magicLinkUrl}" class="button">Sign In to SmartSBA</a>
+              </div>
+              
+              <p style="text-align: center; margin: 10px 0;">
+                <span class="expiry">⏱️ Link expires in ${data.expiresMinutes} minutes</span>
+              </p>
+              
+              <div class="warning">
+                <strong>🔒 Security Notice:</strong>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                  <li>Never share this link with anyone</li>
+                  <li>SmartSBA staff will never ask for your link</li>
+                  <li>If you didn't request this link, ignore this email</li>
+                </ul>
+              </div>
+
+              <div class="security-note">
+                <p><strong>Didn't request this link?</strong></p>
+                <p>If you didn't attempt to log in, please ignore this email or contact our support team if you have concerns about your account security.</p>
+              </div>
+              
+              <p>Best regards,<br><strong>SmartSBA Security Team</strong></p>
+            </div>
+            <div class="footer">
+              <p>This is an automated security notification. Please do not reply to this email.</p>
+              <p>&copy; ${new Date().getFullYear()} SmartSBA. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `
+🔗 Your SmartSBA Sign-In Link
+
+Hello ${data.userName},
+
+You requested a secure sign-in link to access your SmartSBA account. Click the link below to sign in instantly:
+
+SIGN IN LINK: ${data.magicLinkUrl}
+
+Link expires in ${data.expiresMinutes} minutes
+
+🔒 IMPORTANT SECURITY NOTICE:
+- Never share this link with anyone
+- SmartSBA staff will never ask for your link
+- If you didn't request this link, ignore this email
+
+DIDN'T REQUEST THIS LINK?
+If you didn't attempt to log in, please ignore this email or contact our support team if you have concerns about your account security.
+
+Best regards,
+SmartSBA Security Team
+
+---
+This is an automated security notification. Please do not reply to this email.
 © ${new Date().getFullYear()} SmartSBA. All rights reserved.
     `,
   }),

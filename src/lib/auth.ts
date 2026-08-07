@@ -14,6 +14,24 @@ export interface LoginCredentials {
   rememberMe?: boolean
 }
 
+export interface PasswordlessSendOtpParams {
+  identifier: string
+  role: UserRole
+  schoolId?: string
+  wardAdmissionNumber?: string
+  channel?: 'sms' | 'email'
+}
+
+export interface PasswordlessVerifyOtpParams {
+  requestId?: string
+  prefix?: string
+  code: string
+  role: UserRole
+  schoolId?: string
+  identifier?: string
+  channel?: 'sms' | 'email'
+}
+
 export interface AuthResult {
   user: User
   profile: UserProfile
@@ -487,7 +505,7 @@ export class AuthService {
     return { user: authUser.user, profile: typedProfile }
   }
 
-  // Universal login function
+  // Universal login function (kept for backward compatibility)
   static async login(credentials: LoginCredentials): Promise<AuthResult> {
     const { identifier, password, role, schoolId, wardAdmissionNumber, rememberMe = false } = credentials
     setAuthPersistencePreference(Boolean(rememberMe))
@@ -511,6 +529,215 @@ export class AuthService {
       
       default:
         throw new Error('Invalid role specified')
+    }
+  }
+
+  // ─── Passwordless (Hubtel OTP) Login ────────────────────────────────────────
+
+  /**
+   * Request an OTP to be sent to the user via SMS (Hubtel) or Email.
+   * Returns the requestId and prefix (SMS) or challengeId (Email) needed for verification.
+   */
+  static async requestPasswordlessOtp(params: PasswordlessSendOtpParams): Promise<{
+    success: boolean
+    message?: string
+    requestId?: string
+    prefix?: string
+    expiresAt?: string
+    challengeId?: string
+    channel?: 'sms' | 'email'
+    error?: string
+  }> {
+    const response = await fetch('/api/auth/passwordless', {
+      method: 'POST',
+      headers: getClientCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        action: 'send',
+        ...params,
+      }),
+    })
+
+    const payload = (await response.json()) as {
+      success?: boolean
+      message?: string
+      requestId?: string
+      prefix?: string
+      expiresAt?: string
+      challengeId?: string
+      channel?: 'sms' | 'email'
+      error?: string
+    }
+
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.error || 'Failed to send OTP')
+    }
+
+    return payload as {
+      success: boolean
+      message?: string
+      requestId?: string
+      prefix?: string
+      expiresAt?: string
+      challengeId?: string
+      channel?: 'sms' | 'email'
+      error?: string
+    }
+  }
+
+  /**
+   * Verify an OTP code (SMS via Hubtel or Email) and establish a session.
+   * Exchanges the magic link token with Supabase to create the session.
+   */
+  static async verifyPasswordlessOtp(params: PasswordlessVerifyOtpParams): Promise<{
+    success: boolean
+    message?: string
+    user?: { id: string; role: string; schoolId: string | null }
+    tokenHash?: string | null
+    verifiedAt?: string
+    error?: string
+    attemptsRemaining?: number
+  }> {
+    const response = await fetch('/api/auth/passwordless', {
+      method: 'POST',
+      headers: getClientCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        action: 'verify',
+        ...params,
+      }),
+    })
+
+    const payload = (await response.json()) as {
+      success?: boolean
+      message?: string
+      user?: { id: string; role: string; schoolId: string | null }
+      tokenHash?: string | null
+      verifiedAt?: string
+      error?: string
+      attemptsRemaining?: number
+    }
+
+    if (!response.ok || !payload.success) {
+      if (typeof payload.attemptsRemaining === 'number') {
+        const err = new Error(payload.error || 'Failed to verify OTP') as Error & { attemptsRemaining?: number }
+        err.attemptsRemaining = payload.attemptsRemaining
+        throw err
+      }
+      throw new Error(payload.error || 'Failed to verify OTP')
+    }
+
+    // Exchange the magic link token to establish the Supabase session
+    if (payload.tokenHash) {
+      const { data: sessionData, error: sessionError } = await supabase.auth.verifyOtp({
+        type: 'magiclink',
+        token_hash: payload.tokenHash,
+      })
+
+      if (sessionError) {
+        console.error('Failed to establish session from magic link:', sessionError)
+        throw new Error('OTP verified but session could not be established. Please try again.')
+      }
+
+      // Fetch the user profile to return complete auth result
+      if (sessionData.user) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', sessionData.user.id)
+          .single()
+
+        if (profile) {
+          return {
+            success: true,
+            message: 'OTP verified successfully',
+            user: {
+              id: sessionData.user.id,
+              role: (profile as UserProfile).role,
+              schoolId: (profile as UserProfile).school_id,
+            },
+            tokenHash: payload.tokenHash,
+            verifiedAt: payload.verifiedAt,
+          }
+        }
+      }
+    }
+
+    return payload as {
+      success: boolean
+      message?: string
+      user?: { id: string; role: string; schoolId: string | null }
+      tokenHash?: string | null
+      verifiedAt?: string
+      error?: string
+      attemptsRemaining?: number
+    }
+  }
+
+  /**
+   * Resend a previously issued Hubtel OTP.
+   */
+  static async resendPasswordlessOtp(requestId: string): Promise<{
+    success: boolean
+    message?: string
+    error?: string
+  }> {
+    const response = await fetch('/api/auth/passwordless', {
+      method: 'POST',
+      headers: getClientCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        action: 'resend',
+        requestId,
+      }),
+    })
+
+    const payload = (await response.json()) as {
+      success?: boolean
+      message?: string
+      error?: string
+    }
+
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.error || 'Failed to resend OTP')
+    }
+
+    return payload as {
+      success: boolean
+      message?: string
+      error?: string
+    }
+  }
+
+  /**
+   * Request a magic link to be sent to the user's email.
+   * The link contains a token_hash that establishes a session when clicked.
+   */
+  static async requestMagicLink(params: PasswordlessSendOtpParams): Promise<{
+    success: boolean
+    message?: string
+    error?: string
+  }> {
+    const response = await fetch('/api/auth/passwordless', {
+      method: 'POST',
+      headers: getClientCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        action: 'magiclink',
+        ...params,
+      }),
+    })
+
+    const payload = (await response.json()) as {
+      success?: boolean
+      message?: string
+      error?: string
+    }
+
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.error || 'Failed to send magic link')
+    }
+
+    return payload as {
+      success: boolean
+      message?: string
+      error?: string
     }
   }
 

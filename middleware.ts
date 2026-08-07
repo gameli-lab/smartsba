@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { CSRF_COOKIE_NAME, createCsrfToken } from '@/lib/csrf'
 import { MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
+import { OTP_VERIFIED_COOKIE_NAME, isOtpCookieVerified } from '@/lib/otp-session'
 import { getMfaVerificationState } from '@/lib/supabase'
 
 const SESSION_ACTIVITY_COOKIE = 'smartsba_session_activity'
@@ -82,7 +83,8 @@ function clearAuthCookies(req: NextRequest, response: NextResponse) {
       cookie.name.startsWith('sb-') ||
       cookie.name === SESSION_ACTIVITY_COOKIE ||
       cookie.name === CSRF_COOKIE_NAME ||
-      cookie.name === MFA_VERIFIED_COOKIE_NAME
+      cookie.name === MFA_VERIFIED_COOKIE_NAME ||
+      cookie.name === OTP_VERIFIED_COOKIE_NAME
     ) {
       response.cookies.set(cookie.name, '', {
         path: '/',
@@ -132,6 +134,36 @@ function finalizeResponse(req: NextRequest, response: NextResponse): NextRespons
 }
 
 // Use centralized MFA verification state helper from src/lib/supabase
+
+async function getOtpVerificationState(userId: string, providedCookie: string | null | undefined) {
+  if (!providedCookie) return false
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !serviceRoleKey) {
+    return false
+  }
+
+  const admin = createClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  })
+
+  const { data } = await (admin as any)
+    .from('login_otp_challenges')
+    .select('verified_at')
+    .eq('user_id', userId)
+    .not('verified_at', 'is', null)
+    .order('verified_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return Boolean(data?.verified_at && isOtpCookieVerified(userId, data.verified_at, providedCookie))
+}
 
 async function getPasswordChangeRequirement(userId: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -333,11 +365,14 @@ export async function middleware(req: NextRequest) {
   }
 
   if (user && profile?.role && isPrivilegedRole(profile.role) && isPrivilegedPath(pathname)) {
-    if (!pathname.startsWith('/mfa-challenge') && !pathname.startsWith('/api/auth/mfa')) {
-      const providedCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value
-      const mfaState = await getMfaVerificationState(user.id, providedCookie)
+    if (!pathname.startsWith('/mfa-challenge') && !pathname.startsWith('/api/auth/mfa') && !pathname.startsWith('/api/auth/passwordless')) {
+      const providedMfaCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value
+      const mfaState = await getMfaVerificationState(user.id, providedMfaCookie)
 
-      if (!mfaState.verified) {
+      // Accept the session if either TOTP MFA or Hubtel OTP has been verified
+      const otpVerified = await getOtpVerificationState(user.id, req.cookies.get(OTP_VERIFIED_COOKIE_NAME)?.value)
+
+      if (!mfaState.verified && !otpVerified) {
         const challengeUrl = new URL('/mfa-challenge', req.url)
         const nextPath = `${pathname}${req.nextUrl.search || ''}`
         challengeUrl.searchParams.set('next', nextPath)
@@ -350,10 +385,13 @@ export async function middleware(req: NextRequest) {
   if (user && pathname.startsWith('/login') && profile?.role) {
     const targetPath = getRoleRedirectPath(profile.role)
     if (isPrivilegedRole(profile.role)) {
-      const providedCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value
-      const mfaState = await getMfaVerificationState(user.id, providedCookie)
+      const providedMfaCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value
+      const mfaState = await getMfaVerificationState(user.id, providedMfaCookie)
 
-      if (!mfaState.verified) {
+      // Accept the session if either TOTP MFA or Hubtel OTP has been verified
+      const otpVerified = await getOtpVerificationState(user.id, req.cookies.get(OTP_VERIFIED_COOKIE_NAME)?.value)
+
+      if (!mfaState.verified && !otpVerified) {
         const challengeUrl = new URL('/mfa-challenge', req.url)
         challengeUrl.searchParams.set('next', targetPath)
         return finalizeResponse(req, NextResponse.redirect(challengeUrl))

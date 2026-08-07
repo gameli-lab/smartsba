@@ -16,7 +16,7 @@ const BASE_URL =
 interface SendEmailOptions {
   to: string
   userId?: string
-  type: 'school_created' | 'user_created' | 'role_changed' | 'school_status_changed' | 'login_otp'
+  type: 'school_created' | 'user_created' | 'role_changed' | 'school_status_changed' | 'login_otp' | 'magic_link'
   data: unknown
   metadata?: Record<string, unknown>
 }
@@ -189,8 +189,10 @@ function getEmailTemplate(type: string, data: unknown) {
       return emailTemplates.roleChanged(data)
     case 'school_status_changed':
       return emailTemplates.schoolStatusChanged(data)
-		case 'login_otp':
-			return emailTemplates.loginOtp(data)
+    case 'login_otp':
+      return emailTemplates.loginOtp(data)
+    case 'magic_link':
+      return emailTemplates.magicLink(data)
     default:
       throw new Error(`Unknown email type: ${type}`)
   }
@@ -376,6 +378,36 @@ export async function sendLoginOtpEmail(data: {
       school_id: data.schoolId || null,
       delivery_method: 'email',
       code_length: data.code.length,
+    },
+  })
+}
+
+/**
+ * Send a magic link email for passwordless sign-in.
+ * Contains a one-time secure link that establishes a session when clicked.
+ */
+export async function sendMagicLinkEmail(data: {
+  userEmail: string
+  userId: string
+  userName: string
+  magicLinkUrl: string
+  expiresMinutes: number
+  schoolId?: string
+}): Promise<EmailResult> {
+  return sendEmail({
+    to: data.userEmail,
+    userId: data.userId,
+    type: 'magic_link',
+    data: {
+      userEmail: data.userEmail,
+      userName: data.userName,
+      magicLinkUrl: data.magicLinkUrl,
+      expiresMinutes: data.expiresMinutes,
+    },
+    metadata: {
+      school_id: data.schoolId || null,
+      delivery_method: 'email',
+      link_type: 'magic_link',
     },
   })
 }
