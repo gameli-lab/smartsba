@@ -180,6 +180,29 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
+// Production-time environment validation/warning to catch localhost fallbacks
+if (process.env.NODE_ENV === 'production') {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_APP_URL
+  if (!baseUrl) {
+    // Warn rather than throw to avoid breaking deployments, but make the issue loud in logs
+    // so operators can fix Netlify env vars quickly.
+    // This prevents emails and auth links from falling back to localhost.
+    // Example fix: set NEXT_PUBLIC_BASE_URL=https://smartsba.netlify.app in Netlify site settings.
+    // eslint-disable-next-line no-console
+    console.warn(
+      'WARNING: NEXT_PUBLIC_BASE_URL or NEXT_PUBLIC_APP_URL is not set in production.\n' +
+      'Auth and email links may point to localhost. Set NEXT_PUBLIC_BASE_URL to your production origin (e.g. https://smartsba.netlify.app) in Netlify environment variables.'
+    )
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      'WARNING: SUPABASE_SERVICE_ROLE_KEY is not set in production. Admin operations will fail without this key.'
+    )
+  }
+}
+
 // Client-side Supabase client
 export const supabase = createClient<Database>(supabaseUrl as string, supabaseAnonKey as string, {
   auth: {

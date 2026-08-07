@@ -211,7 +211,9 @@ export async function POST(req: NextRequest) {
 
       try {
         if (channel === 'email') {
-          const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://smartsba.local'}/auth/login`
+          const BASE_URL =
+            process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://smartsba.netlify.app'
+          const loginUrl = `${BASE_URL}/login`
           const result = await sendLoginOtpEmail({
             userEmail: profile.email,
             userId: profile.user_id,

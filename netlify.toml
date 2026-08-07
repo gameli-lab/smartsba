@@ -1,0 +1,8 @@
+# Netlify config: ensure auth fallback redirects to the app login route
+[[redirects]]
+  from = "/auth/login"
+  to = "/login"
+  status = 301
+  force = true
+
+# Keep this minimal; additional redirect rules for previews can be added in Netlify UI

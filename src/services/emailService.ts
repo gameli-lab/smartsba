@@ -4,6 +4,11 @@ import nodemailer from 'nodemailer'
 import { createAdminSupabaseClient } from '@/lib/supabase'
 import { emailTemplates } from '@/lib/email-templates'
 
+// Use explicit base URL ordering: prefer NEXT_PUBLIC_BASE_URL, then NEXT_PUBLIC_APP_URL,
+// then a safe production default to avoid localhost fallbacks in deployed environments.
+const BASE_URL =
+  process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://smartsba.netlify.app'
+
 // Email service configuration
 // For now, using Supabase's built-in email functionality
 // In production, you might want to use a dedicated service like Resend, SendGrid, etc.
@@ -242,7 +247,7 @@ export async function sendSchoolCreatedEmail(data: {
       adminName: data.adminName,
       adminEmail: data.adminEmail,
       temporaryPassword: data.temporaryPassword,
-      loginUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login`,
+      loginUrl: `${BASE_URL}/login`,
     },
     metadata: {
       school_id: data.schoolId,
@@ -272,7 +277,7 @@ export async function sendUserCreatedEmail(data: {
       role: data.role,
       schoolName: data.schoolName,
       temporaryPassword: data.temporaryPassword,
-      loginUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login`,
+      loginUrl: `${BASE_URL}/login`,
     },
     metadata: {
       school_id: data.schoolId,
