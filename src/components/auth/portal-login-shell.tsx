@@ -322,16 +322,26 @@ export function PortalLoginShell() {
       const result = await AuthService.requestPasswordlessOtp({
         identifier: trimmedEmail,
         role: "super_admin",
+        channel: adminDeliveryChannel,
       });
 
-      if (!result.requestId || !result.prefix) {
-        throw new Error("OTP request failed - missing session data.");
+      if (adminDeliveryChannel === "sms") {
+        if (!result.requestId || !result.prefix) {
+          throw new Error("OTP request failed - missing session data.");
+        }
+        setAdminOtpRequestId(result.requestId);
+        setAdminOtpPrefix(result.prefix);
+      } else {
+        setAdminOtpRequestId("");
+        setAdminOtpPrefix("");
       }
 
-      setAdminOtpRequestId(result.requestId);
-      setAdminOtpPrefix(result.prefix);
       setAdminOtpStage("verify");
-      setAdminOtpMessage("A verification code has been sent to your phone via SMS.");
+      setAdminOtpMessage(
+        adminDeliveryChannel === "sms"
+          ? "A verification code has been sent to your phone via SMS."
+          : "A verification code has been sent to your email address."
+      );
     } catch (err) {
       setAdminError(err instanceof Error ? err.message : "Failed to send OTP");
     } finally {
@@ -346,15 +356,26 @@ export function PortalLoginShell() {
     setAdminOtpMessage("");
 
     try {
-      if (!adminOtpCode || adminOtpCode.length !== 4 || !/^\d+$/.test(adminOtpCode)) {
-        throw new Error("Enter the 4-digit code from the SMS.");
+      if (adminDeliveryChannel === "sms") {
+        if (!adminOtpCode || adminOtpCode.length !== 4 || !/^\d+$/.test(adminOtpCode)) {
+          throw new Error("Enter the 4-digit code from the SMS.");
+        }
+        if (!adminOtpPrefix || adminOtpPrefix.length !== 4) {
+          throw new Error("Enter the 4-character prefix from the SMS.");
+        }
+      } else {
+        if (!adminOtpCode || adminOtpCode.length !== 6 || !/^\d+$/.test(adminOtpCode)) {
+          throw new Error("Enter the 6-digit code from your email.");
+        }
       }
 
       const result = await AuthService.verifyPasswordlessOtp({
-        requestId: adminOtpRequestId,
-        prefix: adminOtpPrefix,
+        requestId: adminDeliveryChannel === "sms" ? adminOtpRequestId : undefined,
+        prefix: adminDeliveryChannel === "sms" ? adminOtpPrefix : undefined,
         code: adminOtpCode,
         role: "super_admin",
+        identifier: adminDeliveryChannel === "email" ? adminEmail.trim() : undefined,
+        channel: adminDeliveryChannel,
       });
 
       if (!result.user?.role) {
@@ -382,8 +403,14 @@ export function PortalLoginShell() {
     setAdminOtpMessage("");
 
     try {
-      const result = await AuthService.resendPasswordlessOtp(adminOtpRequestId);
-      setAdminOtpMessage(result.message || "OTP resent to your phone.");
+      if (adminDeliveryChannel === "sms") {
+        const result = await AuthService.resendPasswordlessOtp(adminOtpRequestId);
+        setAdminOtpMessage(result.message || "OTP resent to your phone.");
+      } else {
+        // For email resend, re-trigger the send flow
+        await handleAdminSendOtp();
+        return;
+      }
       setAdminOtpCode("");
       setAdminOtpAttemptsRemaining(null);
     } catch (err) {
@@ -474,8 +501,10 @@ export function PortalLoginShell() {
                       </div>
                       <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                         {otpStage === "send"
-                          ? "Select your account role to receive a one-time SMS code"
-                          : "Enter the code sent to your phone"}
+                          ? "Select your account role to receive a one-time code via SMS or email"
+                          : deliveryChannel === "sms"
+                            ? "Enter the code sent to your phone"
+                            : "Enter the code sent to your email"}
                       </p>
                     </div>
 
@@ -566,6 +595,38 @@ export function PortalLoginShell() {
                         </div>
                       )}
 
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                          Delivery Method
+                        </Label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setDeliveryChannel("sms")}
+                            className={`flex items-center gap-3 rounded-2xl border-2 p-3 transition-all ${
+                              deliveryChannel === "sms"
+                                ? "border-slate-900 bg-slate-900/5 dark:border-slate-200 dark:bg-slate-200/10"
+                                : "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                            }`}
+                          >
+                            <MessageSquareText className="h-5 w-5 text-slate-500 dark:text-slate-300" />
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">SMS</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeliveryChannel("email")}
+                            className={`flex items-center gap-3 rounded-2xl border-2 p-3 transition-all ${
+                              deliveryChannel === "email"
+                                ? "border-slate-900 bg-slate-900/5 dark:border-slate-200 dark:bg-slate-200/10"
+                                : "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                            }`}
+                          >
+                            <Mail className="h-5 w-5 text-slate-500 dark:text-slate-300" />
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Email</span>
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="pt-3">
                         <Button
                           type="submit"
@@ -573,11 +634,39 @@ export function PortalLoginShell() {
                           className="h-14 w-full rounded-full bg-gradient-to-br from-slate-900 to-slate-700 text-base font-bold text-white shadow-lg shadow-slate-900/20 transition-transform hover:scale-[1.01] active:scale-[0.99]"
                         >
                           <span className="flex items-center justify-center gap-3">
-                            {isLoading ? "Sending Code..." : "Send OTP via SMS"}
+                            {isLoading ? "Sending Code..." : deliveryChannel === "sms" ? "Send OTP via SMS" : "Send OTP via Email"}
                             <ArrowRight className="h-4 w-4" />
                           </span>
                         </Button>
                       </div>
+
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-slate-200 dark:border-slate-700" />
+                        </div>
+                        <div className="relative flex justify-center">
+                          <span className="bg-white px-3 text-xs font-medium text-slate-500 dark:bg-slate-900 dark:text-slate-400">or</span>
+                        </div>
+                      </div>
+
+                      {magicLinkMessage ? (
+                        <Alert className="border-green-200 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">
+                          <AlertDescription>{magicLinkMessage}</AlertDescription>
+                        </Alert>
+                      ) : null}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleMagicLink}
+                        disabled={isMagicLinkLoading}
+                        className="h-12 w-full rounded-full border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        <span className="flex items-center justify-center gap-2">
+                          <Link2 className="h-4 w-4" />
+                          {isMagicLinkLoading ? "Sending Link..." : "Sign in with Magic Link"}
+                        </span>
+                      </Button>
                     </form>
                   ) : (
                     <form className="space-y-5" onSubmit={handleVerifyOtp}>
@@ -593,19 +682,27 @@ export function PortalLoginShell() {
                         </Alert>
                       ) : null}
 
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">
-                          Your SMS contains a <span className="font-bold text-slate-900 dark:text-slate-100">4-character prefix</span> followed by a{" "}
-                          <span className="font-bold text-slate-900 dark:text-slate-100">4-digit code</span>.
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          Example: <span className="font-mono font-bold">ZDSQ 3824</span>
-                        </p>
-                      </div>
+                      {deliveryChannel === "sms" ? (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+                          <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">
+                            Your SMS contains a <span className="font-bold text-slate-900 dark:text-slate-100">4-character prefix</span> followed by a{" "}
+                            <span className="font-bold text-slate-900 dark:text-slate-100">4-digit code</span>.
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            Example: <span className="font-mono font-bold">ZDSQ 3824</span>
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+                          <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">
+                            Check your email for a <span className="font-bold text-slate-900 dark:text-slate-100">6-digit verification code</span>.
+                          </p>
+                        </div>
+                      )}
 
                       <div className="space-y-2">
                         <Label htmlFor="otp-code" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                          Verification Code (4 digits)
+                          Verification Code ({deliveryChannel === "sms" ? "4 digits" : "6 digits"})
                         </Label>
                         <div className="flex items-center rounded-2xl border border-slate-300 bg-slate-100 px-4 shadow-sm focus-within:ring-2 focus-within:ring-slate-900/20 dark:border-slate-600 dark:bg-slate-800 dark:focus-within:ring-slate-200/20">
                           <Lock className="mr-3 h-4 w-4 text-slate-500 dark:text-slate-300" />
@@ -613,33 +710,35 @@ export function PortalLoginShell() {
                             id="otp-code"
                             type="text"
                             value={otpCode}
-                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                            placeholder="0000"
+                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, deliveryChannel === "sms" ? 4 : 6))}
+                            placeholder={deliveryChannel === "sms" ? "0000" : "000000"}
                             inputMode="numeric"
-                            maxLength={4}
+                            maxLength={deliveryChannel === "sms" ? 4 : 6}
                             className="h-12 border-0 bg-transparent px-0 text-center text-2xl font-bold tracking-widest text-slate-900 placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500"
                           />
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="otp-prefix" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                          Prefix (4 characters from SMS)
-                        </Label>
-                        <div className="flex items-center rounded-2xl border border-slate-300 bg-slate-100 px-4 shadow-sm focus-within:ring-2 focus-within:ring-slate-900/20 dark:border-slate-600 dark:bg-slate-800 dark:focus-within:ring-slate-200/20">
-                          <MessageSquareText className="mr-3 h-4 w-4 text-slate-500 dark:text-slate-300" />
-                          <Input
-                            id="otp-prefix"
-                            type="text"
-                            value={otpPrefix}
-                            onChange={(e) => setOtpPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4))}
-                            placeholder="ZDSQ"
-                            maxLength={4}
-                            className="h-12 border-0 bg-transparent px-0 text-center text-xl font-bold tracking-widest text-slate-900 placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500"
-                          />
+                      {deliveryChannel === "sms" && (
+                        <div className="space-y-2">
+                          <Label htmlFor="otp-prefix" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                            Prefix (4 characters from SMS)
+                          </Label>
+                          <div className="flex items-center rounded-2xl border border-slate-300 bg-slate-100 px-4 shadow-sm focus-within:ring-2 focus-within:ring-slate-900/20 dark:border-slate-600 dark:bg-slate-800 dark:focus-within:ring-slate-200/20">
+                            <MessageSquareText className="mr-3 h-4 w-4 text-slate-500 dark:text-slate-300" />
+                            <Input
+                              id="otp-prefix"
+                              type="text"
+                              value={otpPrefix}
+                              onChange={(e) => setOtpPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4))}
+                              placeholder="ZDSQ"
+                              maxLength={4}
+                              className="h-12 border-0 bg-transparent px-0 text-center text-xl font-bold tracking-widest text-slate-900 placeholder:text-slate-400 focus-visible:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500"
+                            />
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">The prefix and code were both sent to your phone.</p>
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">The prefix and code were both sent to your phone.</p>
-                      </div>
+                      )}
 
                       {otpAttemptsRemaining !== null && (
                         <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">
@@ -661,7 +760,7 @@ export function PortalLoginShell() {
                         </Button>
                         <Button
                           type="submit"
-                          disabled={isLoading || otpCode.length !== 4 || otpPrefix.length !== 4}
+                          disabled={isLoading || otpCode.length !== (deliveryChannel === "sms" ? 4 : 6) || (deliveryChannel === "sms" && otpPrefix.length !== 4)}
                           className="flex-1 h-12 rounded-full bg-gradient-to-br from-slate-900 to-slate-700 text-white font-bold hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
                         >
                           <span className="flex items-center justify-center gap-2">
@@ -682,6 +781,7 @@ export function PortalLoginShell() {
                             setError("");
                             setOtpMessage("");
                             setOtpAttemptsRemaining(null);
+                            setDeliveryChannel("sms");
                           }}
                         >
                           ← Back to Identifier
@@ -700,8 +800,10 @@ export function PortalLoginShell() {
                     <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">SysAdmin Login</h2>
                     <p className="text-sm text-slate-600 dark:text-slate-300">
                       {adminOtpStage === "send"
-                        ? "Enter your email to receive a one-time SMS code"
-                        : "Enter the code sent to your phone"}
+                        ? "Enter your email to receive a one-time code via SMS or email"
+                        : adminDeliveryChannel === "sms"
+                          ? "Enter the code sent to your phone"
+                          : "Enter the code sent to your email"}
                     </p>
                   </div>
 
@@ -733,59 +835,144 @@ export function PortalLoginShell() {
                         />
                       </div>
 
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                          Delivery Method
+                        </Label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setAdminDeliveryChannel("sms")}
+                            className={`flex items-center gap-3 rounded-2xl border-2 p-3 transition-all ${
+                              adminDeliveryChannel === "sms"
+                                ? "border-slate-900 bg-slate-900/5 dark:border-slate-200 dark:bg-slate-200/10"
+                                : "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                            }`}
+                          >
+                            <MessageSquareText className="h-5 w-5 text-slate-500 dark:text-slate-300" />
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">SMS</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAdminDeliveryChannel("email")}
+                            className={`flex items-center gap-3 rounded-2xl border-2 p-3 transition-all ${
+                              adminDeliveryChannel === "email"
+                                ? "border-slate-900 bg-slate-900/5 dark:border-slate-200 dark:bg-slate-200/10"
+                                : "border-slate-200 bg-slate-50 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800"
+                            }`}
+                          >
+                            <Mail className="h-5 w-5 text-slate-500 dark:text-slate-300" />
+                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Email</span>
+                          </button>
+                        </div>
+                      </div>
+
                       <Button
                         type="submit"
                         disabled={isAdminLoading}
                         className="h-14 w-full rounded-full bg-gradient-to-br from-slate-900 to-slate-700 text-base font-bold text-white shadow-lg shadow-slate-900/20 transition-transform hover:scale-[1.01] active:scale-[0.99]"
                       >
                         <span className="flex items-center justify-center gap-3">
-                          {isAdminLoading ? "Sending Code..." : "Send OTP via SMS"}
+                          {isAdminLoading ? "Sending Code..." : adminDeliveryChannel === "sms" ? "Send OTP via SMS" : "Send OTP via Email"}
                           <ArrowRight className="h-4 w-4" />
+                        </span>
+                      </Button>
+
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-slate-200 dark:border-slate-700" />
+                        </div>
+                        <div className="relative flex justify-center">
+                          <span className="bg-white px-3 text-xs font-medium text-slate-500 dark:bg-slate-900 dark:text-slate-400">or</span>
+                        </div>
+                      </div>
+
+                      {adminMagicLinkMessage ? (
+                        <Alert className="border-green-200 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">
+                          <AlertDescription>{adminMagicLinkMessage}</AlertDescription>
+                        </Alert>
+                      ) : null}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={async () => {
+                          setIsAdminMagicLinkLoading(true);
+                          setAdminError("");
+                          setAdminMagicLinkMessage("");
+                          try {
+                            const result = await AuthService.requestMagicLink({
+                              identifier: adminEmail.trim(),
+                              role: "super_admin",
+                            });
+                            setAdminMagicLinkMessage(result.message || "Sign-in link sent to your email address.");
+                          } catch (err) {
+                            setAdminError(err instanceof Error ? err.message : "Failed to send magic link");
+                          } finally {
+                            setIsAdminMagicLinkLoading(false);
+                          }
+                        }}
+                        disabled={isAdminMagicLinkLoading}
+                        className="h-12 w-full rounded-full border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        <span className="flex items-center justify-center gap-2">
+                          <Link2 className="h-4 w-4" />
+                          {isAdminMagicLinkLoading ? "Sending Link..." : "Sign in with Magic Link"}
                         </span>
                       </Button>
                     </form>
                   ) : (
                     <form className="space-y-5" onSubmit={handleAdminVerifyOtp}>
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">
-                          Your SMS contains a <span className="font-bold text-slate-900 dark:text-slate-100">4-character prefix</span> followed by a{" "}
-                          <span className="font-bold text-slate-900 dark:text-slate-100">4-digit code</span>.
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                          Example: <span className="font-mono font-bold">ZDSQ 3824</span>
-                        </p>
-                      </div>
+                      {adminDeliveryChannel === "sms" ? (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+                          <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">
+                            Your SMS contains a <span className="font-bold text-slate-900 dark:text-slate-100">4-character prefix</span> followed by a{" "}
+                            <span className="font-bold text-slate-900 dark:text-slate-100">4-digit code</span>.
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            Example: <span className="font-mono font-bold">ZDSQ 3824</span>
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+                          <p className="text-xs font-semibold text-slate-500 dark:text-slate-300">
+                            Check your email for a <span className="font-bold text-slate-900 dark:text-slate-100">6-digit verification code</span>.
+                          </p>
+                        </div>
+                      )}
 
                       <div className="space-y-2">
                         <Label htmlFor="admin-otp-code" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                          Verification Code (4 digits)
+                          Verification Code ({adminDeliveryChannel === "sms" ? "4 digits" : "6 digits"})
                         </Label>
                         <Input
                           id="admin-otp-code"
                           type="text"
                           value={adminOtpCode}
-                          onChange={(e) => setAdminOtpCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                          placeholder="0000"
+                          onChange={(e) => setAdminOtpCode(e.target.value.replace(/\D/g, "").slice(0, adminDeliveryChannel === "sms" ? 4 : 6))}
+                          placeholder={adminDeliveryChannel === "sms" ? "0000" : "000000"}
                           inputMode="numeric"
-                          maxLength={4}
+                          maxLength={adminDeliveryChannel === "sms" ? 4 : 6}
                           className="h-12 rounded-2xl border-slate-300 bg-slate-100 text-center text-2xl font-bold tracking-widest text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="admin-otp-prefix" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
-                          Prefix (4 characters from SMS)
-                        </Label>
-                        <Input
-                          id="admin-otp-prefix"
-                          type="text"
-                          value={adminOtpPrefix}
-                          onChange={(e) => setAdminOtpPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4))}
-                          placeholder="ZDSQ"
-                          maxLength={4}
-                          className="h-12 rounded-2xl border-slate-300 bg-slate-100 text-center text-xl font-bold tracking-widest text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
-                        />
-                      </div>
+                      {adminDeliveryChannel === "sms" && (
+                        <div className="space-y-2">
+                          <Label htmlFor="admin-otp-prefix" className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-300">
+                            Prefix (4 characters from SMS)
+                          </Label>
+                          <Input
+                            id="admin-otp-prefix"
+                            type="text"
+                            value={adminOtpPrefix}
+                            onChange={(e) => setAdminOtpPrefix(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4))}
+                            placeholder="ZDSQ"
+                            maxLength={4}
+                            className="h-12 rounded-2xl border-slate-300 bg-slate-100 text-center text-xl font-bold tracking-widest text-slate-900 placeholder:text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
+                          />
+                        </div>
+                      )}
 
                       {adminOtpAttemptsRemaining !== null && (
                         <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">
@@ -807,7 +994,7 @@ export function PortalLoginShell() {
                         </Button>
                         <Button
                           type="submit"
-                          disabled={isAdminLoading || adminOtpCode.length !== 4 || adminOtpPrefix.length !== 4}
+                          disabled={isAdminLoading || adminOtpCode.length !== (adminDeliveryChannel === "sms" ? 4 : 6) || (adminDeliveryChannel === "sms" && adminOtpPrefix.length !== 4)}
                           className="flex-1 h-12 rounded-full bg-gradient-to-br from-slate-900 to-slate-700 text-white font-bold"
                         >
                           {isAdminLoading ? "Verifying..." : "Verify & Sign In"}
@@ -825,6 +1012,7 @@ export function PortalLoginShell() {
                             setAdminError("");
                             setAdminOtpMessage("");
                             setAdminOtpAttemptsRemaining(null);
+                            setAdminDeliveryChannel("sms");
                           }}
                         >
                           ← Back to Email
@@ -836,7 +1024,7 @@ export function PortalLoginShell() {
                   <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4 text-sm text-purple-900 dark:border-purple-500/30 dark:bg-purple-500/10 dark:text-purple-200">
                     <p className="mb-2 font-semibold">Passwordless Security</p>
                     <p>
-                      SysAdmins verify their identity with a one-time SMS code sent to their registered phone number.
+                      SysAdmins verify their identity with a one-time code sent to their registered phone or email.
                     </p>
                   </div>
                 </TabsContent>
@@ -862,16 +1050,17 @@ export function PortalLoginShell() {
           <DialogHeader>
             <DialogTitle>Login help</DialogTitle>
             <DialogDescription className="text-slate-600 dark:text-slate-300">
-              Use your assigned identifier to receive a one-time SMS code. No passwords needed.
+              Use your assigned identifier to receive a one-time code via SMS or email. No passwords needed.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
-            <p>• Students: Admission number → SMS code</p>
-            <p>• Staff (Teacher / School Admin): Staff ID → SMS code</p>
-            <p>• Parents: Parent name or email + ward admission number → SMS code</p>
-            <p>• SysAdmin: Email → SMS code</p>
-            <p className="font-semibold text-slate-800 dark:text-slate-200">Your SMS will contain a 4-character prefix and a 4-digit code.</p>
+            <p>• Students: Admission number → SMS or email code</p>
+            <p>• Staff (Teacher / School Admin): Staff ID → SMS or email code</p>
+            <p>• Parents: Parent name or email + ward admission number → SMS or email code</p>
+            <p>• SysAdmin: Email → SMS or email code</p>
+            <p className="font-semibold text-slate-800 dark:text-slate-200">SMS codes include a 4-character prefix + 4-digit code. Email codes are 6 digits.</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">If SMS delivery fails, dial *713*90# from your registered phone as a backup to view your code.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Prefer not to enter a code? Use "Sign in with Magic Link" to receive a secure link via email.</p>
           </div>
         </DialogContent>
       </Dialog>
