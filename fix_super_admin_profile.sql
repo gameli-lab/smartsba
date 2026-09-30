@@ -4,8 +4,8 @@
 -- PARAMETERS: Update these variables with your actual values
 DO $$
 DECLARE
-  p_user_id UUID := '00000000-0000-0000-0000-000000000000'; -- 🔄 MUST UPDATE THIS!
-  p_email TEXT := 'PLACEHOLDER_EMAIL@CHANGE.ME'; -- 🔄 MUST UPDATE THIS!
+  p_user_id UUID := NULL; -- Optional. Leave NULL to auto-resolve from auth.users by email.
+  p_email TEXT := 'btorfu@gmail.com';
   p_full_name TEXT := 'Super Administrator'; -- 🔄 UPDATE THIS!
   
   -- Safety validation variables
@@ -15,6 +15,10 @@ DECLARE
   -- Result tracking
   update_count INTEGER := 0;
   insert_count INTEGER := 0;
+  auth_user_exists BOOLEAN := false;
+  resolved_user_id UUID;
+  same_email_count INTEGER := 0;
+  rec RECORD;
 BEGIN
   -- Validation: Prevent execution with placeholder values
   IF p_user_id = placeholder_uuid THEN
@@ -25,9 +29,41 @@ BEGIN
     RAISE EXCEPTION 'ERROR: Please update p_email with your actual email address (current: %)', p_email;
   END IF;
   
-  IF p_user_id IS NULL OR p_email IS NULL THEN
-    RAISE EXCEPTION 'ERROR: p_user_id and p_email cannot be NULL';
+  IF p_email IS NULL THEN
+    RAISE EXCEPTION 'ERROR: p_email cannot be NULL';
   END IF;
+
+  -- Resolve the current active auth user id by email.
+  SELECT u.id
+  INTO resolved_user_id
+  FROM auth.users u
+  WHERE lower(u.email) = lower(p_email)
+    AND u.deleted_at IS NULL
+  ORDER BY u.created_at DESC
+  LIMIT 1;
+
+  IF resolved_user_id IS NULL THEN
+    SELECT COUNT(*)
+    INTO same_email_count
+    FROM auth.users u
+    WHERE lower(u.email) = lower(p_email);
+
+    IF same_email_count > 0 THEN
+      RAISE EXCEPTION 'ERROR: auth.users has % row(s) for email %, but none are active (deleted_at is not null). Recreate the auth user first.', same_email_count, p_email;
+    END IF;
+
+    RAISE EXCEPTION 'ERROR: No auth.users row found for email=% in this Supabase project. Create/sign up this user first.', p_email;
+  END IF;
+
+  IF p_user_id IS NULL THEN
+    p_user_id := resolved_user_id;
+  ELSIF p_user_id <> resolved_user_id THEN
+    RAISE NOTICE 'Provided p_user_id % does not match active auth.users id % for email %. Using active id.', p_user_id, resolved_user_id, p_email;
+    p_user_id := resolved_user_id;
+  END IF;
+
+  auth_user_exists := true;
+  RAISE NOTICE 'Using auth user id % for email %', p_user_id, p_email;
 
   -- Display current state
   RAISE NOTICE 'Current Super Admin profiles:';

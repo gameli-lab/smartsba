@@ -49,6 +49,12 @@ const EMAIL_SETTING_KEYS = [
   'email.smtp_password',
   'email.sender_name',
   'email.sender_email',
+  'smtp_host',
+  'smtp_port',
+  'smtp_user',
+  'smtp_password',
+  'sender_name',
+  'sender_email',
 ] as const
 
 let cachedEmailSettings: { loadedAt: number; config: EmailSettings } | null = null
@@ -88,20 +94,28 @@ async function getEmailSettings(): Promise<EmailSettings> {
     return acc
   }, {})
 
+  const getSetting = (primaryKey: string, fallbackKey: string, envValue: string | undefined, envFallback = ''): string =>
+    normalizeString(settingsMap[primaryKey], normalizeString(settingsMap[fallbackKey], normalizeString(envValue, envFallback)))
+
+  const getPortSetting = (primaryKey: string, fallbackKey: string, envValue: string | undefined, envFallback = 587): number =>
+    normalizePort(settingsMap[primaryKey], normalizePort(settingsMap[fallbackKey], normalizePort(envValue, envFallback)))
+
   const config: EmailSettings = {
-    smtp_host: normalizeString(settingsMap['email.smtp_host'], normalizeString(process.env.SMTP_HOST)),
-    smtp_port: normalizePort(settingsMap['email.smtp_port'], normalizePort(process.env.SMTP_PORT, 587)),
-    smtp_user: normalizeString(settingsMap['email.smtp_user'], normalizeString(process.env.SMTP_USER)),
-    smtp_password: normalizeString(settingsMap['email.smtp_password'], normalizeString(process.env.SMTP_PASSWORD)),
-    sender_name: normalizeString(settingsMap['email.sender_name'], normalizeString(process.env.SMTP_SENDER_NAME, 'SmartSBA System')),
+    smtp_host: getSetting('email.smtp_host', 'smtp_host', process.env.SMTP_HOST),
+    smtp_port: getPortSetting('email.smtp_port', 'smtp_port', process.env.SMTP_PORT, 587),
+    smtp_user: getSetting('email.smtp_user', 'smtp_user', process.env.SMTP_USER),
+    smtp_password: getSetting('email.smtp_password', 'smtp_password', process.env.SMTP_PASSWORD),
+    sender_name: getSetting('email.sender_name', 'sender_name', process.env.SMTP_SENDER_NAME, 'SmartSBA System'),
     sender_email: normalizeString(
       settingsMap['email.sender_email'],
+      normalizeString(settingsMap['sender_email'],
       normalizeString(process.env.SMTP_SENDER_EMAIL, normalizeString(process.env.SMTP_USER, 'noreply@smartsba.local'))
+      )
     ),
   }
 
   if (!config.smtp_host) {
-    throw new Error('Email SMTP host is not configured. Set email.smtp_host in system settings or SMTP_HOST in the environment.')
+    throw new Error('Email SMTP host is not configured. Set smtp_host/email.smtp_host in system settings or SMTP_HOST in the environment.')
   }
 
   cachedEmailSettings = { loadedAt: now, config }
@@ -118,7 +132,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
     const template = getEmailTemplate(options.type, options.data)
     
     // Log the email attempt in database
-    const adminSupabase = createAdminSupabaseClient()
+    const adminSupabase = createAdminSupabaseClient() as any
     const { data: logData, error: logError } = await adminSupabase
       .rpc('log_email_send', {
         p_recipient_email: options.to,
@@ -182,17 +196,17 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
 function getEmailTemplate(type: string, data: unknown) {
   switch (type) {
     case 'school_created':
-      return emailTemplates.schoolCreated(data)
+      return emailTemplates.schoolCreated(data as Parameters<typeof emailTemplates.schoolCreated>[0])
     case 'user_created':
-      return emailTemplates.userCreated(data)
+      return emailTemplates.userCreated(data as Parameters<typeof emailTemplates.userCreated>[0])
     case 'role_changed':
-      return emailTemplates.roleChanged(data)
+      return emailTemplates.roleChanged(data as Parameters<typeof emailTemplates.roleChanged>[0])
     case 'school_status_changed':
-      return emailTemplates.schoolStatusChanged(data)
+      return emailTemplates.schoolStatusChanged(data as Parameters<typeof emailTemplates.schoolStatusChanged>[0])
     case 'login_otp':
-      return emailTemplates.loginOtp(data)
+      return emailTemplates.loginOtp(data as Parameters<typeof emailTemplates.loginOtp>[0])
     case 'magic_link':
-      return emailTemplates.magicLink(data)
+      return emailTemplates.magicLink(data as Parameters<typeof emailTemplates.magicLink>[0])
     default:
       throw new Error(`Unknown email type: ${type}`)
   }

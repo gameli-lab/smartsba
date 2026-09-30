@@ -86,11 +86,14 @@ psql "postgresql://[user]:[password]@[host]:[port]/[database]" < supabase/migrat
 
 ### SMTP Settings
 
-Email OTP uses the standard SmartSBA SMTP configuration stored in `system_settings`:
+Email OTP uses the standard SmartSBA SMTP configuration stored in `system_settings`, with environment variable fallback.
 
 ```sql
 SELECT setting_value FROM system_settings 
-WHERE setting_key IN ('smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'SENDER_EMAIL');
+WHERE setting_key IN (
+  'email.smtp_host', 'email.smtp_port', 'email.smtp_user', 'email.smtp_password', 'email.sender_name', 'email.sender_email',
+  'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password', 'sender_name', 'sender_email'
+);
 ```
 
 Configure via:
@@ -99,12 +102,26 @@ Configure via:
    ```sql
    INSERT INTO system_settings (setting_key, category, setting_value, updated_by, updated_at)
    VALUES 
-     ('SENDER_EMAIL', 'email', 'noreply@smartsba.local', 'system', NOW()),
+     ('sender_email', 'email', 'noreply@smartsba.local', 'system', NOW()),
+     ('sender_name', 'email', 'SmartSBA System', 'system', NOW()),
      ('smtp_host', 'email', 'smtp.gmail.com', 'system', NOW()),
      ('smtp_port', 'email', '587', 'system', NOW()),
      ('smtp_user', 'email', 'your-email@gmail.com', 'system', NOW()),
      ('smtp_password', 'email', 'your-app-password', 'system', NOW());
    ```
+
+If you prefer environment variables, set these in `.env` or production secrets:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_SENDER_NAME=SmartSBA System
+SMTP_SENDER_EMAIL=noreply@smartsba.local
+```
+
+For email OTP, resend is handled by sending a fresh email again. Hubtel-style `requestId` resend is SMS-only.
 
 ### Testing Email OTP
 
