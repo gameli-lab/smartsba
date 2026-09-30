@@ -87,6 +87,17 @@ function getLockoutMessage(remainingMinutes?: number): string {
   return `Account temporarily locked due to failed attempts. Try again in ${remainingMinutes ?? 1} minute(s).`
 }
 
+async function waitForSessionToStabilize(maxAttempts = 8, delayMs = 250): Promise<void> {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const { data } = await supabase.auth.getSession()
+    if (data.session) {
+      return
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+  }
+}
+
 async function ensureNotLocked(params: {
   role: LoginSecurityRole
   identifier: string
@@ -636,6 +647,8 @@ export class AuthService {
         console.error('Failed to establish session from magic link:', sessionError)
         throw new Error('OTP verified but session could not be established. Please try again.')
       }
+
+      await waitForSessionToStabilize()
 
       // Fetch the user profile to return complete auth result
       if (sessionData.user) {

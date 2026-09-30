@@ -23,6 +23,17 @@ function getRoleRedirectPath(role: string): string {
   }
 }
 
+async function waitForSessionToStabilize(maxAttempts = 8, delayMs = 250): Promise<void> {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,6 +66,8 @@ export default function LoginPage() {
         if (!data.user) {
           throw new Error("No user returned from magic link verification");
         }
+
+        await waitForSessionToStabilize();
 
         // Fetch the user profile to determine role
         const { data: profile, error: profileError } = await supabase
