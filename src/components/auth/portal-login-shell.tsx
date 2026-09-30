@@ -230,7 +230,8 @@ export function PortalLoginShell() {
       setOtpMessage("OTP verified! Redirecting...");
 
       const redirectPath = getRoleRedirectPath(result.user.role);
-      window.location.href = redirectPath;
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      window.location.replace(redirectPath);
     } catch (err) {
       const typedError = err as Error & { attemptsRemaining?: number };
       if (typeof typedError.attemptsRemaining === "number") {
@@ -385,7 +386,8 @@ export function PortalLoginShell() {
       setAdminOtpMessage("OTP verified! Redirecting...");
 
       const redirectPath = getRoleRedirectPath(result.user.role);
-      window.location.href = redirectPath;
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      window.location.replace(redirectPath);
     } catch (err) {
       const typedError = err as Error & { attemptsRemaining?: number };
       if (typeof typedError.attemptsRemaining === "number") {
