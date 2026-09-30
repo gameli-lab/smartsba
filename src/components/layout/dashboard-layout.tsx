@@ -39,16 +39,11 @@ export function DashboardLayout({
           return;
         }
 
-        if (!currentUser) {
-          router.replace("/login");
-          return;
-        }
-
         setUser(currentUser);
       } catch (error) {
         console.error("Auth check failed:", error);
         if (active) {
-          router.replace("/login");
+          setUser(null);
         }
       } finally {
         if (active) {
@@ -72,19 +67,17 @@ export function DashboardLayout({
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
   return (
     <div className="super-admin-scope min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Sidebar
-        userRole={user.profile.role}
-        userName={user.profile.full_name}
-        schoolName="Demo School" // This would come from user.profile.school
-      />
+      {user ? (
+        <Sidebar
+          userRole={user.profile.role}
+          userName={user.profile.full_name}
+          schoolName="Demo School" // This would come from user.profile.school
+        />
+      ) : null}
 
-      <main className="flex flex-1 flex-col overflow-hidden pb-20 md:pb-0 md:pl-20">
+      <main className={`flex flex-1 flex-col overflow-hidden pb-20 md:pb-0 ${user ? 'md:pl-20' : ''}`}>
         {/* Header */}
         {(title || description) && (
           <div className="border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-950">
