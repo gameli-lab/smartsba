@@ -15,6 +15,8 @@ interface SessionTimeoutProviderProps {
 const DEFAULT_TIMEOUT_MINUTES = 60
 const DEFAULT_WARNING_MINUTES = 5
 const ACTIVITY_EVENTS = ['click', 'mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'] as const
+const SESSION_HYDRATION_RETRY_COUNT = 4
+const SESSION_HYDRATION_RETRY_DELAY_MS = 250
 
 function isProtectedClientPath(pathname: string): boolean {
   return (
@@ -88,14 +90,32 @@ export function SessionTimeoutProvider({
     let active = true
 
     const checkSession = async () => {
-      const { data, error } = await supabase.auth.getUser()
+      let data
+      let error
+
+      for (let attempt = 0; attempt < SESSION_HYDRATION_RETRY_COUNT; attempt += 1) {
+        const result = await supabase.auth.getUser()
+        data = result.data
+        error = result.error
+
+        if (data.user || error) {
+          break
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, SESSION_HYDRATION_RETRY_DELAY_MS))
+      }
+
       if (!active) return
       const sessionActive = Boolean(data.user) && !error
       setIsAuthenticated(sessionActive)
       lastActivityRef.current = Date.now()
 
       if (!sessionActive && isProtectedClientPath(pathname) && pathname !== '/login') {
-        await signOutAndRedirect()
+        // Delay redirecting until the session has had time to hydrate after a fresh login.
+        const { data: retryData } = await supabase.auth.getUser()
+        if (!retryData.user) {
+          await signOutAndRedirect()
+        }
       }
     }
 
@@ -110,7 +130,9 @@ export function SessionTimeoutProvider({
         clearTimers()
         setShowWarning(false)
         if (isProtectedClientPath(pathname) && pathname !== '/login') {
-          void signOutAndRedirect()
+          setTimeout(() => {
+            void checkSession()
+          }, SESSION_HYDRATION_RETRY_DELAY_MS)
         }
       }
     })

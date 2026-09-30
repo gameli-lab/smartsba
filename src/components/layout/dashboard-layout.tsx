@@ -21,24 +21,47 @@ export function DashboardLayout({
   const [user, setUser] = useState<{ profile: UserProfile } | null>(null);
   const router = useRouter();
 
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
   useEffect(() => {
+    let active = true;
+
     const checkAuth = async () => {
       try {
-        const currentUser = await AuthService.getCurrentUser();
-        if (!currentUser) {
-          router.push("/login");
+        let currentUser = await AuthService.getCurrentUser();
+
+        for (let attempt = 0; attempt < 4 && !currentUser; attempt += 1) {
+          await sleep(250);
+          currentUser = await AuthService.getCurrentUser();
+        }
+
+        if (!active) {
           return;
         }
+
+        if (!currentUser) {
+          router.replace("/login");
+          return;
+        }
+
         setUser(currentUser);
       } catch (error) {
         console.error("Auth check failed:", error);
-        router.push("/login");
+        if (active) {
+          router.replace("/login");
+        }
       } finally {
-        setIsLoading(false);
+        if (active) {
+          setIsLoading(false);
+        }
       }
     };
 
     checkAuth();
+
+    return () => {
+      active = false;
+    };
   }, [router]);
 
   if (isLoading) {
