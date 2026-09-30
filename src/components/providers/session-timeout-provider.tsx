@@ -109,14 +109,6 @@ export function SessionTimeoutProvider({
       const sessionActive = Boolean(data.user) && !error
       setIsAuthenticated(sessionActive)
       lastActivityRef.current = Date.now()
-
-      if (!sessionActive && isProtectedClientPath(pathname) && pathname !== '/login') {
-        // Delay redirecting until the session has had time to hydrate after a fresh login.
-        const { data: retryData } = await supabase.auth.getUser()
-        if (!retryData.user) {
-          await signOutAndRedirect()
-        }
-      }
     }
 
     void checkSession()
@@ -129,11 +121,6 @@ export function SessionTimeoutProvider({
       } else {
         clearTimers()
         setShowWarning(false)
-        if (isProtectedClientPath(pathname) && pathname !== '/login') {
-          setTimeout(() => {
-            void checkSession()
-          }, SESSION_HYDRATION_RETRY_DELAY_MS)
-        }
       }
     })
 
