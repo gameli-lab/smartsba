@@ -249,7 +249,7 @@ export function PortalLoginShell() {
 
     try {
       if (deliveryChannel === "sms") {
-        const result = await AuthService.resendPasswordlessOtp(otpRequestId);
+        const result = await AuthService.resendPasswordlessOtp(otpRequestId, mapAuthRoleToApiRole(authRole));
         setOtpMessage(result.message || "OTP resent to your phone.");
       } else {
         // For email resend, just re-trigger the send flow
@@ -404,7 +404,7 @@ export function PortalLoginShell() {
 
     try {
       if (adminDeliveryChannel === "sms") {
-        const result = await AuthService.resendPasswordlessOtp(adminOtpRequestId);
+        const result = await AuthService.resendPasswordlessOtp(adminOtpRequestId, "super_admin");
         setAdminOtpMessage(result.message || "OTP resent to your phone.");
       } else {
         // For email resend, re-trigger the send flow

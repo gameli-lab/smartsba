@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createAdminSupabaseClient } from '@/lib/supabase'
 import { buildMfaCookieValue, MFA_VERIFIED_COOKIE_NAME } from '@/lib/mfa-session'
-import { isOtpCookieVerified } from '@/lib/otp-session'
+import { OTP_VERIFIED_COOKIE_NAME, isOtpCookieVerified } from '@/lib/otp-session'
 import { generateBackupCodes, generateMfaSecret, verifyTotpCode } from '@/lib/mfa'
 import { recordSecurityEvent } from '@/lib/security-monitor'
 
@@ -112,7 +112,7 @@ export async function GET(req: NextRequest) {
       : null
 
     // Check OTP cookie as fallback for email/SMS verified sessions
-    const otpCookie = req.cookies.get('otp_verified')?.value || null
+    const otpCookie = req.cookies.get(OTP_VERIFIED_COOKIE_NAME)?.value || null
     const mfaCookie = req.cookies.get(MFA_VERIFIED_COOKIE_NAME)?.value || null
 
     // Validate most recent OTP verification from DB against the cookie value

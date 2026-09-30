@@ -675,7 +675,7 @@ export class AuthService {
   /**
    * Resend a previously issued Hubtel OTP.
    */
-  static async resendPasswordlessOtp(requestId: string): Promise<{
+  static async resendPasswordlessOtp(requestId: string, role: UserRole): Promise<{
     success: boolean
     message?: string
     error?: string
@@ -686,6 +686,7 @@ export class AuthService {
       body: JSON.stringify({
         action: 'resend',
         requestId,
+        role,
       }),
     })
 

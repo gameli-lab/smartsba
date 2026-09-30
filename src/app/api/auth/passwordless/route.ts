@@ -92,14 +92,40 @@ async function resolveProfile(
   const normalized = normalizeIdentifier(identifier)
 
   if (role === 'super_admin') {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('user_profiles')
       .select('user_id, email, role, school_id, phone')
       .eq('role', 'super_admin')
       .ilike('email', normalized)
       .maybeSingle()
 
-    if (!data) return null
+    if (error) {
+      console.error('Super admin profile lookup failed:', {
+        identifier: normalized,
+        error: error.message,
+      })
+      return null
+    }
+
+    if (!data) {
+      const { data: sameEmailProfileRaw } = await supabaseAdmin
+        .from('user_profiles')
+        .select('user_id, email, role')
+        .ilike('email', normalized)
+        .limit(1)
+        .maybeSingle()
+
+      const sameEmailProfile = sameEmailProfileRaw as { role?: string } | null
+
+      console.warn('Super admin profile not found for passwordless request', {
+        identifier: normalized,
+        foundProfileWithDifferentRole: Boolean(sameEmailProfile),
+        foundRole: sameEmailProfile?.role || null,
+      })
+
+      return null
+    }
+
     return data as ResolvedProfile
   }
 
