@@ -41,3 +41,12 @@ yarn-error.log*
 next-env.d.ts
 .next/
 tsconfig.tsbuildinfo
+pg_output.txt
+pg_output2.txt
+pg_output3.txt
+psql_libpqcompat.txt
+psql_ssl_disable.txt
+psql_test.txt
+supabase/.temp/cli-latest
+supabase/.temp/cli-latest
+supabase/.temp/cli-latest

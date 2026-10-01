@@ -842,11 +842,43 @@ export class AuthService {
   }
 
   // Set custom JWT claims for proper authorization with RLS policies
-  // NOTE: Supabase doesn't support auth.jwt_custom_claims_set() on hosted instances
-  // Storage RLS policies now query user_profiles table directly instead
+  // On hosted Supabase, we set app_metadata which is included in the JWT token.
+  // This allows JWT-based RLS policies to read app_role and school_id claims.
   static async setUserClaims(userId: string): Promise<void> {
-    // This function is kept for backwards compatibility but does nothing
-    // The storage policies have been updated to query user_profiles directly
-    console.log('setUserClaims called for user:', userId, '(no-op - policies use direct queries)')
+    try {
+      // Fetch the user's profile to get their role and school_id
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('role, school_id')
+        .eq('user_id', userId)
+        .single()
+
+      if (profileError || !profile) {
+        console.warn('setUserClaims: Could not fetch profile for user:', userId, profileError?.message)
+        return
+      }
+
+      const typedProfile = profile as { role: string; school_id: string | null }
+
+      // Set app_metadata with app_role and school_id
+      // This gets included in the JWT token for RLS policy checks
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          app_role: typedProfile.role,
+          school_id: typedProfile.school_id ? String(typedProfile.school_id) : '',
+        },
+      })
+
+      if (error) {
+        console.warn('setUserClaims: Failed to set user claims:', error.message)
+      } else {
+        console.log('setUserClaims: Successfully set claims for user:', userId, {
+          app_role: typedProfile.role,
+          school_id: typedProfile.school_id,
+        })
+      }
+    } catch (err) {
+      console.warn('setUserClaims: Unexpected error:', err)
+    }
   }
 }
