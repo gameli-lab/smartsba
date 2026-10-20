@@ -81,6 +81,22 @@ function validateSchoolPayload(payload: CreateSchoolBody): string | null {
   return null
 }
 
+function getSchoolInsertErrorMessage(error: { code?: string; message?: string }): string {
+  switch (error.code) {
+    case '42703':
+    case 'PGRST204':
+      return 'The database is missing the current school fields. Apply migration 033_school_academics_and_subject_configuration.sql, then retry.'
+    case '23514':
+      return 'The school settings violate a database constraint. Check the education levels and stream configuration.'
+    case '23505':
+      return 'A school with these details already exists.'
+    case '42501':
+      return 'The database rejected the school creation request because of permissions or row-level security.'
+    default:
+      return 'The database rejected the school creation request. Check the server logs for the database error.'
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await requireSuperAdminForApi()
@@ -116,7 +132,13 @@ export async function POST(request: Request) {
 
     if (insertError || !insertedSchool) {
       console.error('School creation failed:', insertError)
-      return NextResponse.json({ error: 'Failed to create school' }, { status: 500 })
+      return NextResponse.json(
+        {
+          error: getSchoolInsertErrorMessage(insertError || { message: 'No school row was returned' }),
+          code: insertError?.code || 'SCHOOL_INSERT_FAILED',
+        },
+        { status: 500 }
+      )
     }
 
     const provision = await provisionSchoolAcademicStructure(insertedSchool.id)
