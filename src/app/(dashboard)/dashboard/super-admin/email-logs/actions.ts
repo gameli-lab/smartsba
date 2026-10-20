@@ -1,6 +1,7 @@
 'use server'
 
-import { supabase } from '@/lib/supabase'
+import { createAdminSupabaseClient } from '@/lib/supabase'
+import { requireSuperAdmin } from '@/lib/auth-guards'
 import { unstable_noStore as noStore } from 'next/cache'
 
 export interface EmailLog {
@@ -16,10 +17,6 @@ export interface EmailLog {
   metadata: Record<string, unknown>
   sent_at: string | null
   created_at: string
-}
-
-interface EmailStatusRow {
-  status: EmailLog['status'] | null
 }
 
 export interface GetEmailLogsParams {
@@ -46,6 +43,9 @@ export async function getEmailLogs(params: GetEmailLogsParams = {}) {
   } = params
 
   try {
+    await requireSuperAdmin()
+    const supabase = createAdminSupabaseClient()
+
     let query = supabase
       .from('email_logs')
       .select('*', { count: 'exact' })
@@ -113,43 +113,34 @@ export async function getEmailStats() {
   noStore()
 
   try {
-    // Get total counts by status
-    const { data: statusRows } = await supabase
-      .from('email_logs')
-      .select('status')
+    await requireSuperAdmin()
+    const supabase = createAdminSupabaseClient()
 
-    const statusData = (statusRows ?? []) as EmailStatusRow[]
-    const statusCounts = {
-      total: statusData.length,
-      sent: statusData.filter((log) => log.status === 'sent').length,
-      pending: statusData.filter((log) => log.status === 'pending').length,
-      failed: statusData.filter((log) => log.status === 'failed').length,
-      bounced: statusData.filter((log) => log.status === 'bounced').length,
-    }
-
-    // Get today's email count
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    
-    const { count: todayCount } = await supabase
-      .from('email_logs')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', today.toISOString())
 
-    // Get this week's email count
     const weekAgo = new Date()
     weekAgo.setDate(weekAgo.getDate() - 7)
     weekAgo.setHours(0, 0, 0, 0)
-    
-    const { count: weekCount } = await supabase
-      .from('email_logs')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', weekAgo.toISOString())
+
+    const [totalRes, sentRes, pendingRes, failedRes, bouncedRes, todayRes, weekRes] = await Promise.all([
+      supabase.from('email_logs').select('id', { count: 'exact', head: true }),
+      supabase.from('email_logs').select('id', { count: 'exact', head: true }).eq('status', 'sent'),
+      supabase.from('email_logs').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('email_logs').select('id', { count: 'exact', head: true }).eq('status', 'failed'),
+      supabase.from('email_logs').select('id', { count: 'exact', head: true }).eq('status', 'bounced'),
+      supabase.from('email_logs').select('id', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
+      supabase.from('email_logs').select('id', { count: 'exact', head: true }).gte('created_at', weekAgo.toISOString()),
+    ])
 
     return {
-      ...statusCounts,
-      todayCount: todayCount || 0,
-      weekCount: weekCount || 0,
+      total: totalRes.count || 0,
+      sent: sentRes.count || 0,
+      pending: pendingRes.count || 0,
+      failed: failedRes.count || 0,
+      bounced: bouncedRes.count || 0,
+      todayCount: todayRes.count || 0,
+      weekCount: weekRes.count || 0,
     }
   } catch (error) {
     console.error('Email stats fetch error:', error)

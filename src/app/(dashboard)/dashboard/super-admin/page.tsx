@@ -654,32 +654,38 @@ export default function SuperAdminDashboard() {
         return;
       }
 
-      // For each school, fetch student and teacher counts
-      const enrichedSchools = await Promise.all(
-        (schools as SchoolAuditRow[]).map(async (school) => {
-          const { count: studentCount } = await supabase
-            .from('user_profiles')
-            .select('id', { count: 'exact', head: true })
-            .eq('school_id', school.id)
-            .eq('role', 'student');
+      // Batch fetch student and teacher counts across all schools
+      const schoolRows = schools as SchoolAuditRow[];
+      const schoolIds = schoolRows.map((s) => s.id);
 
-          const { count: teacherCount } = await supabase
-            .from('user_profiles')
-            .select('id', { count: 'exact', head: true })
-            .eq('school_id', school.id)
-            .eq('role', 'teacher');
+      const studentCounts: Record<string, number> = {};
+      const teacherCounts: Record<string, number> = {};
 
-          return {
-            id: school.id,
-            name: school.name,
-            status: school.status,
-            created_at: school.created_at,
-            updated_at: school.updated_at,
-            student_count: studentCount || 0,
-            teacher_count: teacherCount || 0,
-          };
-        })
-      );
+      if (schoolIds.length > 0) {
+        const { data: userProfiles } = await supabase
+          .from('user_profiles')
+          .select('school_id, role')
+          .in('school_id', schoolIds)
+          .in('role', ['student', 'teacher']);
+
+        if (userProfiles) {
+          (userProfiles as Array<{ school_id: string | null; role: string | null }>).forEach((p) => {
+            if (!p.school_id) return;
+            if (p.role === 'student') studentCounts[p.school_id] = (studentCounts[p.school_id] || 0) + 1;
+            if (p.role === 'teacher') teacherCounts[p.school_id] = (teacherCounts[p.school_id] || 0) + 1;
+          });
+        }
+      }
+
+      const enrichedSchools = schoolRows.map((school) => ({
+        id: school.id,
+        name: school.name,
+        status: school.status,
+        created_at: school.created_at,
+        updated_at: school.updated_at,
+        student_count: studentCounts[school.id] || 0,
+        teacher_count: teacherCounts[school.id] || 0,
+      }));
 
       setSchoolsSnapshot(enrichedSchools);
     } catch (error) {

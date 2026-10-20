@@ -1,6 +1,7 @@
 'use server'
 
 import { createServerSupabaseClient } from '@/lib/supabase'
+import { requireSuperAdmin } from '@/lib/auth-guards'
 import { unstable_noStore as noStore } from 'next/cache'
 
 // Lazy initialize server client
@@ -66,8 +67,9 @@ export async function getSchoolPerformanceReport(dateRange: DateRange = {}) {
   noStore()
 
   try {
+    await requireSuperAdmin()
+
     // Get all schools with aggregated metrics
-    // Type assertion needed until types are regenerated
     const { data: schools, error } = await getSupabase()
       .from('schools')
       .select(`
@@ -80,65 +82,79 @@ export async function getSchoolPerformanceReport(dateRange: DateRange = {}) {
 
     if (error) throw error
 
-    // For each school, get detailed metrics
-    const performanceData: SchoolPerformance[] = await Promise.all(
-      (schools as SchoolRow[] | null || []).map(async (school) => {
-        // Count students
-        const { count: studentCount } = await getSupabase()
-          .from('user_profiles')
-          .select('*', { count: 'exact', head: true })
-          .eq('school_id', school.id)
-          .eq('role', 'student')
+    const schoolRows = (schools as SchoolRow[] | null) || []
+    if (schoolRows.length === 0) {
+      return {
+        success: true,
+        data: [],
+        error: null,
+      }
+    }
 
-        // Count teachers
-        const { count: teacherCount } = await getSupabase()
-          .from('user_profiles')
-          .select('*', { count: 'exact', head: true })
-          .eq('school_id', school.id)
-          .eq('role', 'teacher')
+    const schoolIds = schoolRows.map((s) => s.id)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const activeSince = dateRange.startDate || thirtyDaysAgo.toISOString()
 
-        // Count classes
-        const { count: classCount } = await getSupabase()
-          .from('classes')
-          .select('*', { count: 'exact', head: true })
-          .eq('school_id', school.id)
+    // Batch query aggregates in parallel across all schools instead of 6N individual queries
+    const [userProfilesRes, classesRes, assessmentsRes, announcementsRes] = await Promise.all([
+      getSupabase()
+        .from('user_profiles')
+        .select('school_id, role, status, updated_at')
+        .in('school_id', schoolIds),
+      getSupabase()
+        .from('classes')
+        .select('school_id')
+        .in('school_id', schoolIds),
+      getSupabase()
+        .from('assessments')
+        .select('school_id')
+        .in('school_id', schoolIds),
+      getSupabase()
+        .from('announcements')
+        .select('school_id')
+        .in('school_id', schoolIds),
+    ])
 
-        // Count active users (logged in within date range or last 30 days)
-        const thirtyDaysAgo = new Date()
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-        
-        const { count: activeUserCount } = await getSupabase()
-          .from('user_profiles')
-          .select('*', { count: 'exact', head: true })
-          .eq('school_id', school.id)
-          .eq('status', 'active')
-          .gte('updated_at', dateRange.startDate || thirtyDaysAgo.toISOString())
+    const studentCounts: Record<string, number> = {}
+    const teacherCounts: Record<string, number> = {}
+    const activeUserCounts: Record<string, number> = {}
+    const classCounts: Record<string, number> = {}
+    const assessmentCounts: Record<string, number> = {}
+    const announcementCounts: Record<string, number> = {}
 
-        // Count assessments
-        const { count: assessmentCount } = await getSupabase()
-          .from('assessments')
-          .select('*', { count: 'exact', head: true })
-          .eq('school_id', school.id)
+    for (const p of (userProfilesRes.data || []) as Array<{ school_id: string | null; role: string | null; status: string | null; updated_at: string | null }>) {
+      if (!p.school_id) continue
+      if (p.role === 'student') studentCounts[p.school_id] = (studentCounts[p.school_id] || 0) + 1
+      if (p.role === 'teacher') teacherCounts[p.school_id] = (teacherCounts[p.school_id] || 0) + 1
+      if (p.status === 'active' && p.updated_at && p.updated_at >= activeSince) {
+        activeUserCounts[p.school_id] = (activeUserCounts[p.school_id] || 0) + 1
+      }
+    }
 
-        // Count announcements
-        const { count: announcementCount } = await getSupabase()
-          .from('announcements')
-          .select('*', { count: 'exact', head: true })
-          .eq('school_id', school.id)
+    for (const c of (classesRes.data || []) as Array<{ school_id: string | null }>) {
+      if (c.school_id) classCounts[c.school_id] = (classCounts[c.school_id] || 0) + 1
+    }
 
-        return {
-          school_id: school.id,
-          school_name: school.name,
-          total_students: studentCount || 0,
-          total_teachers: teacherCount || 0,
-          total_classes: classCount || 0,
-          active_users: activeUserCount || 0,
-          assessment_count: assessmentCount || 0,
-          announcement_count: announcementCount || 0,
-          status: school.status,
-        }
-      })
-    )
+    for (const a of (assessmentsRes.data || []) as Array<{ school_id: string | null }>) {
+      if (a.school_id) assessmentCounts[a.school_id] = (assessmentCounts[a.school_id] || 0) + 1
+    }
+
+    for (const an of (announcementsRes.data || []) as Array<{ school_id: string | null }>) {
+      if (an.school_id) announcementCounts[an.school_id] = (announcementCounts[an.school_id] || 0) + 1
+    }
+
+    const performanceData: SchoolPerformance[] = schoolRows.map((school) => ({
+      school_id: school.id,
+      school_name: school.name,
+      total_students: studentCounts[school.id] || 0,
+      total_teachers: teacherCounts[school.id] || 0,
+      total_classes: classCounts[school.id] || 0,
+      active_users: activeUserCounts[school.id] || 0,
+      assessment_count: assessmentCounts[school.id] || 0,
+      announcement_count: announcementCounts[school.id] || 0,
+      status: school.status,
+    }))
 
     return {
       success: true,
@@ -159,6 +175,8 @@ export async function getUsageTrendsReport(dateRange: DateRange = {}) {
   noStore()
 
   try {
+    await requireSuperAdmin()
+
     const endDate = dateRange.endDate || new Date().toISOString()
     const startDate = dateRange.startDate || (() => {
       const date = new Date()
@@ -253,6 +271,8 @@ export async function getFeatureAdoptionReport(_dateRange: DateRange = {}) {
   void _dateRange
 
   try {
+    await requireSuperAdmin()
+
     // Get total active schools
     const { count: totalSchools } = await getSupabase()
       .from('schools')
@@ -380,6 +400,8 @@ export async function getReportSummary() {
   noStore()
 
   try {
+    await requireSuperAdmin()
+
     const [schoolPerf, usageTrends, featureAdopt] = await Promise.all([
       getSchoolPerformanceReport(),
       getUsageTrendsReport(),

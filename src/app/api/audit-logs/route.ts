@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
     const entityType = url.searchParams.get('entity_type') || 'all'
     const dateFrom = url.searchParams.get('date_from')
     const dateTo = url.searchParams.get('date_to')
+    const search = (url.searchParams.get('search') || '').trim()
 
     // Build query
     let query = supabaseAdmin
@@ -119,6 +120,29 @@ export async function GET(request: NextRequest) {
 
     if (dateTo) {
       query = query.lte('created_at', dateTo)
+    }
+
+    if (search) {
+      const { data: matchedProfiles } = await supabaseAdmin
+        .from('user_profiles')
+        .select('user_id')
+        .or(`full_name.ilike.%${search}%,email.ilike.%${search}%`)
+        .limit(20)
+
+      const matchedUserIds = (matchedProfiles || [])
+        .map((p: { user_id: string }) => p.user_id)
+        .filter(Boolean)
+
+      const searchConditions = [
+        `action_type.ilike.%${search}%`,
+        `entity_type.ilike.%${search}%`,
+      ]
+
+      if (matchedUserIds.length > 0) {
+        searchConditions.push(`actor_user_id.in.(${matchedUserIds.join(',')})`)
+      }
+
+      query = query.or(searchConditions.join(','))
     }
 
     // Apply cursor for pagination

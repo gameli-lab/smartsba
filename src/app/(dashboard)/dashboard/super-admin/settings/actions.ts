@@ -1,6 +1,7 @@
 "use server"
 
 import { createServerSupabaseClient } from '@/lib/supabase'
+import { requireSuperAdmin } from '@/lib/auth-guards'
 import { revalidatePath } from 'next/cache'
 import { unstable_noStore as noStore } from 'next/cache'
 import { clearAIConfigCache } from '@/services/aiLLMService'
@@ -25,10 +26,6 @@ interface SystemSetting {
   updated_by: string | null
 }
 
-interface SettingProfileRow {
-  role: string
-}
-
 interface CurrentSettingRow {
   setting_value: unknown
   category: string
@@ -49,6 +46,24 @@ interface AuditRpcClient {
 
 function getAuditRpcClient(): AuditRpcClient {
   return getSupabase() as unknown as AuditRpcClient
+}
+
+async function getSuperAdminSession() {
+  try {
+    const auth = await requireSuperAdmin()
+    return { auth, error: null }
+  } catch (err: unknown) {
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'digest' in err &&
+      typeof (err as { digest: unknown }).digest === 'string' &&
+      (err as { digest: string }).digest.startsWith('NEXT_REDIRECT')
+    ) {
+      throw err
+    }
+    return { auth: null, error: 'Unauthorized: SysAdmin privileges required' }
+  }
 }
 
 function isSensitiveSettingKey(settingKey: string): boolean {
@@ -80,6 +95,11 @@ export async function getSystemSettings(category?: string): Promise<{
   noStore() // Prevent caching to ensure fresh data
   
   try {
+    const { auth, error: authError } = await getSuperAdminSession()
+    if (authError || !auth) {
+      return { settings: [], error: authError || 'Unauthorized' }
+    }
+
     let query = getSupabase().from('system_settings').select('*').order('setting_key')
 
     if (category) {
@@ -103,8 +123,8 @@ export async function getSystemSettings(category?: string): Promise<{
 export async function updateSystemSetting(
   settingKey: string,
   settingValue: unknown,
-  userId: string,
-  userRole: string
+  _userId?: string,
+  _userRole?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const category = deriveCategoryFromSettingKey(settingKey)
@@ -112,23 +132,14 @@ export async function updateSystemSetting(
       return { success: false, error: 'Invalid setting key format' }
     }
 
-    console.log('=== updateSystemSetting called ===')
-    console.log('settingKey:', settingKey)
-    console.log('settingValue:', redactSettingValue(settingKey, settingValue))
-    console.log('userId:', userId)
-    console.log('userRole:', userRole)
-    
-    // Verify user is super_admin
-    const { data: profile } = (await getSupabase()
-      .from('user_profiles')
-      .select('role')
-      .eq('user_id', userId)
-      .single()) as { data: SettingProfileRow | null }
-
-    if (!profile || profile.role !== 'super_admin') {
-      console.log('User is not super_admin:', profile)
-      return { success: false, error: 'Unauthorized: SysAdmin privileges required' }
+    const { auth, error: authError } = await getSuperAdminSession()
+    if (authError || !auth) {
+      return { success: false, error: authError || 'Unauthorized: SysAdmin privileges required' }
     }
+
+    const { user, profile } = auth
+    const actorUserId = user.id
+    const actorRole = profile.role
 
     // Get current setting for audit log
     const { data: currentSetting } = (await getSupabase()
@@ -136,8 +147,6 @@ export async function updateSystemSetting(
       .select('setting_value, category')
       .eq('setting_key', settingKey)
       .single()) as { data: CurrentSettingRow | null }
-
-    console.log('Current setting:', currentSetting)
 
     // Update or create setting
     const { data: updateData, error: updateError } = await getSupabase()
@@ -147,7 +156,7 @@ export async function updateSystemSetting(
           setting_key: settingKey,
           category,
           setting_value: settingValue,
-          updated_by: userId,
+          updated_by: actorUserId,
           updated_at: new Date().toISOString(),
         },
         {
@@ -155,8 +164,6 @@ export async function updateSystemSetting(
         }
       )
       .select()
-
-    console.log('Update response - data:', updateData, 'error:', updateError)
 
     if (updateError) {
       console.error('Error updating system setting:', updateError)
@@ -168,12 +175,10 @@ export async function updateSystemSetting(
       return { success: false, error: 'Setting not found in database' }
     }
 
-    console.log('Setting updated successfully:', updateData[0])
-
     // Log to audit trail
     const { error: auditError } = await getAuditRpcClient().rpc('log_audit_action', {
-      p_actor_user_id: userId,
-      p_actor_role: userRole,
+      p_actor_user_id: actorUserId,
+      p_actor_role: actorRole,
       p_action_type: 'system_setting_updated',
       p_entity_type: 'system_setting',
       p_entity_id: null,
@@ -187,7 +192,6 @@ export async function updateSystemSetting(
 
     if (auditError) {
       console.warn('Warning: Failed to log audit action:', auditError)
-      // Don't fail the update if audit logging fails
     }
 
     revalidatePath('/dashboard/super-admin/settings')
@@ -196,7 +200,6 @@ export async function updateSystemSetting(
       clearAIConfigCache()
     }
 
-    console.log('=== updateSystemSetting completed successfully ===')
     return { success: true }
   } catch (err) {
     console.error('Error in updateSystemSetting:', err)
@@ -206,24 +209,18 @@ export async function updateSystemSetting(
 
 export async function updateMultipleSettings(
   updates: Array<{ key: string; value: unknown }>,
-  userId: string,
-  userRole: string
+  _userId?: string,
+  _userRole?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Verify user is super_admin
-    const { data: profile } = (await getSupabase()
-      .from('user_profiles')
-      .select('role')
-      .eq('user_id', userId)
-      .single()) as { data: SettingProfileRow | null }
-
-    if (!profile || profile.role !== 'super_admin') {
-      return { success: false, error: 'Unauthorized: SysAdmin privileges required' }
+    const { auth, error: authError } = await getSuperAdminSession()
+    if (authError || !auth) {
+      return { success: false, error: authError || 'Unauthorized: SysAdmin privileges required' }
     }
 
     // Update each setting
     for (const update of updates) {
-      const result = await updateSystemSetting(update.key, update.value, userId, userRole)
+      const result = await updateSystemSetting(update.key, update.value)
       if (!result.success) {
         return { success: false, error: `Failed to update ${update.key}: ${result.error}` }
       }

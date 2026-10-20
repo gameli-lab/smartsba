@@ -35,35 +35,26 @@ export function useSchools() {
         return;
       }
 
-      // Batch query for user profiles aggregated by school
-      const { data: userAggregates, error: userError } = await supabase
-        .from("user_profiles")
-        .select("school_id, role")
-        .in("school_id", schoolIds);
+      // Parallel batch query for user profiles and class counts
+      const [{ data: userAggregates, error: userError }, { data: classAggregates, error: classError }] =
+        await Promise.all([
+          supabase
+            .from("user_profiles")
+            .select("school_id, role, updated_at")
+            .in("school_id", schoolIds)
+            .order("updated_at", { ascending: false }),
+          supabase
+            .from("classes")
+            .select("school_id")
+            .in("school_id", schoolIds),
+        ]);
 
       if (userError) {
         console.error("Error fetching user aggregates:", userError);
       }
 
-      // Batch query for class counts
-      const { data: classAggregates, error: classError } = await supabase
-        .from("classes")
-        .select("school_id")
-        .in("school_id", schoolIds);
-
       if (classError) {
         console.error("Error fetching class aggregates:", classError);
-      }
-
-      // Batch query for last activity
-      const { data: activityAggregates, error: activityError } = await supabase
-        .from("user_profiles")
-        .select("school_id, updated_at")
-        .in("school_id", schoolIds)
-        .order("updated_at", { ascending: false });
-
-      if (activityError) {
-        console.error("Error fetching activity aggregates:", activityError);
       }
 
       // Process aggregates into maps for efficient lookup
@@ -71,27 +62,23 @@ export function useSchools() {
       const classCountsBySchool = new Map<string, number>();
       const lastActivityBySchool = new Map<string, string>();
 
-      // Process user counts
-      userAggregates?.forEach((profile: { school_id: string; role: string }) => {
+      // Process user counts and latest activity in a single pass
+      userAggregates?.forEach((profile: { school_id: string | null; role: string | null; updated_at?: string | null }) => {
+        if (!profile.school_id) return;
         const current = userCountsBySchool.get(profile.school_id) || { students: 0, teachers: 0 };
         if (profile.role === "student") current.students++;
         if (profile.role === "teacher") current.teachers++;
         userCountsBySchool.set(profile.school_id, current);
+
+        if (profile.updated_at && !lastActivityBySchool.has(profile.school_id)) {
+          lastActivityBySchool.set(profile.school_id, profile.updated_at);
+        }
       });
 
       // Process class counts
       classAggregates?.forEach((cls: { school_id: string }) => {
         const current = classCountsBySchool.get(cls.school_id) || 0;
         classCountsBySchool.set(cls.school_id, current + 1);
-      });
-
-      // Process last activity (already sorted, so first occurrence is most recent)
-      const seenSchools = new Set<string>();
-      activityAggregates?.forEach((activity: { school_id: string; updated_at: string }) => {
-        if (!seenSchools.has(activity.school_id)) {
-          lastActivityBySchool.set(activity.school_id, activity.updated_at);
-          seenSchools.add(activity.school_id);
-        }
       });
 
       // Combine everything
