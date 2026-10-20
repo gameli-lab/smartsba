@@ -28,10 +28,6 @@ type ParentProfileLite = {
   phone: string | null
 }
 
-function randomTempPassword(prefix: string) {
-  return `${prefix}@${Math.random().toString(36).slice(-8)}`
-}
-
 function validateEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
@@ -134,15 +130,11 @@ export async function createParentAndLink(input: CreateParentInput) {
 
     let parentProfileId = existingProfile?.id || null
     let parentUserId = existingProfile?.user_id || null
-    let tempPassword: string | null = null
     let createdNew = false
 
     if (!parentProfileId || !parentUserId) {
-      tempPassword = randomTempPassword('Parent')
-
       const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
         email: input.email.trim(),
-        password: tempPassword,
         email_confirm: true,
       })
 
@@ -249,7 +241,7 @@ export async function createParentAndLink(input: CreateParentInput) {
     revalidatePath('/school-admin/parents')
     revalidatePath('/school-admin/students')
 
-    return { success: true, tempPassword, createdNew, linkedCount }
+    return { success: true, createdNew, linkedCount }
   } catch (error) {
     console.error('createParentAndLink error', error)
     return { success: false, error: 'An unexpected error occurred.' }
@@ -432,17 +424,14 @@ export async function promoteGuardianFromStudent(studentId: string) {
 
     let parentProfileId = match?.id || null
     let createdNew = false
-    let tempPassword: string | null = null
 
     if (!parentProfileId) {
       if (!guardianEmail || !validateEmail(guardianEmail)) {
         return { success: false, error: 'Guardian email is required to create a new parent account.' }
       }
 
-      const temp = randomTempPassword('Parent')
       const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
         email: guardianEmail,
-        password: temp,
         email_confirm: true,
       })
 
@@ -474,7 +463,6 @@ export async function promoteGuardianFromStudent(studentId: string) {
 
       parentProfileId = profileData.id as string
       createdNew = true
-      tempPassword = temp
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (adminSupabase as any)
@@ -557,7 +545,6 @@ export async function promoteGuardianFromStudent(studentId: string) {
       success: true,
       createdNew,
       linkedCount: linkTargets.length,
-      tempPassword,
     }
   } catch (error) {
     console.error('promoteGuardianFromStudent error', error)

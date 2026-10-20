@@ -2,9 +2,9 @@
 
 ## Issues Fixed
 
-### 1. Documentation Drift in SUPER_ADMIN_LOGIN_FIX.md
+### 1. Documentation Drift in the former Super Admin login guide
 
-**Problem**: Embedded SQL policies diverged from canonical migration files
+**Problem**: Embedded SQL policies diverged from canonical migration files in the former guide
 **Solution**:
 
 - Removed inline SQL code that could become outdated
@@ -70,7 +70,7 @@ All changes maintain backward compatibility:
 
 - Existing user access patterns continue to work
 - Super Admin functionality preserved
-- Login process remains unchanged
+- Passwordless login process remains unchanged
 - No breaking changes to application logic
 
 ## Best Practices Applied

@@ -5,7 +5,6 @@ import { requireSchoolAdmin } from '@/lib/auth-guards'
 import { createServerComponentClient, createAdminSupabaseClient } from '@/lib/supabase'
 import { logAssumptionAwareAudit } from '@/lib/audit'
 import { Teacher } from '@/types'
-import { sendUserCreatedEmail } from '@/services/emailService'
 
 interface CreateTeacherInput {
   full_name: string
@@ -45,13 +44,6 @@ interface ImportFailure {
 interface ImportResult {
   imported: number
   failed: ImportFailure[]
-  credentials: Array<{
-    row: number
-    full_name: string
-    email: string
-    staff_id: string
-    temp_password: string
-  }>
 }
 
 /**
@@ -97,13 +89,9 @@ export async function createTeacher(input: CreateTeacherInput) {
       return { success: false, error: 'Email address already exists' }
     }
 
-    // Generate a temporary password (should be changed on first login)
-    const tempPassword = `Teacher@${Math.random().toString(36).slice(-8)}`
-
     // Create auth user
     const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
       email: input.email,
-      password: tempPassword,
       email_confirm: true,
     })
 
@@ -171,57 +159,9 @@ export async function createTeacher(input: CreateTeacherInput) {
       staffId: input.staff_id,
       email: input.email,
     })
-    // Generate a plain-text credentials file containing the teacher details and temporary password
-    try {
-      const credentialsText = [
-        'Teacher Credentials',
-        `Full name: ${input.full_name}`,
-        `Email: ${input.email}`,
-        `Staff ID: ${input.staff_id}`,
-        `Temporary password: ${tempPassword}`,
-        `Phone: ${input.phone || ''}`,
-        `Gender: ${input.gender || ''}`,
-        `Date of birth: ${input.date_of_birth || ''}`,
-        `Address: ${input.address || ''}`,
-        `Specialization: ${input.specialization || ''}`,
-        `Qualification: ${input.qualification || ''}`,
-        `Hire date: ${input.hire_date || ''}`,
-      ].join('\n')
-
-      const downloadBase64 = Buffer.from(credentialsText, 'utf8').toString('base64')
-      const downloadFilename = `teacher_${input.staff_id || authUser.user.id}_${new Date().toISOString().slice(0,10)}.txt`
-
-      // Send email to the newly created teacher with temporary password
-      try {
-        const schoolRow = await (adminSupabase as any).from('schools').select('name').eq('id', schoolId).maybeSingle()
-        const schoolName = schoolRow?.data?.name || 'Your School'
-        await sendUserCreatedEmail({
-          userName: input.full_name,
-          userEmail: input.email,
-          userId: authUser.user.id,
-          role: 'teacher',
-          schoolName,
-          schoolId: schoolId as string,
-          temporaryPassword: tempPassword,
-        })
-      } catch (emailErr) {
-        console.error('Failed to send user created email:', emailErr)
-      }
-
-      return {
-        success: true,
-        tempPassword,
-        message: 'Teacher created successfully',
-        downloadBase64,
-        downloadFilename,
-      }
-    } catch (fileErr) {
-      console.error('Failed to generate teacher file:', fileErr)
-      return {
-        success: true,
-        tempPassword,
-        message: 'Teacher created successfully (file generation failed)',
-      }
+    return {
+      success: true,
+      message: 'Teacher created successfully. The teacher can sign in with passwordless authentication.',
     }
   } catch (error) {
     console.error('Error in createTeacher:', error)
@@ -562,7 +502,6 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
     const inFileEmails = new Set<string>()
 
     const failures: ImportFailure[] = []
-    const credentials: ImportResult['credentials'] = []
     const createdUserIds: string[] = []
     let successCount = 0
 
@@ -622,11 +561,8 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
       }
 
       // Process creation similar to createTeacher with rollback on failure
-      const tempPassword = `Teacher@${Math.random().toString(36).slice(-8)}`
-
       const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
         email: teacherPayload.email,
-        password: tempPassword,
         email_confirm: true,
       })
 
@@ -683,13 +619,6 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
 
       successCount += 1
       createdUserIds.push(userId)
-      credentials.push({
-        row: rowIndex,
-        full_name: teacherPayload.full_name,
-        email: teacherPayload.email,
-        staff_id: teacherPayload.staff_id,
-        temp_password: tempPassword,
-      })
     }
 
     if (successCount > 0) {
@@ -708,7 +637,6 @@ export async function importTeachers(formData: FormData): Promise<{ success: boo
       result: {
         imported: successCount,
         failed: failures,
-        credentials,
       },
     }
   } catch (error) {

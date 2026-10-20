@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Loader2, Copy, Check } from 'lucide-react'
+import { Plus, Loader2 } from 'lucide-react'
 import { createTeacher } from './actions'
 
 export function CreateTeacherDialog() {
@@ -29,15 +29,12 @@ export function CreateTeacherDialog() {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [tempPassword, setTempPassword] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
   const [gender, setGender] = useState<'male' | 'female' | ''>('')
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsSubmitting(true)
     setError(null)
-    setTempPassword(null)
 
     const formData = new FormData(e.currentTarget)
     
@@ -54,20 +51,9 @@ export function CreateTeacherDialog() {
       hire_date: (formData.get('hire_date') as string) || undefined,
     })
 
-    if (result.success && result.tempPassword) {
-      setTempPassword(result.tempPassword)
+    if (result.success) {
       router.refresh()
-      // Don't close dialog yet - show password first
-      // If a downloadable file was returned, trigger browser download
-      if (result.downloadBase64 && result.downloadFilename) {
-        const href = `data:text/plain;charset=utf-8;base64,${result.downloadBase64}`
-        const a = document.createElement('a')
-        a.href = href
-        a.download = result.downloadFilename
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-      }
+      handleClose()
     } else {
       setError(result.error || 'Failed to create teacher')
     }
@@ -77,18 +63,8 @@ export function CreateTeacherDialog() {
 
   const handleClose = () => {
     setOpen(false)
-    setTempPassword(null)
     setError(null)
     setGender('')
-    setCopied(false)
-  }
-
-  const copyPassword = () => {
-    if (tempPassword) {
-      navigator.clipboard.writeText(tempPassword)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
   }
 
   return (
@@ -107,43 +83,7 @@ export function CreateTeacherDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        {tempPassword ? (
-          <div className="space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-green-800 font-medium mb-2">Teacher Created Successfully!</p>
-              <p className="text-sm text-green-700">
-                The teacher account has been created. Please share the temporary password below with the teacher.
-              </p>
-            </div>
-
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-3">
-              <Label className="text-sm font-medium text-amber-900">Temporary Password</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={tempPassword}
-                  readOnly
-                  className="font-mono bg-white"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={copyPassword}
-                  className="shrink-0"
-                >
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-amber-700">
-                ⚠️ Make sure to copy this password. The teacher should change it on first login.
-              </p>
-            </div>
-
-            <div className="flex justify-end">
-              <Button onClick={handleClose}>Done</Button>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
             {/* Personal Information */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-gray-700 border-b pb-2">Personal Information</h3>
@@ -284,8 +224,7 @@ export function CreateTeacherDialog() {
                 Create Teacher
               </Button>
             </div>
-          </form>
-        )}
+        </form>
       </DialogContent>
     </Dialog>
   )

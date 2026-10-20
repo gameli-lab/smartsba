@@ -29,7 +29,6 @@ export function CreateParentDialog({ students }: Props) {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [tempPassword, setTempPassword] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [fullName, setFullName] = useState('')
@@ -138,14 +137,12 @@ export function CreateParentDialog({ students }: Props) {
           : 'Parent account already exists and is ready. No new links were added.'
       )
     }
-    setTempPassword((result.tempPassword as string | null) || null)
     router.refresh()
   }
 
   const resetAndClose = () => {
     setOpen(false)
     setError(null)
-    setTempPassword(null)
     setSuccessMessage(null)
     setSelectedStudents([])
     setFullName('')
@@ -169,13 +166,6 @@ export function CreateParentDialog({ students }: Props) {
         {successMessage ? (
           <div className="space-y-4">
             <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">{successMessage}</p>
-            {tempPassword && (
-              <div className="space-y-2">
-                <Label>Temporary Password</Label>
-                <Input value={tempPassword} readOnly className="font-mono" />
-                <p className="text-xs text-amber-700">Share this password once. It is not shown again.</p>
-              </div>
-            )}
             <div className="flex justify-end">
               <Button onClick={resetAndClose}>Done</Button>
             </div>

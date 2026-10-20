@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Bell, User, KeyRound, LogOut } from 'lucide-react'
+import { Bell, User, LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { AuthService } from '@/lib/auth'
 
@@ -41,10 +41,6 @@ export function TeacherTopbar({ teacherName, teacherEmail, role, currentSession 
 
   const handleProfile = () => {
     router.push('/profile')
-  }
-
-  const handleChangePassword = () => {
-    router.push('/auth/change-password')
   }
 
   return (
@@ -94,10 +90,6 @@ export function TeacherTopbar({ teacherName, teacherEmail, role, currentSession 
               <DropdownMenuItem onClick={handleProfile}>
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleChangePassword}>
-                <KeyRound className="mr-2 h-4 w-4" />
-                <span>Change Password</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-red-600">

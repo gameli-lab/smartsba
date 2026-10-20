@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers the OTP implementation for SmartSBA, which provides an alternative second factor authentication method via email or SMS in addition to authenticator apps.
+This guide covers the OTP implementation for SmartSBA, which provides passwordless login and an email/SMS second-factor method in addition to authenticator apps.
 
 ## Architecture
 
@@ -18,13 +18,12 @@ This guide covers the OTP implementation for SmartSBA, which provides an alterna
 ### Authentication Flow
 
 ```
-1. User enters credentials (password-first flow)
-2. Successful password auth
-3. User is redirected to /mfa-challenge for MFA
-4. User selects either:
+1. User completes the passwordless OTP or magic-link login flow
+2. Privileged users are redirected to /mfa-challenge for MFA
+3. User selects either:
    a. Authenticator (TOTP)
    b. Email Code (OTP sent via email)
-5. Upon successful MFA, user is redirected to their dashboard
+4. Upon successful MFA, user is redirected to their dashboard
 ```
 
 ### OTP Cookie
@@ -284,7 +283,7 @@ Expected Response:
 1. Navigate to login page
 2. Select "Staff" role
 3. Enter school-admin credentials
-4. Upon successful password auth, should redirect to `/mfa-challenge?next=%2Fschool-admin`
+4. Upon successful passwordless login, privileged users should redirect to `/mfa-challenge?next=%2Fschool-admin`
 5. On MFA Challenge page:
    - See "Authenticator" and "Email Code" tabs
    - Click "Email Code" tab

@@ -29,16 +29,6 @@ export function calculateAge(birthDate: Date | string): number {
   return age
 }
 
-// Utility to generate random password
-export function generatePassword(length: number = 8): string {
-  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-  let password = ""
-  for (let i = 0; i < length; i++) {
-    password += charset.charAt(Math.floor(Math.random() * charset.length))
-  }
-  return password
-}
-
 // Utility to calculate grade from score
 export function calculateGrade(score: number): string {
   if (score >= 80) return 'A'

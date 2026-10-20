@@ -51,13 +51,6 @@ interface ImportFailure {
 interface ImportResult {
   imported: number
   failed: ImportFailure[]
-  credentials: Array<{
-    row: number
-    full_name: string
-    email: string
-    admission_number: string
-    temp_password: string
-  }>
 }
 
 function normalizeDate(value: unknown): string | undefined {
@@ -96,10 +89,6 @@ function validateEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
-function randomTempPassword(prefix: string) {
-  return `${prefix}@${Math.random().toString(36).slice(-8)}`
-}
-
 function normalizePhone(value?: string | null) {
   if (!value) return null
   return value.replace(/[^0-9+]/g, '')
@@ -113,7 +102,7 @@ type ParentResolutionResult =
   | {
       status: 'created_and_linked'
       parentProfileId: string
-      parentTempPassword: string
+      parentUserId: string
     }
   | {
       status: 'linked_existing_parent'
@@ -213,10 +202,8 @@ async function resolveGuardianParentForStudent(params: {
     return { status: 'linked_existing_parent', parentProfileId, parentUserId: existingProfile.user_id }
   }
 
-  const parentTempPassword = randomTempPassword('Parent')
   const { data: parentAuthUser, error: parentAuthError } = await params.adminSupabase.auth.admin.createUser({
     email: guardianEmail,
-    password: parentTempPassword,
     email_confirm: true,
   })
 
@@ -268,7 +255,6 @@ async function resolveGuardianParentForStudent(params: {
     status: 'created_and_linked',
     parentProfileId: parentProfileData.id as string,
     parentUserId,
-    parentTempPassword,
   }
 }
 
@@ -387,11 +373,8 @@ export async function createStudent(input: CreateStudentInput) {
       return { success: false, error: 'Class not found' }
     }
 
-    const tempPassword = randomTempPassword('Student')
-
     const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
       email: input.email,
-      password: tempPassword,
       email_confirm: true,
     })
 
@@ -503,10 +486,8 @@ export async function createStudent(input: CreateStudentInput) {
 
     return {
       success: true,
-      tempPassword,
       studentId: insertedStudent.id,
       parentResolution,
-      parentTempPassword: parentResolution.status === 'created_and_linked' ? parentResolution.parentTempPassword : null,
     }
   } catch (error) {
     console.error('Error in createStudent:', error)
@@ -760,14 +741,6 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
     const inFileEmails = new Set<string>()
 
     const failures: ImportFailure[] = []
-    const credentials: Array<{
-      row: number
-      full_name: string
-      email: string
-      admission_number: string
-      temp_password: string
-    }> = []
-
     // First pass: validate all rows and collect into batches for processing
     interface ValidatedRow {
       rowIndex: number
@@ -846,21 +819,18 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
       rowIndex: number
       userId?: string
       error?: string
-      tempPassword?: string
     }
     const authResults: AuthResult[] = await Promise.all(
       validatedRows.map(async ({ rowIndex, payload }) => {
-        const tempPassword = randomTempPassword('Student')
         const finalEmail = payload.email || `student.${payload.admission_number}@school.local`
         const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
           email: finalEmail,
-          password: tempPassword,
           email_confirm: true,
         })
         if (authError || !authUser.user) {
           return { rowIndex, error: authError?.message || 'Failed to create auth user' }
         }
-        return { rowIndex, userId: authUser.user.id, tempPassword }
+        return { rowIndex, userId: authUser.user.id }
       })
     )
 
@@ -952,26 +922,6 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
 
           successCount = studentInserts.length
 
-          // Build credentials list for successful imports
-          const credentialsList = successfulAuthResults.map((result) => {
-            const validated = validatedRows.find((vr) => vr.rowIndex === result.rowIndex)
-            if (!validated) return null
-            const finalEmail = validated.payload.email || `student.${validated.payload.admission_number}@school.local`
-            return {
-              row: result.rowIndex,
-              full_name: validated.payload.full_name,
-              email: finalEmail,
-              admission_number: validated.payload.admission_number,
-              temp_password: result.tempPassword || '',
-            }
-          }).filter((c) => c !== null) as Array<{
-            row: number
-            full_name: string
-            email: string
-            admission_number: string
-            temp_password: string
-          }>
-          credentials.push(...credentialsList)
         }
       }
     }
@@ -987,7 +937,7 @@ export async function importStudents(formData: FormData): Promise<{ success: boo
       })
     }
 
-    return { success: true, result: { imported: successCount, failed: failures, credentials } }
+    return { success: true, result: { imported: successCount, failed: failures } }
   } catch (error) {
     console.error('Error in importStudents:', error)
     return { success: false, error: 'Failed to import students' }

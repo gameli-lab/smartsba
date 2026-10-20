@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Loader2, Plus, Check, Copy } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
 import { createStudent } from './actions'
 import { useRouter } from 'next/navigation'
 import type { Class } from '@/types'
@@ -43,11 +43,6 @@ export function CreateStudentDialog({ classes, guardianSuggestions, parentAccoun
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [tempPassword, setTempPassword] = useState<string | null>(null)
-  const [parentTempPassword, setParentTempPassword] = useState<string | null>(null)
-  const [parentInfo, setParentInfo] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [copiedParent, setCopiedParent] = useState(false)
   const [gender, setGender] = useState<'male' | 'female' | ''>('')
   const [classId, setClassId] = useState('')
   const [guardianName, setGuardianName] = useState('')
@@ -58,9 +53,6 @@ export function CreateStudentDialog({ classes, guardianSuggestions, parentAccoun
     e.preventDefault()
     setIsSubmitting(true)
     setError(null)
-    setTempPassword(null)
-    setParentTempPassword(null)
-    setParentInfo(null)
 
     const formData = new FormData(e.currentTarget)
 
@@ -95,34 +87,17 @@ export function CreateStudentDialog({ classes, guardianSuggestions, parentAccoun
       | undefined
 
     if (parentResolution?.status === 'created_and_linked') {
-      setParentInfo('Parent account was auto-created and linked to this student.')
-      setParentTempPassword((result.parentTempPassword as string | null) || null)
     } else if (parentResolution?.status === 'linked_existing_parent') {
-      setParentInfo('Existing parent account was auto-linked to this student.')
-      setParentTempPassword(null)
     } else if (parentResolution?.status === 'conflict_existing_non_parent_email') {
-      setParentInfo(`Guardian email already belongs to a ${parentResolution.existingRole || 'non-parent'} account. Parent was not auto-created.`)
-      setParentTempPassword(null)
     } else {
-      setParentInfo(null)
-      setParentTempPassword(null)
     }
 
-    if (result.tempPassword) {
-      setTempPassword(result.tempPassword)
-    } else {
-      setOpen(false)
-    }
+    setOpen(false)
   }
 
   const handleClose = () => {
     setOpen(false)
     setError(null)
-    setTempPassword(null)
-    setParentTempPassword(null)
-    setParentInfo(null)
-    setCopied(false)
-    setCopiedParent(false)
     setGender('')
     setClassId('')
     setGuardianName('')
@@ -180,20 +155,6 @@ export function CreateStudentDialog({ classes, guardianSuggestions, parentAccoun
           ? 'name'
           : null
 
-  const copyPassword = () => {
-    if (!tempPassword) return
-    navigator.clipboard.writeText(tempPassword)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const copyParentPassword = () => {
-    if (!parentTempPassword) return
-    navigator.clipboard.writeText(parentTempPassword)
-    setCopiedParent(true)
-    setTimeout(() => setCopiedParent(false), 2000)
-  }
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -208,48 +169,7 @@ export function CreateStudentDialog({ classes, guardianSuggestions, parentAccoun
           <DialogDescription>Create a new student record and account</DialogDescription>
         </DialogHeader>
 
-        {tempPassword ? (
-          <div className="space-y-4">
-            <Alert className="bg-green-50 border-green-200">
-              <AlertTitle className="text-green-800">Student Created</AlertTitle>
-              <AlertDescription className="text-green-700">
-                Share this temporary password with the student. They should change it on first login.
-              </AlertDescription>
-            </Alert>
-            <div className="space-y-2">
-              <Label>Temporary Password</Label>
-              <div className="flex gap-2">
-                <Input value={tempPassword} readOnly className="font-mono" />
-                <Button type="button" variant="outline" onClick={copyPassword}>
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-amber-700">Copy this now; it will not be shown again.</p>
-            </div>
-            {parentInfo && (
-              <Alert className="bg-blue-50 border-blue-200">
-                <AlertTitle className="text-blue-800">Parent Enrollment</AlertTitle>
-                <AlertDescription className="text-blue-700">{parentInfo}</AlertDescription>
-              </Alert>
-            )}
-            {parentTempPassword && (
-              <div className="space-y-2">
-                <Label>Parent Temporary Password</Label>
-                <div className="flex gap-2">
-                  <Input value={parentTempPassword} readOnly className="font-mono" />
-                  <Button type="button" variant="outline" onClick={copyParentPassword}>
-                    {copiedParent ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <p className="text-xs text-amber-700">Share only with the guardian. It will not be shown again.</p>
-              </div>
-            )}
-            <div className="flex justify-end">
-              <Button onClick={handleClose}>Done</Button>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 space-y-2">
                 <Label>Full Name *</Label>
@@ -379,8 +299,7 @@ export function CreateStudentDialog({ classes, guardianSuggestions, parentAccoun
                 Create Student
               </Button>
             </div>
-          </form>
-        )}
+        </form>
       </DialogContent>
     </Dialog>
   )

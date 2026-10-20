@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase'
-import { sendUserCreatedEmail } from '@/services/emailService'
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,11 +24,8 @@ export async function POST(req: NextRequest) {
 
     const adminSupabase = createAdminSupabaseClient()
 
-    const tempPassword = `Teacher@${Math.random().toString(36).slice(-8)}`
-
     const { data: authUser, error: authError } = await adminSupabase.auth.admin.createUser({
       email,
-      password: tempPassword,
       email_confirm: true,
     })
 
@@ -95,47 +91,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Failed to create teacher record' }, { status: 500 })
     }
 
-    // generate plain-text credentials file
-    const credentialsText = [
-      'Teacher Credentials',
-      `Full name: ${full_name}`,
-      `Email: ${email}`,
-      `Staff ID: ${staff_id}`,
-      `Temporary password: ${tempPassword}`,
-      `Phone: ${phone || ''}`,
-      `Gender: ${gender || ''}`,
-      `Date of birth: ${date_of_birth || ''}`,
-      `Address: ${address || ''}`,
-      `Specialization: ${specialization || ''}`,
-      `Qualification: ${qualification || ''}`,
-      `Hire date: ${hire_date || ''}`,
-    ].join('\n')
-
-    const downloadBase64 = Buffer.from(credentialsText, 'utf8').toString('base64')
-    const downloadFilename = `teacher_${staff_id}_${new Date().toISOString().slice(0,10)}.txt`
-
-    // attempt to send email
-    try {
-      const { data: schoolRow } = await (adminSupabase as any)
-        .from('schools')
-        .select('name')
-        .eq('id', school_id)
-        .maybeSingle()
-      const schoolName = schoolRow?.name || 'Your School'
-      await sendUserCreatedEmail({
-        userName: full_name,
-        userEmail: email,
-        userId,
-        role: 'teacher',
-        schoolName,
-        schoolId: school_id,
-        temporaryPassword: tempPassword,
-      })
-    } catch (e) {
-      console.error('Email send failed', e)
-    }
-
-    return NextResponse.json({ success: true, tempPassword, downloadBase64, downloadFilename })
+    return NextResponse.json({ success: true, userId, passwordless: true })
   } catch (error) {
     console.error('Dev create teacher error', error)
     return NextResponse.json({ success: false, error: 'Unexpected error' }, { status: 500 })

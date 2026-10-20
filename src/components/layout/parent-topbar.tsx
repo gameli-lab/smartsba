@@ -141,7 +141,6 @@ export function ParentTopbar({
               <UserCircle className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </DropdownMenuItem>
-            <DropdownMenuItem>Change Password</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-red-600">Logout</DropdownMenuItem>
           </DropdownMenuContent>

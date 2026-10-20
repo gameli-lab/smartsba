@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { randomBytes } from 'crypto';
 import logAudit from '@/lib/audit';
 
 export async function POST(request: NextRequest) {
@@ -175,36 +174,9 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Generate cryptographically secure temporary password
-        const generateSecurePassword = (length: number = 16): string => {
-          const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*!';
-          const bytes = randomBytes(length);
-          let password = '';
-
-          for (let i = 0; i < length; i++) {
-            password += charset[bytes[i] % charset.length];
-          }
-
-          // Ensure password contains at least one of each required type
-          const hasUpper = /[A-Z]/.test(password);
-          const hasLower = /[a-z]/.test(password);
-          const hasDigit = /\d/.test(password);
-          const hasSymbol = /[@#$%&*!]/.test(password);
-
-          if (!hasUpper || !hasLower || !hasDigit || !hasSymbol) {
-            // If missing required types, generate again (recursive)
-            return generateSecurePassword(length);
-          }
-
-          return password;
-        };
-
-        const tempPassword = generateSecurePassword(16);
-
         // Create auth user using admin client
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
           email: admin.email,
-          password: tempPassword,
           email_confirm: true,
           user_metadata: {
             full_name: admin.name,
@@ -265,7 +237,6 @@ export async function POST(request: NextRequest) {
           createdAdmins.push({
             name: admin.name,
             email: admin.email,
-            password: tempPassword,
             role: admin.role || 'School Admin',
             staff_id: admin.staff_id,
             user_id: authData.user.id,

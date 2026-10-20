@@ -1,10 +1,10 @@
 # Incident Recovery Runbook: Supabase Auth Lockout on Production
 
-Use this when all credentials fail on the production site and password reset flows are broken because production is still using localhost-oriented auth settings.
+Use this when all credentials fail on the production site because production is still using localhost-oriented auth settings.
 
 ## Goal
 
-Restore Super Admin access on the live site, then verify the login and reset flows end to end.
+Restore Super Admin access on the live site, then verify the passwordless login flow end to end.
 
 ## Assumptions
 
@@ -22,7 +22,6 @@ In Supabase Dashboard, open Auth settings and set:
 - Additional Redirect URLs:
   - `https://smartsba.netlify.app/login`
   - `https://smartsba.netlify.app/auth/login`
-  - `https://smartsba.netlify.app/reset-password`
   - `https://smartsba.netlify.app/mfa-challenge`
   - `http://localhost:3000/**`
   - Any Netlify preview URLs you use
@@ -49,28 +48,28 @@ This is already captured in `netlify.toml`.
 
 ## 2. Recover Super Admin Access
 
-### Option A: Reset the password directly in Supabase
+### Option A: Restore passwordless access
 
 If you need the fastest path back in:
 
 1. Open Supabase Dashboard.
 2. Go to Authentication -> Users.
 3. Find the Super Admin user.
-4. Set a temporary password or trigger a password reset from the dashboard.
+4. Use the configured OTP or magic-link channel to sign in.
 5. Sign in again on `https://smartsba.netlify.app/login`.
 
 ### Option B: Repair the profile linkage
 
-If the password is correct but login still fails with profile lookup or role issues:
+If passwordless login still fails with profile lookup or role issues:
 
 1. Check whether the `user_profiles.user_id` matches the Supabase Auth user ID.
 2. Apply the profile repair script:
 
-- `fix_super_admin_profile.sql`
+- [`fix_super_admin_profile.sql`](../fix_super_admin_profile.sql)
 
 3. If the issue is caused by RLS recursion or policy mismatch, apply the emergency policy fix:
 
-- `emergency_fix_rls.sql`
+- [`emergency_fix_rls.sql`](../emergency_fix_rls.sql)
 
 4. Retest login immediately after applying the fix.
 
@@ -89,16 +88,16 @@ Confirm all of the following:
 
 - Super Admin can log in on production.
 - The browser no longer redirects with a configuration error.
-- OTP and password reset links point to `https://smartsba.netlify.app`.
+- OTP and magic-link redirects point to `https://smartsba.netlify.app`.
 - `/auth/login` resolves to `/login`.
-- Privileged pages load without unexpected forced-reset loops.
+- Privileged pages load without unexpected authentication loops.
 - No user-facing localhost links appear in emailed auth flows.
 
 ## 5. Follow-Up Hardening
 
 After access is restored, schedule these cleanup tasks:
 
-- Replace any placeholder reset-approval email sender with a real provider.
+- Verify the configured OTP and magic-link email sender with a real provider.
 - Remove localhost defaults from all login and onboarding email templates.
 - Add a pre-deploy check that fails when production auth URLs are missing.
 - Rotate any exposed Supabase keys if they were committed or shared during debugging.
@@ -110,7 +109,5 @@ After access is restored, schedule these cleanup tasks:
 - `src/services/emailService.ts`
 - `middleware.ts`
 - `netlify.toml`
-- `docs/SUPER_ADMIN_LOGIN_FIX.md`
-- `docs/ADMIN_CREATION_ENV_SETUP.md`
 - `fix_super_admin_profile.sql`
 - `emergency_fix_rls.sql`

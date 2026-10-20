@@ -9,7 +9,6 @@ Implemented a comprehensive email notification system with delivery tracking, pr
 **File:** `/src/lib/email-templates.ts`
 
 Professional HTML email templates with:
-- **School Created**: Welcome email for new school admins with login credentials
 - **User Created**: Welcome email for any new user with role-based messaging  
 - **Role Changed**: Notification when user's role is updated
 - **School Status Changed**: Alerts for school activation/deactivation
@@ -17,9 +16,8 @@ Professional HTML email templates with:
 Features:
 - Responsive HTML design with gradient headers
 - Plain text fallbacks for email clients
-- Dynamic content injection (names, passwords, URLs)
+- Dynamic content injection (names and URLs)
 - Professional branding and styling
-- Security warnings for temporary passwords
 
 ### 2. Email Service Layer
 **File:** `/src/services/emailService.ts`
@@ -95,7 +93,6 @@ Helper Functions:
 #### School Operations
 **File:** `/src/components/schools/create-school-form.tsx`
 - Sends welcome email to school admin after creation
-- Includes login credentials and temporary password
 - Email sent in `handleAdminCreation()` function
 
 **File:** `/src/app/(dashboard)/dashboard/super-admin/schools/actions.ts`
@@ -107,7 +104,6 @@ Helper Functions:
 #### User Operations
 **File:** `/src/app/api/create-admins/route.ts`
 - Sends welcome email after user creation
-- Includes role information and temporary password
 - Non-blocking send (failures logged but don't stop creation)
 
 **File:** `/src/components/layout/sidebar.tsx`
@@ -221,7 +217,6 @@ NEXT_PUBLIC_APP_URL=https://yourdomain.com
 
 ## 🔒 Security Considerations
 
-- Email content contains temporary passwords - ensure HTTPS/TLS for email provider
 - RLS policies prevent users from seeing other users' emails
 - Helper functions use `SECURITY DEFINER` for controlled access
 - Email sending is non-blocking to prevent DOS attacks

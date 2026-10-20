@@ -139,7 +139,6 @@ cursor.execute("SELECT * FROM users WHERE id = " + id);
 ```
 // HIGH — sensitive data in query parameters
 GET /api/user?email=user@example.com&cpf=123.456.789-00
-GET /reset-password?token=eyJhbGc...
 POST /login?password=...
 ```
 
@@ -509,7 +508,6 @@ export const apiRateLimit = rateLimit({
 // Apply
 app.use("/api/auth/login",          authRateLimit);
 app.use("/api/auth/register",       authRateLimit);
-app.use("/api/auth/reset-password", passwordResetLimit);
 app.use("/api/",                    apiRateLimit);
 ```
 

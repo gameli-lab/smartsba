@@ -21,7 +21,6 @@ export function PromoteGuardianButton({ studentId, disabled = false }: Props) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [tempPassword, setTempPassword] = useState<string | null>(null)
   const [showResolver, setShowResolver] = useState(false)
   const [candidates, setCandidates] = useState<Array<{ id: string; full_name: string; email: string | null; phone: string | null }>>([])
   const [selectedParentId, setSelectedParentId] = useState('')
@@ -29,7 +28,6 @@ export function PromoteGuardianButton({ studentId, disabled = false }: Props) {
   const onPromote = () => {
     setError(null)
     setSuccess(null)
-    setTempPassword(null)
 
     startTransition(async () => {
       const result = await promoteGuardianFromStudent(studentId)
@@ -50,9 +48,6 @@ export function PromoteGuardianButton({ studentId, disabled = false }: Props) {
 
       const modeText = result.createdNew ? 'Created new parent account' : 'Linked existing parent account'
       setSuccess(`${modeText}. Linked wards: ${result.linkedCount}.`)
-      if (result.tempPassword) {
-        setTempPassword(result.tempPassword)
-      }
     })
   }
 
@@ -60,7 +55,6 @@ export function PromoteGuardianButton({ studentId, disabled = false }: Props) {
     if (!selectedParentId) return
     setError(null)
     setSuccess(null)
-    setTempPassword(null)
 
     startTransition(async () => {
       const result = await linkStudentGuardianToParent(studentId, selectedParentId)
@@ -76,7 +70,6 @@ export function PromoteGuardianButton({ studentId, disabled = false }: Props) {
   const onSyncSnapshot = () => {
     setError(null)
     setSuccess(null)
-    setTempPassword(null)
 
     startTransition(async () => {
       const result = await syncGuardianSnapshotToLinkedParents(studentId)
@@ -100,12 +93,6 @@ export function PromoteGuardianButton({ studentId, disabled = false }: Props) {
       </div>
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
       {success ? <p className="text-xs text-green-700">{success}</p> : null}
-      {tempPassword ? (
-        <p className="text-xs text-amber-700">
-          Temporary parent password: <span className="font-mono">{tempPassword}</span>
-        </p>
-      ) : null}
-
       <Dialog open={showResolver} onOpenChange={setShowResolver}>
         <DialogContent>
           <DialogHeader>

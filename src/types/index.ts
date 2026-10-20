@@ -285,7 +285,6 @@ export interface DashboardStats {
 // Form Types
 export interface LoginForm {
   identifier: string
-  password: string
   role: UserRole
   wardAdmissionNumber?: string
 }
@@ -321,7 +320,6 @@ export interface TeacherForm {
   specialization?: string
   qualification?: string
   hire_date?: string
-  password: string
 }
 
 // Subject Catalog (from migration 033 - system-wide subject definitions)

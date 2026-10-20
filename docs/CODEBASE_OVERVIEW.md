@@ -53,7 +53,6 @@ smartsba/
 │   │   ├── ai/                # AI command center
 │   │   ├── mfa-challenge/     # MFA verification
 │   │   ├── profile/           # Profile editing
-│   │   ├── reset-password/    # Password reset
 │   │   └── api/               # API routes
 │   ├── components/            # Reusable UI components
 │   │   ├── ai/               # AI-related components
@@ -78,8 +77,6 @@ smartsba/
 │   │   ├── mfa-session.ts    # MFA cookie management
 │   │   ├── otp-session.ts    # OTP cookie verification
 │   │   ├── rate-limit.ts     # Rate limiting
-│   │   ├── password-policy.ts # Password strength enforcement
-│   │   ├── login-security.ts # Login attempt tracking & lockout
 │   │   ├── schools.ts        # School CRUD
 │   │   ├── school-operations.ts # School business operations
 │   │   ├── school-metrics.ts # School analytics
@@ -140,14 +137,14 @@ smartsba/
 
 | Role | Login Method | MFA Required | Redirect Path |
 |------|-------------|--------------|---------------|
-| **super_admin** | Email + password | Yes | `/dashboard/super-admin` |
-| **school_admin** | Staff ID + password | Yes | `/school-admin` |
-| **teacher** | Staff ID + password | No | `/teacher` |
-| **student** | Admission Number + password | No | `/student` |
-| **parent** | Name + Ward Admission Number + password | No | `/parent` |
+| **super_admin** | Email + OTP or magic link | Yes | `/dashboard/super-admin` |
+| **school_admin** | Staff ID + OTP or magic link | Yes | `/school-admin` |
+| **teacher** | Staff ID + OTP or magic link | No | `/teacher` |
+| **student** | Admission Number + OTP or magic link | No | `/student` |
+| **parent** | Name + Ward Admission Number + OTP or magic link | No | `/parent` |
 
 ### Auth Flow
-1. **Login** → identifier lookup → Supabase auth sign-in → profile fetch → role-based redirect
+1. **Login** → identifier resolution → OTP or magic-link verification → profile fetch → role-based redirect
 2. **MFA** → TOTP verification for privileged roles (super_admin, school_admin)
 3. **OTP** → Email-based one-time passwords as MFA alternative
 4. **Session** → Activity tracking via cookie, configurable timeout (default 60 min)
@@ -222,7 +219,7 @@ smartsba/
 
 | Route Group | Purpose |
 |-------------|---------|
-| `/api/auth/*` | Login security, logout, MFA, OTP, staff/student/parent lookups |
+| `/api/auth/*` | Passwordless login, logout, MFA, and OTP verification |
 | `/api/schools/*` | School CRUD |
 | `/api/classes/*` | Class management |
 | `/api/teacher/*` | Teacher dashboard data |
@@ -233,7 +230,6 @@ smartsba/
 | `/api/super-admin/*` | Super admin ops (assume-role, security, dummy data, GitHub, Twilio) |
 | `/api/super-admins/*` | Super admin CRUD |
 | `/api/audit-logs/*` | Audit log queries |
-| `/api/password-reset/*` | Password reset workflow (request, approval, complete) |
 | `/api/ai/*` | AI command, findings, test cases |
 | `/api/create-admins/*` | Admin creation |
 | `/api/dev/*` | Dev utilities |

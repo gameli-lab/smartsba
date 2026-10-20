@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Bell, User, KeyRound, LogOut, Home } from 'lucide-react'
+import { Bell, User, LogOut, Home } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { AuthService } from '@/lib/auth'
 import Image from 'next/image'
@@ -48,10 +48,6 @@ export function SchoolAdminNavbar({
 
   const handleProfile = () => {
     router.push('/profile')
-  }
-
-  const handleChangePassword = () => {
-    // TODO: Navigate to change password page in later stages
   }
 
   // Get user initials for avatar fallback
@@ -146,10 +142,6 @@ export function SchoolAdminNavbar({
               <DropdownMenuItem onClick={handleProfile}>
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleChangePassword}>
-                <KeyRound className="mr-2 h-4 w-4" />
-                <span>Change Password</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

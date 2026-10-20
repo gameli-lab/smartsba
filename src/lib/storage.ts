@@ -33,63 +33,6 @@ export const getSchoolAssetSignedUrl = async (
 }
 
 /**
- * Generate signed URLs for multiple files at once
- * @param filePaths - Array of file paths
- * @param expiresIn - Expiration time in seconds
- * @returns Promise<Record<string, string | null>> - Object mapping file paths to signed URLs
- */
-export const getMultipleSchoolAssetUrls = async (
-  filePaths: string[],
-  expiresIn: number = 3600
-): Promise<Record<string, string | null>> => {
-  try {
-    const results: Record<string, string | null> = {}
-    
-    const urlPromises = filePaths.map(async (filePath) => {
-      const signedUrl = await getSchoolAssetSignedUrl(filePath, expiresIn)
-      return { filePath, signedUrl }
-    })
-
-    const resolvedUrls = await Promise.all(urlPromises)
-    
-    resolvedUrls.forEach(({ filePath, signedUrl }) => {
-      results[filePath] = signedUrl
-    })
-
-    return results
-  } catch (error) {
-    console.error('Error generating multiple signed URLs:', error)
-    return {}
-  }
-}
-
-/**
- * Check if a file path is accessible to the current user
- * Uses the database function to verify permissions
- * @param filePath - The file path to check
- * @returns Promise<boolean> - true if accessible, false otherwise
- */
-export const canAccessSchoolAsset = async (filePath: string): Promise<boolean> => {
-  try {
-    // Type assertion needed until Supabase types are regenerated
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase as any).rpc('get_school_asset_url', {
-      file_path: filePath
-    })
-
-    if (error) {
-      console.error('Error checking file access:', error)
-      return false
-    }
-
-    return data !== null
-  } catch (error) {
-    console.error('Error verifying file access:', error)
-    return false
-  }
-}
-
-/**
  * Upload a file to school-assets bucket with proper folder structure
  * @param file - The file to upload
  * @param schoolId - The school ID for folder organization
@@ -213,32 +156,5 @@ export const deleteSchoolAsset = async (
   } catch (error) {
     console.error('Error deleting file:', error)
     return false
-  }
-}
-
-/**
- * Get file info without downloading
- * @param filePath - The path to the file
- * @returns Promise<{size: number, mimeType: string} | null>
- */
-export const getSchoolAssetInfo = async (filePath: string) => {
-  try {
-    const { data, error } = await supabase.storage
-      .from('school-assets')
-      .list(filePath.split('/').slice(0, -1).join('/'), {
-        search: filePath.split('/').pop()
-      })
-
-    if (error || !data || data.length === 0) return null
-
-    const fileInfo = data[0]
-    return {
-      size: fileInfo.metadata?.size || 0,
-      mimeType: fileInfo.metadata?.mimetype || 'unknown',
-      lastModified: fileInfo.updated_at
-    }
-  } catch (error) {
-    console.error('Error getting file info:', error)
-    return null
   }
 }

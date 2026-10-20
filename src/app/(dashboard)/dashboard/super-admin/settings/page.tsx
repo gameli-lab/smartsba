@@ -78,11 +78,6 @@ export default function SettingsPage() {
 
   // Security form state
   const [securityValues, setSecurityValues] = useState({
-    password_min_length: 8,
-    password_require_uppercase: true,
-    password_require_lowercase: true,
-    password_require_number: true,
-    password_require_special: false,
     login_lockout_attempts: 5,
     login_lockout_duration_minutes: 30,
     session_timeout_minutes: 60,
@@ -228,11 +223,6 @@ export default function SettingsPage() {
       setResultsDirty(false)
 
       // Initialize security form values from settings
-      const password_min_length = result.settings.find(s => s.setting_key === 'security.password_min_length')?.setting_value
-      const password_require_uppercase = result.settings.find(s => s.setting_key === 'security.password_require_uppercase')?.setting_value
-      const password_require_lowercase = result.settings.find(s => s.setting_key === 'security.password_require_lowercase')?.setting_value
-      const password_require_number = result.settings.find(s => s.setting_key === 'security.password_require_number')?.setting_value
-      const password_require_special = result.settings.find(s => s.setting_key === 'security.password_require_special')?.setting_value
       const login_lockout_attempts = result.settings.find(s => s.setting_key === 'security.login_lockout_attempts')?.setting_value
       const login_lockout_duration_minutes = result.settings.find(s => s.setting_key === 'security.login_lockout_duration_minutes')?.setting_value
       const session_timeout_minutes = result.settings.find(s => s.setting_key === 'security.session_timeout_minutes')?.setting_value
@@ -240,11 +230,6 @@ export default function SettingsPage() {
       const mfa_failure_spike_threshold_per_hour = result.settings.find(s => s.setting_key === 'security.mfa_failure_spike_threshold_per_hour')?.setting_value
       
       setSecurityValues({
-        password_min_length: toNumberSetting(password_min_length, 8),
-        password_require_uppercase: toBooleanSetting(password_require_uppercase, true),
-        password_require_lowercase: toBooleanSetting(password_require_lowercase, true),
-        password_require_number: toBooleanSetting(password_require_number, true),
-        password_require_special: toBooleanSetting(password_require_special, false),
         login_lockout_attempts: toNumberSetting(login_lockout_attempts, 5),
         login_lockout_duration_minutes: toNumberSetting(login_lockout_duration_minutes, 30),
         session_timeout_minutes: toNumberSetting(session_timeout_minutes, 60),
@@ -510,11 +495,6 @@ export default function SettingsPage() {
 
     try {
       // Save all security settings
-      await updateSystemSetting('security.password_min_length', securityValues.password_min_length, userId, userRole)
-      await updateSystemSetting('security.password_require_uppercase', securityValues.password_require_uppercase, userId, userRole)
-      await updateSystemSetting('security.password_require_lowercase', securityValues.password_require_lowercase, userId, userRole)
-      await updateSystemSetting('security.password_require_number', securityValues.password_require_number, userId, userRole)
-      await updateSystemSetting('security.password_require_special', securityValues.password_require_special, userId, userRole)
       await updateSystemSetting('security.login_lockout_attempts', securityValues.login_lockout_attempts, userId, userRole)
       await updateSystemSetting('security.login_lockout_duration_minutes', securityValues.login_lockout_duration_minutes, userId, userRole)
       await updateSystemSetting('security.session_timeout_minutes', securityValues.session_timeout_minutes, userId, userRole)
@@ -1124,80 +1104,6 @@ export default function SettingsPage() {
               <AlertDescription>You have unsaved changes</AlertDescription>
             </Alert>
           )}
-          <Card>
-            <CardHeader>
-              <CardTitle>Password Policy</CardTitle>
-              <CardDescription>Platform-wide password requirements</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="min_length">Minimum Password Length</Label>
-                <Input
-                  id="min_length"
-                  type="number"
-                  min="6"
-                  max="20"
-                  value={securityValues.password_min_length}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value)
-                    if (!isNaN(value) && value >= 6 && value <= 20) {
-                      handleSecurityChange('password_min_length', value)
-                    }
-                  }}
-                  disabled={savingSecurity}
-                />
-              </div>
-
-              <div className="flex items-center justify-between space-x-2">
-                <Label htmlFor="require_uppercase">Require Uppercase Letter</Label>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="require_uppercase"
-                    checked={securityValues.password_require_uppercase}
-                    onCheckedChange={(checked: boolean) => handleSecurityChange('password_require_uppercase', checked)}
-                    disabled={savingSecurity}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between space-x-2">
-                <Label htmlFor="require_lowercase">Require Lowercase Letter</Label>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="require_lowercase"
-                    checked={securityValues.password_require_lowercase}
-                    onCheckedChange={(checked: boolean) => handleSecurityChange('password_require_lowercase', checked)}
-                    disabled={savingSecurity}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between space-x-2">
-                <Label htmlFor="require_number">Require Number</Label>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="require_number"
-                    checked={securityValues.password_require_number}
-                    onCheckedChange={(checked: boolean) => handleSecurityChange('password_require_number', checked)}
-                    disabled={savingSecurity}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between space-x-2">
-                <Label htmlFor="require_special">Require Special Character</Label>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="require_special"
-                    checked={securityValues.password_require_special}
-                    onCheckedChange={(checked: boolean) => handleSecurityChange('password_require_special', checked)}
-                    disabled={savingSecurity}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>Login Security</CardTitle>

@@ -9,7 +9,7 @@
 1. Go to **Supabase Dashboard** → **Authentication** → **Users**
 2. Click **"Add User"**
 3. Enter your email (e.g., `admin@yourschool.com`)
-4. Set a strong password
+4. Confirm the user is enabled for passwordless authentication
 5. Click **"Create User"**
 6. **Copy the User UUID** (you'll need this)
 
@@ -69,8 +69,9 @@ WHERE up.role = 'super_admin';
 
 1. Go to your Next.js app login page
 2. Select **"Super Admin"** role
-3. Enter the email and password you created
-4. You'll be logged in as Super Admin!
+3. Enter the email you created
+4. Complete the OTP or magic-link challenge
+5. You'll be logged in as Super Admin!
 
 ### **Super Admin Capabilities:**
 

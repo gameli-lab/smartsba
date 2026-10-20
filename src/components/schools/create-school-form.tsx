@@ -46,12 +46,10 @@ type SchoolAdminCredentials = {
   email: string;
   username: string;
   staff_id: string;
-  temporary_password: string | null;
   login_url: string;
-  email_sent: boolean;
-  email_error?: string | null;
   assigned_existing: boolean;
   user_id: string;
+  passwordless: boolean;
 };
 
 type SchoolCreationResponse = {
@@ -139,7 +137,6 @@ export default function CreateSchoolForm({
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [creationResult, setCreationResult] = useState<SchoolCreationResponse | null>(null);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [formData, setFormData] = useState<SchoolFormData>({
     name: school?.name || "",
     motto: school?.motto || "",
@@ -184,7 +181,6 @@ export default function CreateSchoolForm({
   const handleDialogOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
       setCreationResult(null)
-      setDownloadError(null)
     }
 
     onOpenChange(nextOpen)
@@ -209,50 +205,6 @@ export default function CreateSchoolForm({
       };
     });
   };
-
-  const sanitizeFilename = (value: string) =>
-    value
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '')
-
-  const downloadCredentialsText = (credentials: SchoolAdminCredentials, schoolName: string) => {
-    const fileName = `${sanitizeFilename(schoolName || 'school')}_admin_credentials.txt`
-    const content = [
-      'School Admin Credentials',
-      '========================',
-      `School Name: ${schoolName}`,
-      `Admin Email: ${credentials.email}`,
-      `Username: ${credentials.username}`,
-      `Staff ID: ${credentials.staff_id || '-'}`,
-      `Temporary Password: ${credentials.temporary_password || '-'}`,
-      `Login URL: ${credentials.login_url}`,
-      '',
-      'Security Notes',
-      '========================',
-      'Change the temporary password after first login.',
-      'Keep this file secure and delete it after use.',
-    ].join('\n')
-
-    try {
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
-      const objectUrl = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = objectUrl
-      link.download = fileName
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      URL.revokeObjectURL(objectUrl)
-      setDownloadError(null)
-      return true
-    } catch (error) {
-      console.error('Failed to auto-download credentials:', error)
-      setDownloadError('Automatic download was blocked. Use the fallback button below.')
-      return false
-    }
-  }
 
   // Enhanced file validation with security checks
   const validateImageFile = async (file: File): Promise<boolean> => {
@@ -435,7 +387,6 @@ export default function CreateSchoolForm({
     setLoading(true);
     try {
       setCreationResult(null);
-      setDownloadError(null);
 
       // Generate a temporary school ID for file organization
       const tempSchoolId = school?.id || crypto.randomUUID();
@@ -479,14 +430,10 @@ export default function CreateSchoolForm({
         setCreationResult(creation);
         onSchoolCreated();
 
-        if (creation.admin_credentials?.temporary_password) {
-          downloadCredentialsText(creation.admin_credentials, creation.school.name);
-        }
-
         if (creation.warning) {
           alert(`School created, but ${creation.warning}`);
         } else {
-          alert("School created. Admin credentials have been emailed and downloaded.");
+          alert("School created. The administrator can sign in with the passwordless login flow.");
         }
       } else {
         alert("School updated successfully!");
@@ -1185,9 +1132,8 @@ export default function CreateSchoolForm({
                       </h4>
                       <p className="text-sm text-blue-700 mt-1">
                         Login accounts will be automatically created for the
-                        administrators with temporary passwords. You&apos;ll be
-                        able to download or email the login credentials after
-                        creating the school.
+                        administrators. They can sign in through the passwordless
+                        OTP or magic-link flow.
                       </p>
                     </div>
                   </div>
@@ -1201,16 +1147,10 @@ export default function CreateSchoolForm({
               <CardHeader>
                 <CardTitle>School created</CardTitle>
                 <CardDescription>
-                  Admin credentials have been generated for {creationResult.school.name}.
+                  A passwordless administrator account has been created for {creationResult.school.name}.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {downloadError ? (
-                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                    {downloadError}
-                  </div>
-                ) : null}
-
                 {creationResult.admin_credentials ? (
                   <div className="space-y-2 rounded-md border bg-white p-4 text-sm dark:border-gray-800 dark:bg-gray-950">
                     <div><strong>Email:</strong> {creationResult.admin_credentials.email}</div>
@@ -1221,18 +1161,9 @@ export default function CreateSchoolForm({
                 ) : null}
 
                 <div className="flex flex-wrap gap-2">
-                  {creationResult.admin_credentials?.temporary_password ? (
-                    <Button
-                      variant="outline"
-                      onClick={() => downloadCredentialsText(creationResult.admin_credentials!, creationResult.school.name)}
-                    >
-                      Download Credentials
-                    </Button>
-                  ) : null}
                   <Button
                     onClick={() => {
                       setCreationResult(null)
-                      setDownloadError(null)
                       onSchoolCreated();
                       handleDialogOpenChange(false);
                     }}

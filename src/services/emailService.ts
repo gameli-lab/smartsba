@@ -16,7 +16,7 @@ const BASE_URL =
 interface SendEmailOptions {
   to: string
   userId?: string
-  type: 'school_created' | 'user_created' | 'role_changed' | 'school_status_changed' | 'login_otp' | 'magic_link'
+  type: 'role_changed' | 'school_status_changed' | 'login_otp' | 'magic_link'
   data: unknown
   metadata?: Record<string, unknown>
 }
@@ -195,10 +195,6 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
  */
 function getEmailTemplate(type: string, data: unknown) {
   switch (type) {
-    case 'school_created':
-      return emailTemplates.schoolCreated(data as Parameters<typeof emailTemplates.schoolCreated>[0])
-    case 'user_created':
-      return emailTemplates.userCreated(data as Parameters<typeof emailTemplates.userCreated>[0])
     case 'role_changed':
       return emailTemplates.roleChanged(data as Parameters<typeof emailTemplates.roleChanged>[0])
     case 'school_status_changed':
@@ -241,65 +237,6 @@ async function sendEmailViaProvider(
   })
 
   return true
-}
-
-/**
- * Send school creation notification email
- */
-export async function sendSchoolCreatedEmail(data: {
-  schoolName: string
-  adminName: string
-  adminEmail: string
-  adminUserId: string
-  temporaryPassword: string
-  schoolId: string
-}): Promise<EmailResult> {
-  return sendEmail({
-    to: data.adminEmail,
-    userId: data.adminUserId,
-    type: 'school_created',
-    data: {
-      schoolName: data.schoolName,
-      adminName: data.adminName,
-      adminEmail: data.adminEmail,
-      temporaryPassword: data.temporaryPassword,
-      loginUrl: `${BASE_URL}/login`,
-    },
-    metadata: {
-      school_id: data.schoolId,
-    },
-  })
-}
-
-/**
- * Send user creation notification email
- */
-export async function sendUserCreatedEmail(data: {
-  userName: string
-  userEmail: string
-  userId: string
-  role: string
-  schoolName: string
-  schoolId: string
-  temporaryPassword: string
-}): Promise<EmailResult> {
-  return sendEmail({
-    to: data.userEmail,
-    userId: data.userId,
-    type: 'user_created',
-    data: {
-      userName: data.userName,
-      userEmail: data.userEmail,
-      role: data.role,
-      schoolName: data.schoolName,
-      temporaryPassword: data.temporaryPassword,
-      loginUrl: `${BASE_URL}/login`,
-    },
-    metadata: {
-      school_id: data.schoolId,
-      role: data.role,
-    },
-  })
 }
 
 /**

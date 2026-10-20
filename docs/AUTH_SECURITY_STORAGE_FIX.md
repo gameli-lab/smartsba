@@ -19,7 +19,7 @@
 
 ### 2. **Storage RLS Error: Missing JWT Claims**
 
-**Problem**: Storage RLS policies for the `school-assets` bucket require JWT claims (`app_role` and `school_id`), but the `setUserClaims()` function was commented out, preventing these claims from being set during login.
+**Problem**: Storage RLS policies for the `school-assets` bucket require JWT claims (`app_role` and `school_id`). The claims must remain synchronized with profile changes for storage access to work correctly.
 
 **Error Message**:
 ```
@@ -33,15 +33,14 @@ current_setting('request.jwt.claims', true)::json ->> 'app_role' = 'school_admin
 current_setting('request.jwt.claims', true)::json ->> 'school_id' = ...
 ```
 
-These claims weren't being set because `setUserClaims()` was disabled.
+These claims are maintained by the database profile-change trigger and can be refreshed
+through the existing server action when needed.
 
 **Solution**: 
-1. **Enabled JWT Claims**: Uncommented the `setUserClaims()` function call in [src/lib/auth.ts](src/lib/auth.ts#L322-L336)
+1. **JWT Claims**: Profile changes maintain the claims through the database trigger and refresh action.
 2. **Server-Side Storage Client**: Updated storage operations to use authenticated server-side Supabase client instead of browser client
 
 **Files Updated**:
-- [src/lib/auth.ts](src/lib/auth.ts)
-  - `setUserClaims()` - Enabled the RPC call (Line ~329)
 - [src/lib/storage.ts](src/lib/storage.ts)
   - Added `client` parameter to `uploadSchoolAsset()` (Line ~93)
   - Added `client` parameter to `deleteSchoolAsset()` (Line ~195)
@@ -142,7 +141,7 @@ The system prevents path traversal attacks:
 ## Migration Status
 
 ✅ All authentication guards now use `getUser()` for secure validation  
-✅ JWT custom claims are enabled and set during login  
+✅ JWT custom claims are enabled and maintained through profile changes
 ✅ Storage operations use server-side authenticated client  
 ✅ RLS policies enforce multi-tenant isolation  
 ✅ Path traversal attacks are prevented  

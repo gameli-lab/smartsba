@@ -31,10 +31,9 @@ function gradeFromScore(total: number): string {
   return '9'
 }
 
-async function createAuthUser(admin: ReturnType<typeof createAdminSupabaseClient>, email: string, password: string, fullName: string) {
+async function createAuthUser(admin: ReturnType<typeof createAdminSupabaseClient>, email: string, fullName: string) {
   const created = await admin.auth.admin.createUser({
     email,
-    password,
     email_confirm: true,
     user_metadata: { full_name: fullName },
   })
@@ -176,7 +175,7 @@ async function generatePreset(admin: ReturnType<typeof createAdminSupabaseClient
   }
 
   const schoolAdminEmail = `generated-school-admin-${stamp}@smartsba.local`
-  const schoolAdminUserId = await createAuthUser(admin, schoolAdminEmail, 'TempPass#1234', `Generated Admin ${stamp}`)
+  const schoolAdminUserId = await createAuthUser(admin, schoolAdminEmail, `Generated Admin ${stamp}`)
   counts.users += 1
 
   const schoolAdminProfileId = randomUUID()
@@ -201,7 +200,7 @@ async function generatePreset(admin: ReturnType<typeof createAdminSupabaseClient
 
   for (let i = 1; i <= teacherCount; i += 1) {
     const email = `generated-teacher-${stamp}-${i}@smartsba.local`
-    const userId = await createAuthUser(admin, email, 'TempPass#1234', `Generated Teacher ${i}`)
+    const userId = await createAuthUser(admin, email, `Generated Teacher ${i}`)
     counts.users += 1
 
     const profileId = randomUUID()
@@ -245,7 +244,7 @@ async function generatePreset(admin: ReturnType<typeof createAdminSupabaseClient
     const subjectIds = subjectIdsByClass.get(classId) || []
 
     const studentEmail = `generated-student-${stamp}-${i}@smartsba.local`
-    const studentUserId = await createAuthUser(admin, studentEmail, 'TempPass#1234', `Generated Student ${i}`)
+    const studentUserId = await createAuthUser(admin, studentEmail, `Generated Student ${i}`)
     counts.users += 1
 
     const studentProfileId = randomUUID()
@@ -444,12 +443,10 @@ function realisticScore(min: number, max: number): number {
 async function createAuthUser(
   admin: ReturnType<typeof createAdminSupabaseClient>,
   email: string,
-  password: string,
   fullName: string,
 ) {
   const created = await admin.auth.admin.createUser({
     email,
-    password,
     email_confirm: true,
     user_metadata: { full_name: fullName },
   })
@@ -630,7 +627,7 @@ async function generatePreset(
 
   // ── School admin ─────────────────────────────────────────────────────────
   const schoolAdminEmail = `generated-school-admin-${stamp}@smartsba.local`
-  const schoolAdminUserId = await createAuthUser(admin, schoolAdminEmail, 'TempPass#1234', `Generated Admin ${stamp}`)
+  const schoolAdminUserId = await createAuthUser(admin, schoolAdminEmail, `Generated Admin ${stamp}`)
   counts.users += 1
 
   const schoolAdminProfileId = randomUUID()
@@ -659,7 +656,7 @@ async function generatePreset(
     const gender = i % 2 === 0 ? 'female' : 'male'
     const fullName = `${randomName(gender)} (Teacher)`
     const email = `generated-teacher-${stamp}-${i}@smartsba.local`
-    const userId = await createAuthUser(admin, email, 'TempPass#1234', fullName)
+    const userId = await createAuthUser(admin, email, fullName)
     counts.users += 1
 
     const profileId = randomUUID()
@@ -753,7 +750,7 @@ async function generatePreset(
     const gender: 'male' | 'female' = i % 2 === 0 ? 'female' : 'male'
     const fullName = randomName(gender)
     const studentEmail = `generated-student-${stamp}-${i}@smartsba.local`
-    const studentUserId = await createAuthUser(admin, studentEmail, 'TempPass#1234', fullName)
+    const studentUserId = await createAuthUser(admin, studentEmail, fullName)
     counts.users += 1
 
     const studentProfileId = randomUUID()

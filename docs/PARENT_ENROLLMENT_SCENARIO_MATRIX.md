@@ -17,8 +17,8 @@ Validate end-to-end behavior after the guardian-to-parent automation changes in 
 
 | # | Input condition | Expected outcome | Implemented status |
 |---|-----------------|------------------|--------------------|
-| 1 | New student + new guardian email | Student created, parent auto-created, parent linked, both temp passwords shown | ✅ |
-| 2 | New student + guardian email already on parent account | Student created, existing parent auto-linked, no parent temp password | ✅ |
+| 1 | New student + new guardian email | Student created, passwordless parent account auto-created and linked | ✅ |
+| 2 | New student + guardian email already on parent account | Student created, existing parent auto-linked | ✅ |
 | 3 | New student + guardian email on non-parent role | Student created, parent not auto-created, conflict notice shown | ✅ |
 | 4 | New student + no guardian email | Student created, parent resolution skipped | ✅ |
 | 5 | Manual parent create + no wards selected | Parent account created only (unlinked), visible in parent list | ✅ |
@@ -43,7 +43,7 @@ Expected actions:
 - Type diagnostics on edited files: no errors.
 
 ## Recommended Manual QA (UI)
-1. Create student with fresh guardian email; confirm parent temp password appears.
+1. Create student with fresh guardian email; confirm the passwordless parent account is created.
 2. Create second student with same guardian email; confirm existing parent auto-link message (no new parent password).
 3. Create student using guardian email from teacher account; confirm conflict message and successful student creation.
 4. Create parent without selecting wards; confirm parent appears as unlinked.

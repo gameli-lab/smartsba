@@ -293,7 +293,7 @@ Each page has filters appropriate to its domain - classes don't need status filt
 
 ## 🔗 Related Documentation
 
-- [STAGE 2 Completion Summary](STAGE_2_COMPLETION_SUMMARY.md) - Students page filters
+- [Students filters](<../src/app/(school-admin)/school-admin/students/students-filters.tsx>) - Students page filters
 - [Next.js App Router Docs](https://nextjs.org/docs/app) - searchParams pattern
 - [Supabase Query Docs](https://supabase.com/docs/reference/javascript) - .ilike() and .or() usage
 

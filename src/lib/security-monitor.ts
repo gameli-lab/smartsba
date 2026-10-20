@@ -6,9 +6,6 @@ export type SecurityEventType =
   | 'login_success'
   | 'login_failure'
   | 'account_locked'
-  | 'password_reset_requested'
-  | 'password_reset_approved'
-  | 'password_reset_completed'
   | 'bulk_export'
   | 'mfa_challenge'
   | 'mfa_verified'
@@ -23,12 +20,6 @@ function estimateRiskScore(eventType: SecurityEventType, metadata: SecurityEvent
       return 80
     case 'account_locked':
       return 90
-    case 'password_reset_requested':
-      return 35
-    case 'password_reset_approved':
-      return 45
-    case 'password_reset_completed':
-      return 20
     case 'bulk_export': {
       const recordCount = typeof metadata.record_count === 'number' ? metadata.record_count : 0
       return Math.min(95, 20 + Math.floor(recordCount / 10))
